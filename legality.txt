@@ -1,0 +1,106 @@
+actionable
+allowable
+arraign
+arrest
+authorize
+disallow
+(?<!trans )\bban\b
+(?<!trans )\bbans\b
+\bbanned\b
+\bbanning\b
+banaliz
+bridewell
+\bcourt\b
+\bcourthouse\b
+constitution
+crime
+criminal
+\bde jure\b
+\bde-jure\b
+detain
+detention
+\bdue process\b
+\benforc
+felony
+feloni
+jail
+judicature
+judicia
+justic
+(?<!sister in )(?<!mother in )(?<!father in )(?<!brother in )(?<!sister-in-)(?<!mother-in-)(?<!father-in-)(?<!brother-in-)(\blaw\b)
+\bindict
+\breindict
+\blaws\b
+law-abiding
+lawabiding
+lawbreak
+lawful
+lawgiver
+\blawless
+lawyer
+lawmak
+lawsuit
+legal
+legisla
+litigat
+lockup
+\blicit\b
+\billicit\b
+\blicitness\b
+\billicitly\b
+complicit
+correctional
+incrimin
+legitim
+misconduct
+misdemeanor
+\bmistrial
+nonenforc
+(?<!no )offense
+(?<!no )offence
+\bordinance\b
+outlaw
+\bpenal\b
+penali
+penally
+penalt
+penitentiary
+permit
+\bplea\b
+\bpleas\b
+plead
+\bpled\b
+prison
+prohibit\b
+prohibits
+prohibitting
+prohibited
+prohibition
+prosecut
+punish
+regulariz
+regulat
+\brehear\b
+\brehearing\b
+\breheard\b
+\brehears\b
+\bremand
+\bretrial
+\brightful
+rubber-stamp
+rubberstamp
+rubber stamp
+ruling
+sanction
+\bsentenc
+resentenc
+statut
+\bsuing\b
+\bsued\b
+\bsues\b
+\bsue\b
+the clink
+the slammer
+tribunal
+unenforc
+verdict
