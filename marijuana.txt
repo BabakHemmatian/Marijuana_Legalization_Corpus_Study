@@ -1,0 +1,84 @@
+\bBhang\b
+\bCheeba\b
+\bDody\b
+\bEscoba\b
+\bHemp\b
+\bKaff\b
+\bKaya\b
+\bKiff\b
+\bKush\b
+\bWeed\b(?! out\b)(?! through\b)
+\bNug\b
+(?<!melting-)(?<!melting )(?<!stir the )(?<!stirring the )(?<!stirred the )(?<!sweeten the )\bpot\b(?! shot)(?!-shot)(?! luck)(?!-luck)(?! of )(?! black)(?! calling the kettle)
+\bTHC\b
+\bSativa\b
+\bZambi\b
+Bambalachacha
+Black Bart
+Blue Dream
+Blue Sage
+Bobo Bush
+Cannabis
+Citrol
+Colorado Cocktail
+Creeper Bud
+Crippy
+Devil's Lettuce
+Devils Lettuce
+Devil Lettuce
+Doobie
+Downtown Brown
+Ganja
+Giggle Smoke
+Good Giggles
+Grand Daddy Purp
+Granddaddy purp
+Grand Daddy purple
+Granddaddy purple
+Green Crack
+Green Goblin
+Green Goddess
+Green Skunk
+Gunga
+Hashish
+Jolly Green
+Jon-Jem
+Jon Jem
+JonJem
+Joy Smoke
+Magic Smoke
+Manhattan Silver
+Maracachafa
+Marijuana
+Maui Wowie
+Moocah
+Narizona
+Pakalolo
+Platinum Jack
+Pocket Rocket
+Prop 215
+Proposition 215
+Purple Haze
+Purple OG
+Queen Ann's Lace
+Queen Anns Lace
+Queen Ann Lace
+Ragweed
+Red Dirt
+Reefer
+Righteous Bush
+Sinsemilla
+Shwag
+schwag
+Smoochy Woochy Poochy
+Sour OG
+Spliff
+Tangy OG
+Trinity OG
+\bTweed\b
+\bTweeds\b
+White-Haired Lady
+Whitehaired Lady
+White Haired Lady
+Yellow Submarine
+Yen Pop
