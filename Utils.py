@@ -24,6 +24,9 @@ def Write_Performance(output_path=output_path, NN=NN):
             print("Minimum comment length for sampled comments = " + str(min_comm_length),file=perf)
             print("Alpha (LDA) = " + str(alpha),file=perf)
             print("Eta (LDA) = " + str(eta),file=perf)
+            print("One-hot topic contribution calculation = " + str(one_hot_topic_contributions),file=perf)
+            print("Topic idf inclusion in contribution calculation = " + str(topic_idf),file=perf)
+            print("Topic idf frequency counter threshold = " + str(topic_idf_thresh),file=perf)
             print("Minimum topic probability = " + str(minimum_probability),file=perf)
             print("Minimum term probability = " + str(minimum_phi_value),file=perf)
 
@@ -40,6 +43,7 @@ def Write_Performance(output_path=output_path, NN=NN):
             print("pretrained = " + str(pretrained),file=perf)
 
             # record the hyperparameters
+            print("Number of epochs: "+str(epochs),file=perf)
             print("Learning_rate = " + str(learning_rate),file=perf)
             print("Batch size = " + str(batchSz),file=perf)
             print("Embedding size = " + str(embedSz),file=perf)
@@ -85,7 +89,7 @@ def Get_Counts(path=path, random=False, frequency="monthly"):
                 per.append(number - cumulative[-2])
 
         else:
-            if month_counter == 12 or index == len(timelist) - 1: # if at the end of the year or the corpus
+            if (month_counter % 12) == 0 or index == len(timelist) - 1: # if at the end of the year or the corpus
                 cumulative.append(number) # add the cummulative count
 
                 if index + 1 == 12: # for the first year
@@ -100,4 +104,4 @@ def Get_Counts(path=path, random=False, frequency="monthly"):
     return per,cumulative
 
 def essentially_eq(a, b):
-    return abs(a-b)<=1e-4
+    return abs(a-b)<= 0.1
