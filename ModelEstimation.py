@@ -1,6 +1,7 @@
 from collections import defaultdict, OrderedDict
 import csv
 from functools import partial
+import ast
 import operator
 import numpy as np
 import gensim
@@ -38,12 +39,12 @@ def theta_func(dataset, ldamodel, report):
 # (in non-zero)
 def Get_LDA_Model(indexed_document, ldamodel, report):
     # get topic probabilities for the document
-    topics = ldamodel.get_document_topics(indexed_document[1],
+    topics = ldamodel.get_document_topics(ast.literal_eval(indexed_document)[1],
         minimum_probability=minimum_probability)
 
     # create a tuple including the comment index, the likely top topics and the
     # contribution of each topic to that comment if it is non-zero
-    rel_probs = [(indexed_document[0],topic,prob) for topic,prob in topics if
+    rel_probs = [(ast.literal_eval(indexed_document)[0],topic,prob) for topic,prob in topics if
                  topic in report and prob > 1e-8]
 
     if len(rel_probs) > 0: # if the comment showed significant contribution of
@@ -326,9 +327,10 @@ class LDAModel(ModelEstimator):
                  minimum_phi_value=minimum_phi_value,
                  minimum_probability=minimum_probability, no_above=no_above,
                  no_below=no_below, num_topics=num_topics,
-                 one_hot=one_hot_topic_contributions,
+                 one_hot=one_hot_topic_contributions,topic_idf=topic_idf,
+                 topic_idf_thresh=topic_idf_thresh, stop=stop,
                  sample_comments=sample_comments, sample_topics=sample_topics,
-                 top_topic_thresh=top_topic_thresh, top_topic_set=top_topic_set, stop=stop,
+                 top_topic_thresh=top_topic_thresh, top_topic_set=top_topic_set,
                  topic_cont_freq=topic_cont_freq, train_word_count=None,
                  **kwargs):
         ModelEstimator.__init__(self, **kwargs)
@@ -352,6 +354,8 @@ class LDAModel(ModelEstimator):
         self.no_below=no_below
         self.num_topics=num_topics
         self.one_hot=one_hot
+        self.topic_idf=topic_idf
+        self.topic_idf_thresh=topic_idf_thresh
         self.sample_comments=sample_comments
         self.sample_topics=sample_topics
         self.top_topic_thresh=top_topic_thresh
@@ -365,7 +369,7 @@ class LDAModel(ModelEstimator):
         fns={ "original_comm":"{}/original_comm".format(self.path),
               "lda_prep":"{}/lda_prep".format(self.path),
               "counts": parser_fns["counts"] if self.all_ else parser_fns["counts_random"],
-              "random_indices": parser_fns["indices_random"],
+              "indices_random" : "{}/random_indices".format(self.path),
               "train_set":"{}/LDA_train_set_{}".format(self.path, self.all_),
               "eval_set":"{}/LDA_eval_set_{}".format(self.path, self.all_),
               "corpus":"{}/RC_LDA_Corpus_{}.mm".format(self.path, self.all_),
@@ -375,21 +379,27 @@ class LDAModel(ModelEstimator):
               "eval_word_count":"{}/eval_word_count_{}".format(self.path, self.all_),
               "model":"{}/RC_LDA_{}_{}.lda".format(self.path, self.num_topics, self.all_),
               "performance": "{}/Performance".format(self.output_path),
-              "topic_cont":"{}/yr_topic_cont_{}-{}-{}".format(self.output_path,
+              "topic_cont":"{}/yr_topic_cont_{}-{}-{}-{}".format(self.output_path,
                            "one-hot" if self.one_hot else "distributions",
                            "all" if self.all_ else "subsample",
-                           self.topic_cont_freq),
-              "theta":"{}/theta_{}-{}-{}".format(self.output_path,
+                           self.topic_cont_freq, "idf" if self.topic_idf else "f"),
+              "theta":"{}/theta_{}-{}-{}-{}".format(self.output_path,
                       "one-hot" if self.one_hot else "distributions",
-                      "all" if self.all_ else "subsample", self.topic_cont_freq),
-              "sample_keys": "{}/sample_keys.csv".format(self.output_path),
-              "sample_ratings": "{}/sample_ratings.csv".format(self.output_path),
-              "sampled_comments":"{}/sampled_comments".format(self.output_path),
-              "popular_comments":"{}/popular_comments.csv".format(self.output_path),
+                      "all" if self.all_ else "subsample", self.topic_cont_freq,
+                      "idf" if self.topic_idf else "f"),
+              "sample_keys": "{}/sample_keys-{}.csv".format(self.output_path,
+              "idf" if self.topic_idf else "f"),
+              "sample_ratings": "{}/sample_ratings-{}.csv".format(self.output_path,
+              "idf" if self.topic_idf else "f"),
+              "sampled_comments":"{}/sampled_comments-{}".format(self.output_path,
+              "idf" if self.topic_idf else "f"),
+              "popular_comments":"{}/popular_comments-{}.csv".format(self.output_path,
+              "idf" if self.topic_idf else "f"),
               "original_comm":"{}/original_comm".format(self.path),
               "counts":"{}/RC_Count_List".format(self.path),
               "votes":"{}/votes".format(self.path),
-              "data_for_R":"{}/data_for_R.csv".format(self.output_path)
+              "data_for_R":"{}/data_for_R-{}.csv".format(self.output_path,
+              "idf" if self.topic_idf else "f")
             }
         for k, v in kwargs.items():
             fns[k]=v
@@ -442,7 +452,7 @@ class LDAModel(ModelEstimator):
         # if there are no saved corpus files
         if missing_file == len(required_files):
             # timer
-            print("Started processing the dataset at " + time.strftime('%l:%M%p'))
+            print("Started processing the dataset at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
             f.seek(0) # go to the beginning of the file
 
@@ -506,7 +516,7 @@ class LDAModel(ModelEstimator):
             gensim.corpora.MmCorpus.serialize(self.fns["eval"], eval_comments) # save the evaluation set to file
 
             # timer
-            print("Finished creating the dictionary and the term-document matrices at "+time.strftime('%l:%M%p'))
+            print("Finished creating the dictionary and the term-document matrices at "+time.strftime('%l:%M%p, %m/%d/%Y'))
 
         self.dictionary=dictionary
         self.corpus=corpus
@@ -518,7 +528,7 @@ class LDAModel(ModelEstimator):
     def get_model(self):
         if not Path(self.fns["model"]).is_file(): # if there are no trained models, train on the corpus
             # timer
-            print("Started training LDA model at "+time.strftime('%l:%M%p'))
+            print("Started training LDA model at "+time.strftime('%l:%M%p, %m/%d/%Y'))
 
             ## create a seed for the random state generator
             seed = np.random.RandomState(0)
@@ -542,7 +552,7 @@ class LDAModel(ModelEstimator):
             self.ldamodel.save(self.fns["model"]) # save learned model to file for future use
 
             # timer
-            print("Finished training model at "+time.strftime('%l:%M%p'))
+            print("Finished training model at "+time.strftime('%l:%M%p, %m/%d/%Y'))
 
         else: # if there is a trained model, load it from file
             print("Loading the trained LDA model from file")
@@ -552,7 +562,7 @@ class LDAModel(ModelEstimator):
     ### Get lower bounds on per-word perplexity for training and development sets (LDA)
     def Get_Perplexity(self):
         # timer
-        print("Started calculating perplexity at "+time.strftime('%l:%M%p'))
+        print("Started calculating perplexity at "+time.strftime('%l:%M%p, %m/%d/%Y'))
 
         ## calculate model perplexity for training and evaluation sets
         train_perplexity = self.ldamodel.bound(self.corpus,
@@ -565,7 +575,7 @@ class LDAModel(ModelEstimator):
         eval_per_word_perplex = np.exp2(-eval_perplexity / self.eval_word_count)
 
         # timer
-        print("Finished calculating perplexity at "+time.strftime('%l:%M%p'))
+        print("Finished calculating perplexity at "+time.strftime('%l:%M%p, %m/%d/%Y'))
 
         ## Print and save the per-word perplexity values to file
         with open(self.fns["performance"],'a+') as perf:
@@ -580,7 +590,7 @@ class LDAModel(ModelEstimator):
     ### Get umass coherence values for the LDA model based on training and development sets
     def Get_Coherence(self):
         # timer
-        print("Started calculating coherence at "+time.strftime('%l:%M%p'))
+        print("Started calculating coherence at "+time.strftime('%l:%M%p, %m/%d/%Y'))
 
         ## calculate model coherence for training set
         umass = gensim.models.coherencemodel.CoherenceModel
@@ -632,6 +642,11 @@ class LDAModel(ModelEstimator):
         ## initialize needed vectors
         dxt = np.zeros([num_topics,1]) # a vector for the normalized
         # contribution of each topic to the comment
+
+        if self.topic_idf: # if calculating inverse topic frequency
+            dxf = np.zeros([num_topics,1]) # a vector for topics that pass the
+            # IDF threshold in the post
+
         analyzed_comment_length = 0 # a counter for the number of words in a
         # comment for which the model has predictions
 
@@ -665,7 +680,10 @@ class LDAModel(ModelEstimator):
                 dxt[topic_asgmts[0][0],0] += freq
             else:
                 assert len(phi_values)==self.num_topics, "The number of phi values does not match the number of topics"
-                assert essentially_eq(sum(phi_values), freq), "Sum of the phi values does not match the number of words in the post"
+                if not Path(self.path+"/failures").is_file():
+                    if not essentially_eq(sum(phi_values), freq):
+                        with open(self.path+"/failures","a+") as failures:
+                            print(str(indexed_comment[0])+","+str(word_id)+","+str(sum(phi_values))+","+str(freq),file=failures)
                 for topic, phi_val in enumerate(phi_values):
                     dxt[topic,0] += phi_val
             analyzed_comment_length += freq # update word counter
@@ -674,6 +692,18 @@ class LDAModel(ModelEstimator):
         # least some of the words in the comment
             # normalize the topic contribution using comment length
             dxt = (float(1) / float(analyzed_comment_length)) * dxt
+
+            if self.topic_idf: # if calculating inverse topic frequency
+
+                for topic in range(num_topics): # for each topic
+                    # if the percentage of words with predictions for which that
+                    # topic is the most likely one passes [topic_idf_thresh]
+                    if float(dxt[topic,0])/float(analyzed_comment_length) >= self.topic_idf_thresh:
+                        dxf[topic,0] += 1
+
+                # update the shared vector of inverse topic frequency measures
+                Freq_tracker[indexed_comment[2]].Update_Val(dxf)
+
             # update the vector of topic contributions
             Running_Sums[indexed_comment[2]].Update_Val(dxt)
 
@@ -683,9 +713,14 @@ class LDAModel(ModelEstimator):
         return data_for_R
 
     ### Define the main function for multi-core calculation of topic contributions
+    # DEBUG: This function has been adjusted to calculate an IDF measure,
+    # which hasn't been fully debugged yet. Also note that I'm basing the
+    # IDF measure on only the most likely topic for each word, which is
+    # maybe a fair assumption, but an assumption worth pointing out and
+    # thinking about
     def Topic_Contribution_Multicore(self):
         # timer
-        print("Started calculating topic contribution at " + time.strftime('%l:%M%p'))
+        print("Started calculating topic contribution at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         ## check for the existence of the preprocessed dataset
         if not Path(self.fns["lda_prep"]).is_file():
@@ -694,6 +729,9 @@ class LDAModel(ModelEstimator):
         ## initialize shared vectors for yearly topic contributions
         global Running_Sums
         Running_Sums = {}
+        if self.topic_idf:
+            global Freq_tracker
+            Freq_tracker = {}
 
         _, cumulative=Get_Counts(frequency=self.topic_cont_freq)
         per, _=Get_Counts(random=not self.all_, frequency=self.topic_cont_freq)
@@ -707,6 +745,8 @@ class LDAModel(ModelEstimator):
         for i in range(no_intervals):
             Running_Sums[i] = Shared_Contribution_Array(self.num_topics)
             no_predictions[i] = Shared_Counter(initval=0)
+            if self.topic_idf:
+                Freq_tracker[i] = Shared_Contribution_Array(self.num_topics)
 
         ## read and index comments
         indexed_dataset = self.Get_Indexed_Dataset()
@@ -724,16 +764,28 @@ class LDAModel(ModelEstimator):
 
         ## Gather topic contribution estimates in one matrix
         output = []
+        if self.topic_idf:
+            dfs = []
         for i in range(no_intervals):
             output.append(Running_Sums[i].val[:])
+            if self.topic_idf:
+                dfs.append(Freq_tracker[i].val[:])
 
         output = np.asarray(output)
+        if self.topic_idf:
+            dfs = np.asarray(dfs)
 
         for i in range(no_intervals):
             if np.all(output[i,:]==0):
                 continue
             output[i,:] = ( float(1) / (float(per[i]) - no_predictions[i].value )
                           ) * output[i,:]
+            if self.topic_idf: # if calculating inverse topic frequency
+                # adjust contributions by inverse frequency in the time period
+                dfs[i,:] = 1 + log(dfs[i,:]/(per[i] - no_predictions[i].value))
+                # smoothen and log-transform the frequency
+                output[i,:] = output[i,:] / dfs[i,:] # adjust contribution by
+                # inverse document frequency
 
         np.savetxt(self.fns["topic_cont"], output) # save the topic contribution matrix to file
 
@@ -755,7 +807,7 @@ class LDAModel(ModelEstimator):
                 raise Exception('The topic assignments are not formatted properly.')
 
         # timer
-        print("Finished calculating topic contributions at "+time.strftime('%l:%M%p'))
+        print("Finished calculating topic contributions at "+time.strftime('%l:%M%p, %m/%d/%Y'))
 
         return output, indexed_dataset
 
@@ -831,7 +883,7 @@ class LDAModel(ModelEstimator):
             self.top_topics = self.top_topic_set
 
         print(self.top_topics)
-        with open(self.output_path+"/top_topic_ids","w") as f:
+        with open("{}/top_topic_ids-{}".format(self.output_path,"idf" if self.topic_idf else "f"),"w") as f:
             for topic in self.top_topics:
                 print(topic,end="\n",file=f)
 
@@ -853,34 +905,39 @@ class LDAModel(ModelEstimator):
                   dates[0][1], dates[0][0], dates[-1][1], dates[-1][0]))
         plt.grid(True)
         plt.savefig(name)
-        plt.show()
 
     ### Function for multi-core processing of comment-top topic probabilities
-    ### IDEA: Add functionality for choosing a certain year (or interval) for which we ask the program to sample comments. Should be simple (indexed_dataset[2])
+
+    # NOTE: The current version is memory-intensive. For a dataset of ~2mil
+    # posts, ~3GB of RAM was needed.
+
+    ### TODO: Add functionality for choosing a certain year (or interval) for
+    # which we ask the program to sample comments (use indexed_dataset[2])
     def Top_Topics_Theta_Multicore(self):
         # timer
-        print("Started calculating theta at " + time.strftime('%l:%M%p'))
+        print("Started calculating theta at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
-        ## filter dataset comments based on length and create a BOW for each comment
-        dataset = [] # initialize dataset
+        if not Path(self.output_path+"/filtered_dataset").is_file():
+            with open(self.output_path+"/filtered_dataset","a+") as filtered_dataset:# initialize dataset
+                for document in self.indexed_dataset: # for each comment in the
+                    # indexed_dataset
+                    if self.min_comm_length == None: # if not filtering based on comment
+                        # length, add a tuple including comment index, bag of words
+                        # representation and relevant time interval to the dataset
+                        print(str((document[0],
+                            self.dictionary.doc2bow(document[1].strip().split()),
+                            document[2])),file=filtered_dataset)
 
-        for document in self.indexed_dataset: # for each comment in the
-            # indexed_dataset
-            if self.min_comm_length == None: # if not filtering based on comment
-                # length add a tuple including comment index, bag of words
-                # representation and relevant time interval to the dataset
-                dataset.append((document[0],
-                    self.dictionary.doc2bow(document[1].strip().split()),
-                    document[2]))
+                    else: # if filtering based on comment length
+                        if len(document[1].strip().split()) > self.min_comm_length:
+                            # filter out short comments
+                            # add a tuple including comment index, bag of words
+                            # representation and relevant time interval to the dataset
+                            print(str((document[0],
+                                self.dictionary.doc2bow(document[1].strip().split()),
+                                document[2])),file=filtered_dataset)
 
-            else: # if filtering based on comment length
-                if len(document[1].strip().split()) > self.min_comm_length:
-                    # filter out short comments
-                    # add a tuple including comment index, bag of words
-                    # representation and relevant time interval to the dataset
-                    dataset.append((document[0],
-                        self.dictionary.doc2bow(document[1].strip().split()),
-                        document[2]))
+        dataset = open(self.output_path+"/filtered_dataset","r")
 
         ## call the multiprocessing function on the dataset
         theta_with_none = theta_func(dataset, self.ldamodel, self.top_topics)
@@ -892,9 +949,13 @@ class LDAModel(ModelEstimator):
                 for item in comment:
                     theta.append(item)
 
+        # timer
+        print("Finished calculating theta at " + time.strftime('%l:%M%p, %m/%d/%Y'))
+
         return theta
 
-    ### Function that calls for calculating, re-calculating or loading theta estimations for top topics
+    ### Function that calls for calculating, re-calculating or loading theta
+    # estimations for top topics
     def Get_Top_Topic_Theta(self):
         # check to see if theta for top topics has already been calculated
         if not Path(self.fns["theta"]).is_file(): # if not
@@ -934,12 +995,16 @@ class LDAModel(ModelEstimator):
             else: # if the answer is neither yes, nor no
                 print("Operation aborted. Please note that loaded theta is required for sampling top comments.")
 
-    ### Defines a function for finding the [sample_comments] most representative length-filtered comments for each top topic
+    ### Defines a function for finding the [sample_comments] most representative
+    # length-filtered comments for each top topic
     def Top_Comment_Indices(self):
-        top_topic_probs = {} # initialize a dictionary for all top comment indices
-        sampled_indices = {} # initialize a dictionary for storing sampled comment indices
-        sampled_probs = {} # initialize a list for storing top topic contribution to sampled comments
-        sampled_ids = {} # intialize a list for storing randomly chosen six-digit IDs for sampled comments
+        top_topic_probs = {} # initialize a dictionary for all top comment idx
+        sampled_indices = {} # initialize a dictionary for storing sampled
+        # comment idx
+        sampled_probs = {} # initialize a list for storing top topic
+        # contribution to sampled comments
+        sampled_ids = {} # intialize a dict for storing randomly chosen
+        # six-digit IDs for sampled comments
 
         for topic in self.top_topics: # for each top topic
             # find all comments with significant contribution from that topic
@@ -960,11 +1025,12 @@ class LDAModel(ModelEstimator):
                 sampled_ids[element[0]] = prop_id # store the random id
         return sampled_indices,sampled_probs,sampled_ids
 
-    ### retrieve the original text of sampled comments and write them to file along with the relevant topic ID
-    # IDEA: Should add the possibility of sampling from specific year(s)
+    ### retrieve the original text of sampled comments and write them to file
+    # along with the relevant topic ID
+    # TODO: Should add the possibility of sampling from specific year(s)
     def Get_Top_Comments(self):
         # timer
-        print("Started sampling top comments at " + time.strftime('%l:%M%p'))
+        print("Started sampling top comments at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         # find the top comments associated with each top topic
         sampled_indices,sampled_probs,sampled_ids = self.Top_Comment_Indices()
@@ -1062,7 +1128,7 @@ class LDAModel(ModelEstimator):
                     print(" ".join(bag_of_comments[random_key].strip().split()),file=fout)
 
             # timer
-            print("Finished sampling top comments at " + time.strftime('%l:%M%p'))
+            print("Finished sampling top comments at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         else: # if a file containing only the original relevant comments is available on disk
             with open(self.fns["original_comm"],'r') as fin, \
@@ -1116,7 +1182,7 @@ class LDAModel(ModelEstimator):
                     print(" ".join(bag_of_comments[random_key].strip().split()),file=fout)
 
                 # timer
-                print("Finished sampling top comments at " + time.strftime('%l:%M%p'))
+                print("Finished sampling top comments at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
     ## function for sampling the most impactful comments
     def sample_pop(self,num_pop=num_pop,min_comm_length=min_comm_length):
@@ -1163,13 +1229,13 @@ class LDAModel(ModelEstimator):
             vote_count = dict()
             abs_vote_count = dict()
             for number,line in enumerate(f):
-                if line.strip() != "":
+                if line.strip() != "" and line.strip() != "None":
                     vote_count[str(number)] = int(line)
                     abs_vote_count[str(number)] = abs(int(line))
 
         # sort scores based on absolute value
         sorted_votes = sorted(abs_vote_count.items(), key=operator.itemgetter(1),reverse=True)
-        
+
         # Find the num_pop comments with the highest impact on the discourse
         counter = 0
         results = []
@@ -1229,14 +1295,16 @@ class LDAModel(ModelEstimator):
 
 class NNModel(ModelEstimator):
     def __init__(self, FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
-    batchSz=batchSz, embedSz=embedSz, hiddenSz=hiddenSz, ff1Sz=ff1Sz, ff2Sz=ff2Sz,
+    batchSz=batchSz, word_embedSz=word_embedSz, hiddenSz=hiddenSz,
+    author_embedSz=author_embedSz, ff1Sz=ff1Sz, ff2Sz=ff2Sz,
     keepP=keepP, l2regularization=l2regularization,NN_alpha=NN_alpha,
-    early_stopping=early_stopping, **kwargs):
+    early_stopping=early_stopping, LDA_topics=LDA_topics, num_topics=num_topics,
+    authorship=authorship,**kwargs):
         ModelEstimator.__init__(self, **kwargs)
         self.FrequencyFilter=FrequencyFilter
         self.learning_rate=learning_rate
         self.batchSz=batchSz
-        self.embedSz=embedSz
+        self.word_embedSz=word_embedSz
         self.hiddenSz=hiddenSz
         self.ff1Sz=ff1Sz
         self.ff2Sz=ff2Sz
@@ -1245,12 +1313,19 @@ class NNModel(ModelEstimator):
         if self.l2regularization:
             self.NN_alpha=NN_alpha
         self.early_stopping=early_stopping
+        self.LDA_topics=LDA_topics
+        self.num_topics=num_topics
+        self.authorship=authorship
         self.set_key_list = ['train','dev','test'] # for NN
         self.sets    = {key: [] for key in self.set_key_list} # for NN
         self.indices = {key: [] for key in self.set_key_list}
         self.lengths = {key: [] for key in self.set_key_list}
         self.Max     = {key: [] for key in self.set_key_list}
+        self.Max_l = None
         self.sentiments     = {key: [] for key in self.set_key_list} # for NN
+        self.accuracy = {key: [] for key in self.set_key_list}
+        for set_key in self.set_key_list:
+            self.accuracy[set_key] = np.empty(epochs)
 
         self.fns=self.get_fns()
 
@@ -1318,7 +1393,7 @@ class NNModel(ModelEstimator):
         else: # if the indexed comments are not available, create them
             if set_key == 'train': # for training set
                 # timer
-                print("Started creating the dictionary at " + time.strftime('%l:%M%p'))
+                print("Started creating the dictionary at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
                 ## initialize the vocabulary with various UNKs
                 self.V.update({"*STOP2*":1,"*UNK*":2,"*UNKED*":3,"*UNKS*":4,"*UNKING*":5,"*UNKLY*":6,"*UNKER*":7,"*UNKION*":8,"*UNKAL*":9,"*UNKOUS*":10,"*STOP*":11})
@@ -1404,7 +1479,7 @@ class NNModel(ModelEstimator):
             assert len(self.indices[set_key]) == len(self.sets[set_key])
 
         # timer
-        print("Finished indexing the "+set_key+" set at " + time.strftime('%l:%M%p'))
+        print("Finished indexing the "+set_key+" set at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
     ## function for getting average sentiment values for training, development
     # and test sets
@@ -1423,14 +1498,14 @@ class NNModel(ModelEstimator):
                     else:
                         raise Exception("The set indices are not correctly defined")
 
-    # TODO: inherit all the variables and everything from the neural network
-    # analysis and check them right before network training
-    # also add more descriptive labels for the errors
     def NN_param_typecheck(self):
         assert 0 < self.learning_rate and 1 > self.learning_rate, "invalid learning rate"
+
         assert type(self.batchSz) is int, "invalid batch size"
-        assert type(self.embedSz) is int, "invalid embed size"
+        assert type(self.word_embedSz) is int, "invalid word embedding size"
         assert type(self.hiddenSz) is int, "invalid hidden layer size"
+        if self.authorship:
+            assert type(self.author_embedSz) is int, "invalid authorship embedding size"
         assert type(self.ff1Sz) is int, "invalid feedforward layer size"
         assert type(self.ff2Sz) is int, "invalid feedforward layer size"
         assert 0 < self.keepP and 1 >= self.keepP, "invalid dropout rate"
@@ -1440,23 +1515,31 @@ class NNModel(ModelEstimator):
         assert type(self.early_stopping) is bool, "invalid early_stopping parameter"
 
     ## Function for creating the neural network's computation graph
-    # TODO: finish
-    def Setup_Comp_Graph(self):
+
+    def Setup_Comp_Graph(self, device_count=None):
+
+        if not device_count is None:
+            self.device_count = device_count
 
         ## create placeholders for input, output, loss weights and dropout rate
 
         inpt = tf.placeholder(tf.int32, shape=[None,None])
+        if self.LDA_topics:
+            lda_inpt = tf.placeholder(tf.int32, shape=[None,1])
+        if self.authorship:
+            authorship_inpt = tf.placeholder(tf.int32, shape=[None,1])
         answr = tf.placeholder(tf.int32, shape=[None,None])
-        loss_weight = tf.placeholder(tf.float32, shape=[None,None])
         DOutRate = tf.placeholder(tf.float32)
 
         ## set up the graph parameters
 
         # for pre-trained classification network, load parameters from file
 
-        if self.special_doi == True and self.pretrained == True:
+        if self.special_doi and self.pretrained:
             print("Loading parameter estimates from file")
-            embeddings = np.loadtxt(param_path+"embeddings",dtype='float32')
+            word_embed = np.loadtxt(param_path+"word_embed",dtype='float32')
+            if self.authorship:
+                author_embed = np.loadtxt(param_path+"authorship_layer",dtype='float32')
             pre_state = np.loadtxt(param_path+"state",dtype='float32')
             weights1 = np.loadtxt(param_path+"weights1",dtype='float32')
             biases1 = np.loadtxt(param_path+"biases1",dtype='float32')
@@ -1467,12 +1550,12 @@ class NNModel(ModelEstimator):
         else:
             print("Initializing parameter estimates")
 
-        # initial embeddings
+        # initial word embeddings
 
-        if self.special_doi == True and self.pretrained == True:
-            E = tf.Variable(embeddings)
+        if self.special_doi and self.pretrained:
+            E = tf.Variable(word_embed)
         else:
-            E = tf.Variable(tf.random_normal([len(V), embedSz], stddev = 0.1))
+            E = tf.Variable(tf.random_normal([len(V), word_embedSz], stddev = 0.1))
 
         # look up the embeddings
         embed = tf.nn.embedding_lookup(E, inpt)
@@ -1484,31 +1567,54 @@ class NNModel(ModelEstimator):
         # define the recurrent layer (Gated Recurrent Unit)
         rnn= tf.contrib.rnn.GRUCell(hiddenSz)
 
-        if self.special_doi == True and self.pretrained == True:
+        if self.special_doi and self.pretrained:
             initialState = pre_state # load pretrained state
         else:
             initialState = rnn.zero_state(batchSz, tf.float32)
 
-        output, nextState = tf.nn.dynamic_rnn(rnn, embed,initial_state=initialState)
+        ff_inpt, nextState = tf.nn.dynamic_rnn(rnn, embed,initial_state=initialState)
 
         # update sum of the weights for l2regularization
-        if l2regularization == True:
+        if self.l2regularization:
             sum_weights = sum_weights + tf.nn.l2_loss(nextState)
 
-        if self.special_doi == False: # sentiment analysis (pos/neut/neg)
+        if self.LDA_topics: # if including LDA topics as input to the
+        # feedforward layers
+            ff_inpt = tf.concat([lda_inpt,output],0) # concatenate topic
+            # contribution estimates to the output of the GRU cell
+
+        if self.authorship:
+            if not self.special_doi or not self.pretrained:
+                author_embed = tf.Variable(tf.random_normal([len(author_list), author_embedSz], stddev = 0.1))
+                #TODO: add the author listing (author_list) to the NN
+                # pre-processing function
+
+            ff_inpt = tf.concat([ff_inpt,author_embed])
+
+        l1Sz = hiddenSz
+        if self.LDA_topics:
+            lda_inpt_size = tf.size(lda_inpt)
+            l1Sz += lda_inpt_size
+
+        if self.authorship:
+            l1Sz += author_embedSz
+
+        if not self.special_doi: # sentiment analysis (pos/neut/neg)
             # create weights and biases for three feedforward layers
-            W1 = tf.Variable(tf.random_normal([hiddenSz,ff1Sz], stddev=0.1))
+            W1 = tf.Variable(tf.random_normal([l1Sz,ff1Sz], stddev=0.1))
             b1 = tf.Variable(tf.random_normal([ff1Sz], stddev=0.1))
-            l1logits = tf.nn.relu(tf.tensordot(output,W1,[[2],[0]])+b1)
+            l1logits = tf.nn.relu(tf.tensordot(ff_inpt,W1,[[2],[0]])+b1)
             l1Output = tf.nn.dropout(l1logits,DOutRate) # apply dropout
             W2 = tf.Variable(tf.random_normal([ff1Sz,ff2Sz], stddev=0.1))
             b2 = tf.Variable(tf.random_normal([ff2Sz], stddev=0.1))
             l2Output = tf.nn.relu(tf.tensordot(l1Output,W2,[[2],[0]])+b2)
             W3 = tf.Variable(tf.random_normal([ff2Sz,3], stddev=0.1))
             b3 = tf.Variable(tf.random_normal([3], stddev=0.1))
+            # NOTE: Remember to adjust dimensions for the last layer if trinary
+            # classification is not the goal of the neural network
 
             # update parameter vector lengths for l2regularization
-            if l2regularization == True:
+            if self.l2regularization:
                 for vector in [W1,b1,W2,b2,W3,b3]:
                     sum_weights = sum_weights + tf.nn.l2_loss(vector)
 
@@ -1518,26 +1624,27 @@ class NNModel(ModelEstimator):
             logits = tf.tensordot(l2Output,W3,[[2],[0]])+b3
 
             # calculate sequence cross-entropy loss
-            xEnt = tf.contrib.seq2seq.sequence_loss(logits=logits,targets=answr,weights=loss_weight)
+            xEnt = tf.contrib.seq2seq.sequence_loss(logits=logits,targets=answr)
 
-            if l2regularization == True:
+            if self.l2regularization:
                 loss = tf.reduce_mean(xEnt) + (alpha * sum_weights)
             else:
                 loss = tf.reduce_mean(xEnt)
 
-        elif self.special_doi == True: # classification
-            if pretrained == False: # if initializing parameters
+        elif self.special_doi: # classification for a DOI
+            if not self.pretrained: # if initializing parameters
                 # create weights and biases for three feedforward layers
-                W1 = tf.Variable(tf.random_normal([hiddenSz,ff1Sz], stddev=0.1))
+                W1 = tf.Variable(tf.random_normal([l1Sz,ff1Sz], stddev=0.1))
                 b1 = tf.Variable(tf.random_normal([ff1Sz], stddev=0.1))
-                l1logits = tf.nn.relu(tf.matmul(nextState,W1)+b1)
+                l1logits = tf.nn.relu(tf.matmul(ff_inpt,W1)+b1)
                 l1Output = tf.nn.dropout(l1logits,keepP) # apply dropout
                 W2 = tf.Variable(tf.random_normal([ff1Sz,ff2Sz], stddev=0.1))
                 b2 = tf.Variable(tf.random_normal([ff2Sz], stddev=0.1))
                 l2Output = tf.nn.relu(tf.matmul(l1Output,W2)+b2)
-                W3 = tf.Variable(tf.random_normal([ff2Sz,len(V)], stddev=0.1))
-                b3 = tf.Variable(tf.random_normal([len(V)], stddev=0.1))
-            if pretrained == True: # if using pre-trained weights
+                W3 = tf.Variable(tf.random_normal([ff2Sz,3], stddev=0.1))
+                b3 = tf.Variable(tf.random_normal([3], stddev=0.1))
+
+            elif self.pretrained: # if using pre-trained weights
                 W1 = tf.Variable(weights1)
                 b1 = tf.Variable(biases1)
                 l1logits = tf.nn.relu(tf.matmul(nextState,W1)+b1)
@@ -1547,22 +1654,15 @@ class NNModel(ModelEstimator):
                 l2Output = tf.nn.relu(tf.matmul(l1Output,W2)+b2)
                 W3 = tf.Variable(weights3)
                 b3 = tf.Variable(biases3)
+                # NOTE: Remember to adjust dimensions for the last layer if trinary
+                # classification is not the goal of the neural network
 
             l3Output = tf.nn.relu(tf.matmul(l2Output,W3)+b3)
-
-            # create weights and biases for a vote prediction output layer
-            W4 = tf.Variable(tf.random_normal([len(V),3], stddev=0.1))
-            b4 = tf.Variable(tf.random_normal([3],stddev=0.1))
-
-            # update parameter vector lengths for l2regularization
-            if l2regularization == True:
-                for vector in [W1,b1,W2,b2,W3,b3,W4,b4]:
-                    sum_weights = sum_weights + tf.nn.l2_loss(vector)
 
             ### calculate loss
 
             # calculate logits
-            logits = tf.matmul(l3Output,W4)+b4
+            logits = tf.matmul(l2Output,W3)+b3
 
             # softmax
             prbs = tf.nn.softmax(logits)
@@ -1570,8 +1670,8 @@ class NNModel(ModelEstimator):
             # calculate cross-entropy loss
             xEnt = tf.nn.softmax_cross_entropy_with_logits(logits=logits,labels=answr)
 
-            if l2regularization == True:
-                loss = tf.reduce_mean(xEnt) + (alpha * sum_weights)
+            if self.l2regularization:
+                loss = tf.reduce_mean((xEnt) + (NN_alpha * sum_weights))
             else:
                 loss = tf.reduce_mean(xEnt)
 
@@ -1582,3 +1682,126 @@ class NNModel(ModelEstimator):
         ## training with AdamOptimizer
 
         train = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
+
+        ## create the session and initialize the variables
+
+        config = tf.ConfigProto(device_count = self.device_count)
+        sess = tf.Session(config=config)
+        sess.run(tf.global_variables_initializer())
+        if not pretrained:
+            state = sess.run(initialState)
+
+    def Get_Set_Lengths(self):
+        for set_key in self.set_key_list:
+            for i,x in enumerate(self.indices[set_key]):
+                self.lengths[set_key].append(len(self.indices[set_key][i]))
+            Max[set_key] = max(lengths[set_key]) # max length of a post in a set
+        self.Max_l = max(Max['train'],Max['dev'],Max['test'])
+        # Max_l: max length of a comment in the whole dataset
+
+    # TODO: add LDA input
+    def train_and_evaluate(self):
+
+        print("Number of planned training epochs: "+str(epochs))
+
+        for k in range(epochs): # for each epoch
+
+            # timer
+            print("Started epoch "+str(k+1)+" at "+time.strftime('%l:%M%p, %m/%d/%Y'))
+
+            for set_key in self.set_key_list: # for each set
+
+                TotalCorr = 0 # reset number of correctly classified examples
+
+                # initialize vectors for feeding data and desired output
+                inputs = np.zeros([self.batchSz,Max_l])
+                if self.LDA_topics:
+                    lda_inpt = np.zeros([self.num_topics,1])
+                if self.authorship:
+                    # TODO: Calculate the number of assumed authors based on data
+                    authorship_inpt = np.zeros([None,1])
+                answers = np.zeros([batchSz,3],dtype=np.int32)
+
+                # batch counters
+                j = 0 # batch comment counter
+                p = 0 # batch counter
+
+                for i in range(len(self.indices[set_key])): # for each comment in the set
+                    inputs[j,:self.lengths[set_key][i]] = self.indices[set_key][i]
+                    # TODO: fix this to pick up the human ratings from Qualtrics
+                    if special_doi == True:
+                        answers[j,:] = self.vote[set_key][i]
+                    else:
+                        answers[j,:] = self.sentiments[set_key][i]
+
+                    j += 1 # update batch comment counter
+                    if j == batchSz - 1: # if the current batch is filled
+
+                        if set_key == 'train':
+                            # train on the examples
+                            _,outputs,next,_,Corr = sess.run([train,output,nextState,loss,numCorrect],feed_dict={inpt:inputs,answr:answers,DOutRate:self.keepP})
+                        else:
+                            # test on development or test set
+                            _,Corr = sess.run([loss,numCorrect],feed_dict={inpt:inputs,answr:answers,DOutRate:1})
+
+                        j = 0 # reset batch comment counter
+                        p += 1 # update batch counter
+
+                        # reset the input/label containers
+                        inputs = np.zeros([self.batchSz,self.Max_l])
+                        if self.LDA_topics:
+                            lda_inpt = np.zeros([self.num_topics,1],dtype=np.float32)
+                        if self.authorship:
+                            authorship_inpt = np.zeros([self.num_topics])
+                            #TODO: fix the size of the vector and add indexing of the authors to the NN preprocessing
+                        answers = np.zeros([self.batchSz,3],dtype=np.int32)
+
+                        # update the GRU state
+                        state = next # update the GRU state
+
+                        # update total number of correctly classified examples or total loss based on the processed batch
+                        TotalCorr += Corr
+
+                    # Every 10000 comments or at the end of training, save the
+                    # weights
+                    if set_key == 'train' and ((i+1) % 10000 == 0 or
+                    i == len(self.indices['train']) - 1):
+
+                        # retrieve learned weights
+                        if self.authorship:
+                            word_embed,author_embed,weights1,weights2,weights3,biases1,biases2,biases3 = sess.run([E,author_embed,W1,W2,W3,b1,b2,b3])
+                        else:
+                            word_embed,weights1,weights2,weights3,biases1,biases2,biases3 = sess.run([E,W1,W2,W3,b1,b2,b3])
+
+                        word_embed = np.asarray(word_embed)
+                        if self.authorship:
+                            author_embed = np.asarray(author_embed)
+                        outputs = np.asarray(outputs)
+                        weights1 = np.asarray(weights1)
+                        weights2 = np.asarray(weights2)
+                        weights3 = np.asarray(weights3)
+                        biases1 = np.asarray(biases1)
+                        biases2 = np.asarray(biases2)
+                        biases3 = np.asarray(biases3)
+                        # define a list of the retrieved variables
+                        if self.authorship:
+                            weights = ["word embeddings","author embeddings","state","weights1","weights2","weights3","biases1","biases2","biases3"]
+                        else:
+                            weights = ["word embeddings","state","weights1","weights2","weights3","biases1","biases2","biases3"]
+                        # write them to file
+                        for variable in weights:
+                            np.savetxt(output_path+"/"+variable, eval(variable))
+
+                    # calculate set accuracy for the current epoch and save the value
+                    self.accuracy[set_key][k] = float(TotalCorr) / float( p * self.batchSz )
+                    print("Accuracy on the " + set_key + " set (Epoch " +str(k+1)+"): "+ str(self.accuracy[set_key][k]))
+                    print("Accuracy on the " + set_key + " set (Epoch " +str(k+1)+"): "+ str(self.accuracy[set_key][k]),file=perf)
+
+            ## early stopping
+            if self.early_stopping:
+                # if development set accuracy is decreasing, stop training to prevent overfitting
+                if k != 0 and accuracy['dev'][k] < accuracy['dev'][k-1]:
+                    break
+
+        # timer
+        print("Finishing time:" + time.strftime('%l:%M%p, %m/%d/%Y'))
