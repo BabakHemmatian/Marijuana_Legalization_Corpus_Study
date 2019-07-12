@@ -1,6 +1,8 @@
 import bz2
 import lzma
 import zstandard as zstd
+from langdetect import DetectorFactory
+from langdetect import detect
 from collections import defaultdict, OrderedDict
 import datetime
 import hashlib
@@ -11,6 +13,7 @@ import spacy
 import nltk
 import numpy as np
 import os
+import io
 from pathlib2 import Path
 import pickle
 import re
@@ -21,15 +24,19 @@ from textblob import TextBlob
 from config import *
 from Utils import *
 
-## This needs to be importable from the main module for multiprocessing
+### Wrapper for the multi-processing parser
+
+# NOTE: This needs to be importable from the main module for multiprocessing
 # https://stackoverflow.com/questions/24728084/why-does-this-implementation-of-multiprocessing-pool-not-work
 
 def parse_one_month_wrapper(args):
     year, month, on_file, kwargs = args
     Parser(**kwargs).parse_one_month(year, month, on_file)
 
-# Create global helper function for formatting names of data files
-# Format dates to be consistent with pushshift file names
+
+### Create global helper function for formatting names of data files
+
+## Format dates to be consistent with pushshift file names
 def format_date(yr, mo):
     if len(str(mo)) < 2:
         mo = '0{}'.format(mo)
@@ -37,7 +44,7 @@ def format_date(yr, mo):
     assert len(str(mo)) == 2
     return "{}-{}".format(yr, mo)
 
-# Raw Reddit data filename format. The compression types for dates handcoded
+## Raw Reddit data filename format. The compression types for dates handcoded
 # based on https://files.pushshift.io/reddit/comments/
 
 # IMPORTANT: Remember to recode the filenames below accordingly if the RC files
@@ -53,7 +60,7 @@ def get_rc_filename(yr, mo):
     else:
         return 'RC_{}.bz2'.format(date)
 
-# based on provided dates, gather a list of months for which data is already
+## based on provided dates, gather a list of months for which data is already
 # available
 on_file = []
 for date in dates:
@@ -62,7 +69,7 @@ for date in dates:
     if Path(path+'/'+proper_filename).is_file():
         on_file.append(proper_filename)
 
-## Define the parser class
+### Define the parser class
 
 class Parser(object):
     # Parameters:
@@ -108,7 +115,7 @@ class Parser(object):
         self.sentiment = sentiment
         self.on_file = on_file
 
-    # Download Reddit comment data
+    ## Download Reddit comment data
     def download(self, year=None, month=None, filename=None):
         assert not all([isinstance(year, type(None)),
                          isinstance(month, type(None)),
@@ -124,35 +131,38 @@ class Parser(object):
         print('Sending request to {}.'.format(url))
         os.system('cd {} && wget {}'.format(self.path, url))
 
-    # # Get Reddit compressed data file hashsums to check downloaded files' integrity
-    # def Get_Hashsums(self):
-    #     # notify the user
-    #     print('Retrieving hashsums to check file integrity')
-    #     # set the URL to download hashsums from
-    #     url = 'https://files.pushshift.io/reddit/comments/sha256sum.txt'
-    #     # remove any old hashsum file
-    #     if Path(self.path+'/sha256sum.txt').is_file():
-    #         os.remove(self.path+'/sha256sum.txt')
-    #     # download hashsums
-    #     os.system('cd {} && wget {}'.format(self.path, url))
-    #     # retrieve the correct hashsums
-    #     hashsums = {}
-    #     with open(self.path+'/sha256sum.txt', 'rb') as f:
-    #         for line in f:
-    #             line = line.decode("utf-8")
-    #             if line.strip() != "" and ".xz" not in line:
-    #                 (val, key) = str(line).split()
-    #                 hashsums[key] = val
-    #     return hashsums
-    #
-    # # calculate hashsums for downloaded files in chunks of size 4096B
-    # def sha256(self, fname):
-    #     hash_sha256 = hashlib.sha256()
-    #     with open("{}/{}".format(self.path, fname), "rb") as f:
-    #         for chunk in iter(lambda: f.read(4096), b""):
-    #             hash_sha256.update(chunk)
-    #     return hash_sha256.hexdigest()
+    ## Get Reddit compressed data file hashsums to check downloaded files'
+    # integrity
+    def Get_Hashsums(self):
+        # notify the user
+        print('Retrieving hashsums to check file integrity')
+        # set the URL to download hashsums from
+        url = 'https://files.pushshift.io/reddit/comments/sha256sum.txt'
+        # remove any old hashsum file
+        if Path(self.path+'/sha256sum.txt').is_file():
+            os.remove(self.path+'/sha256sum.txt')
+        # download hashsums
+        os.system('cd {} && wget {}'.format(self.path, url))
+        # retrieve the correct hashsums
+        hashsums = {}
+        with open(self.path+'/sha256sum.txt', 'rb') as f:
+            for line in f:
+                line = line.decode("utf-8")
+                if line.strip() != "":
+                    (val, key) = str(line).split()
+                    hashsums[key] = val
+        return hashsums
 
+    ## calculate hashsums for downloaded files in chunks of size 4096B
+    def sha256(self, fname):
+        hash_sha256 = hashlib.sha256()
+        with open("{}/{}".format(self.path, fname), "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_sha256.update(chunk)
+        return hash_sha256.hexdigest()
+
+    ## Define the function for parts of preprocessing that are shared between
+    # LDA and neural nets
     def _clean(self, text):
 
         # check input arguments for valid type
@@ -185,7 +195,8 @@ class Parser(object):
 
         return special_free
 
-    # define the preprocessing function to add padding and remove punctuation, special characters and stopwords (neural network)
+    ## define the preprocessing function to add padding and remove punctuation,
+    # special characters and stopwords (neural network)
     def NN_clean(self, text):
 
         # check input arguments for valid type
@@ -208,15 +219,13 @@ class Parser(object):
 
         return cleaned
 
-    # define the preprocessing function to lemmatize, and remove punctuation,
+    ## define the preprocessing function to lemmatize, and remove punctuation,
     # special characters and stopwords (LDA)
 
     # NOTE: Since LDA doesn't care about sentence structure, unlike NN_clean,
     # the entire comment should be fed into this function as a continuous string
 
-    # NOTE: The Reddit dataset seems to encode the quote blocks as just new
-    # lines. Therefore, there is no way to get rid of quotes
-
+    # NOTE: Quotes (marked by > in the original dataset) are not removed
     def LDA_clean(self, text):
 
         special_free = self._clean(text)
@@ -229,6 +238,7 @@ class Parser(object):
 
         return normalized
 
+    ## Define the input/output paths and filenames for the parser
     def get_parser_fns(self, year=None, month=None):
         assert ((isinstance(year, type(None)) and isinstance(month, type(None))) or
                  (not isinstance(year, type(None)) and not isinstance(month, type(None))))
@@ -241,9 +251,7 @@ class Parser(object):
                   ("original_indices", "{}/original_indices{}".format(self.path, suffix)),
                   ("counts", "{}/RC_Count_List{}".format(self.path, suffix)),
                   ("timedict", "{}/RC_Count_Dict{}".format(self.path, suffix)),
-                  ("indices_random", "{}/random_indices".format(self.path)),
-                  ("counts_random", "{}/Random_Count_List".format(self.path)),
-                  ("timedict_random", "{}/Random_Count_Dict".format(self.path))
+                  ("total_count", "{}/total_count{}".format(self.path, suffix)),
                   ))
         if self.NN:
             fns["nn_prep"] = "{}/nn_prep{}".format(self.path, suffix)
@@ -255,10 +263,17 @@ class Parser(object):
             fns["sentiments"] = "{}/sentiments{}".format(self.path, suffix)
         return fns
 
+    ## The main parsing function
     # NOTE: Parses for LDA if NN = False
     # NOTE: Saves the text of the non-processed comment to file as well if write_original = True
     def parse_one_month(self, year, month, on_file):
         timedict = dict()
+
+        # get the relevant compressed data file name
+        filename = get_rc_filename(year, month)
+
+        # Get names of processing files
+        fns = self.get_parser_fns(year, month)
 
         if self.NN:  # if parsing for a neural network
             # import the pre-trained PUNKT tokenizer for determining sentence boundaries
@@ -266,223 +281,239 @@ class Parser(object):
 
         decoder = json.JSONDecoder()
 
-        # prepare files
-        # get the relevant compressed data file name
-        filename = get_rc_filename(year, month)
-        # if the file is available on disk and download is on, prevent deletion
-        if not filename in self.on_file and self.download_raw:
-            self.download(year, month)  # download the relevant file
+        # check to see if fully preprocessed data for a certain month exists
+        missing_parsing_files = []
+        for file in fns.keys():
+            if not Path(fns[file]).is_file():
+                missing_parsing_files.append(fns[file])
 
-            # BUG: Hashsum check is currently non-functional, as the sums for
-            # months later than 11-2017 have not been calculated. Until a
-            # future fix, the following code section should remain commented
+        if len(missing_parsing_files) != 0: # if the processed data is incpmplete
 
-            # check data file integrity and download again if needed
-            # calculate hashsum for the data file on disk
-            # filesum = self.sha256(filename)
-            # attempt = 0  # number of hashsum check trials for the current file
-            # # if the file hashsum does not match the correct hashsum
-            # while filesum != self.hashsums[filename]:
-            #     attempt += 1  # update hashsum check counter
-            #     if attempt == 5:  # if failed hashsum check three times, ignore the error to prevent an infinite loop
-            #         print("Failed to pass hashsum check 5 times. Ignoring the error.")
-            #         break
-            #     # notify the user
-            #     print("Corrupt data file detected")
-            #     print("Expected hashsum value: " +
-            #           self.hashsums[filename]+"\nBut calculated: "+filesum)
-            #     os.remove(self.path+'/'+filename)  # remove the corrupted file
-            #     self.download(year, month)  # download it again
+            print("The following needed processed file(s) were missing for "
+            +str(year)+", month "+str(month)+":")
+            print(missing_parsing_files)
+            print("Inititaing preprocessing of "+filename+ "at "
+            +time.strftime('%l:%M%p, %m/%d/%Y'))
 
-        # if the file is not available, but download is turned off
-        elif not filename in self.on_file:
-            # notify the user
-            print('Can\'t find data for {}/{}. Skipping.'.format(month, year))
-            return
+            # preprocess raw data
+            # if the file is available on disk and download is on, prevent deletion
+            if not filename in self.on_file and self.download_raw:
+                self.download(year, month)  # download the relevant file
 
-        # Get names of processing files
-        fns = self.get_parser_fns(year, month)
+                # check data file integrity and download again if needed
 
-        # create a file to write the processed text to
-        if self.NN:  # if doing NN
-            fout = open(fns["nn_prep"], 'w')
-        else:  # if doing LDA
-            fout = open(fns["lda_prep"], 'w')
+                # NOTE: sometimes inaccurate reported hashsums in the online dataset
+                # cause this check to invariably fail. Comment out the code section
+                # below if that becomes a problem.
 
-        # create a file if we want to write the original comments and their indices to disk
-        if self.write_original:
-            foriginal = open(fns["original_comm"], 'w')
-            main_indices = open(fns["original_indices"], 'w')
+                # calculate hashsum for the data file on disk
+                filesum = self.sha256(filename)
+                attempt = 0  # number of hashsum check trials for the current file
+                # if the file hashsum does not match the correct hashsum
+                while filesum != self.hashsums[filename]:
+                    attempt += 1  # update hashsum check counter
+                    if attempt == 3:  # if failed hashsum check three times,
+                    # ignore the error to prevent an infinite loop
+                        print("Failed to pass hashsum check 3 times. Ignoring.")
+                        break
+                    # notify the user
+                    print("Corrupt data file detected")
+                    print("Expected hashsum value: " +
+                          self.hashsums[filename]+"\nBut calculated: "+filesum)
+                    os.remove(self.path+'/'+filename)  # remove the corrupted file
+                    self.download(year, month)  # download it again
 
-        # if we want to record the votes
-        if self.vote_counting:
-            # create a file for storing whether a relevant comment has been upvoted or downvoted more often or neither
-            vote = open(fns["votes"], 'w')
+            # if the file is not available, but download is turned off
+            elif not filename in self.on_file:
+                # notify the user
+                print('Can\'t find data for {}/{}. Skipping.'.format(month, year))
+                return
 
-        # if we want to record the author
-        if self.author:
-            # create a file for storing whether a relevant comment has been upvoted or downvoted more often or neither
-            author = open(fns["author"], 'w')
+            # create a file to write the processed text to
+            if self.NN:  # if doing NN
+                fout = open(fns["nn_prep"], 'w')
+            else:  # if doing LDA
+                fout = open(fns["lda_prep"], 'w')
 
-        if self.sentiment:
-            # create a file for storing the average sentiment of a post
-            sentiments = open(fns["sentiments"],'w')
+            # create a file if we want to write the original comments and their indices to disk
+            if self.write_original:
+                foriginal = open(fns["original_comm"], 'w')
+                main_indices = open(fns["original_indices"], 'w')
 
-        # create a file to store the relevant cummulative indices for each month
-        ccount = open(fns["counts"], 'w')
+            # if we want to record the votes
+            if self.vote_counting:
+                # create a file for storing whether a relevant comment has been upvoted or downvoted more often or neither
+                vote = open(fns["votes"], 'w')
 
-        main_counter = 0
+            # if we want to record the author
+            if self.author:
+                # create a file for storing whether a relevant comment has been upvoted or downvoted more often or neither
+                author = open(fns["author"], 'w')
 
-        # open the file as a text file, in utf8 encoding, based on encoding type
-        if '.zst' in filename:
-            file = open(filename, 'rb')
-            dctx = zstd.ZstdDecompressor()
-            stream_reader = dctx.stream_reader(file)
-            fin = io.TextIOWrapper(stream_reader, encoding='utf-8')
-        elif '.xz' in filename:
-            fin = lzma.open(filename,'r')
-        elif '.bz2' in filename:
-            fin = bz2.BZ2File(self.path+'/'+filename, 'r')
-        else:
-            raise Exception('File format not recognized')
+            if self.sentiment:
+                # create a file for storing the average sentiment of a post
+                sentiments = open(fns["sentiments"],'w')
 
-        # read data
-        for line in fin:  # for each comment
-            main_counter += 1  # update the general counter
+            # create a file to store the relevant cummulative indices for each month
+            ccount = open(fns["counts"], 'w')
 
-            # decode and parse the json, and turn it into regular text
-            if not '.zst' in filename:
-                comment = line.decode()
-            comment = decoder.decode(comment)
-            original_body = html.unescape(comment["body"])  # original text
+            main_counter = 0
 
-            # filter comments by relevance to the topic according to regex
-            if any(not exp.search(original_body) is None for exp in marijuana) and any(not exp.search(original_body) is None for exp in legality):
+            # open the file as a text file, in utf8 encoding, based on encoding type
+            if '.zst' in filename:
+                file = open(filename, 'rb')
+                dctx = zstd.ZstdDecompressor()
+                stream_reader = dctx.stream_reader(file)
+                fin = io.TextIOWrapper(stream_reader, encoding='utf-8')
+            elif '.xz' in filename:
+                fin = lzma.open(filename,'r')
+            elif '.bz2' in filename:
+                fin = bz2.BZ2File(self.path+'/'+filename, 'r')
+            else:
+                raise Exception('File format not recognized')
 
-                # preprocess the comments
-                if self.NN:
+            # read data
+            for line in fin:  # for each comment
+                main_counter += 1  # update the general counter
 
-                    # Tokenize the sentences
-                    body = sent_detector.tokenize(
-                        original_body)
-                    body = self.NN_clean(body)  # clean the text for NN
-                    if len(body) == 0:  # if the comment body is not empty after preprocessing
-                        continue
+                # decode and parse the json, and turn it into regular text
+                if not '.zst' in filename:
+                    comment = line.decode()
+                else:
+                    comment = line
+                comment = decoder.decode(comment)
+                original_body = html.unescape(comment["body"])  # original text
 
-                    # If calculating sentiment, write the average sentiment to
-                    # file. Range is -1 to 1, with values below 0 meaning neg
-                    # sentiment
-                    if self.sentiment:
-                        blob = TextBlob(original_body)
-                        print(blob.sentiment[0],file=sentiments)
+                # filter comments by relevance to the topic according to regex
+                if any(not exp.search(original_body) is None for exp in marijuana) and any(not exp.search(original_body) is None for exp in legality):
 
-                    # if we want to write the original comment to disk
-                    if self.write_original:
-                        original_body = original_body.replace(
-                            "\n", "")  # remove mid-comment lines
-                        # record the original comment
-                        print(" ".join(original_body.split()), file=foriginal)
-                        # record the main index
-                        print(main_counter, file=main_indices)
+                    # preprocess the comments
+                    if self.NN:
 
-                    for sen in body:  # for each sentence in the comment
+                        # Tokenize the sentences
+                        body = sent_detector.tokenize(
+                            original_body)
+                        body = self.NN_clean(body)  # clean the text for NN
+                        if len(body) == 0:  # if the comment body is not empty after preprocessing
+                            continue
+
+                        # If calculating sentiment, write the average sentiment to
+                        # file. Range is -1 to 1, with values below 0 meaning neg
+                        # sentiment
+                        if self.sentiment:
+                            blob = TextBlob(original_body)
+                            print(blob.sentiment[0],file=sentiments)
+
+                        # if we want to write the original comment to disk
+                        if self.write_original:
+                            original_body = original_body.replace(
+                                "\n", "")  # remove mid-comment lines
+                            # record the original comment
+                            print(" ".join(original_body.split()), file=foriginal)
+                            # record the main index
+                            print(main_counter, file=main_indices)
+
+                        for sen in body:  # for each sentence in the comment
+                            # remove mid-comment lines
+                            sen = sen.replace("\n", "")
+
+                            # print the processed sentence to file
+                            print(" ".join(sen.split()), end=" ", file=fout)
+
+                        # ensure that each comment is on a separate line
+                        print("\n", end="", file=fout)
+
+                    else:  # if doing LDA
+
+                        # clean the text for LDA
+                        body = self.LDA_clean(original_body)
+
+                        if not body.strip():  # if the comment is not empty after preprocessing
+                            continue
+
+                        # If calculating sentiment, write the average sentiment to
+                        # file. Range is -1 to 1, with values below 0 meaning neg
+                        # sentiment
+                        if self.sentiment:
+                            blob = TextBlob(original_body)
+                            print(blob.sentiment[0],file=sentiments)
+
+                        # if we want to write the original comment to disk
+                        if self.write_original:
+                            original_body = original_body.replace(
+                                "\n", "")  # remove mid-comment lines
+                            # record the original comment
+                            print(" ".join(original_body.split()), file=foriginal)
+                            # record the index in the original files
+                            print(main_counter, file=main_indices)
+
                         # remove mid-comment lines
-                        sen = sen.replace("\n", "")
+                        body = body.replace("\n", "")
+                        body = " ".join(body.split())
 
-                        # print the processed sentence to file
-                        print(" ".join(sen.split()), end=" ", file=fout)
+                        # print the comment to file
+                        print(body, sep=" ", end="\n", file=fout)
 
-                    # ensure that each comment is on a separate line
-                    print("\n", end="", file=fout)
+                    # if we are interested in the upvotes
+                    if self.vote_counting:
+                        if type(comment["score"]) is int:
+                            print(int(comment["score"]), end="\n", file=vote)
+                            # write the fuzzed number of upvotes to file
+                        # Some of the scores for banned subreddits like "incels"
+                        # are not available in the original dataset. Write NA for
+                        # those
+                        elif comment["score"] is None:
+                            print("None", end="\n", file=vote)
 
-                else:  # if doing LDA
+                    # if we are interested in the author of the posts
+                    if self.author:
+                        # write their username to file
+                        print(comment["author"].strip(),
+                              end="\n", file=author)
 
-                    # clean the text for LDA
-                    body = self.LDA_clean(original_body)
+                    # record the number of documents by year and month
+                    created_at = datetime.datetime.fromtimestamp(
+                        int(comment["created_utc"])).strftime('%Y-%m')
+                    timedict[created_at] = timedict.get(created_at, 0)
+                    timedict[created_at] += 1
 
-                    if not body.strip():  # if the comment is not empty after preprocessing
-                        continue
+            # write the total number of posts from the month to disk to aid in
+            # calculating proportion relevant if calculate_perc_rel = True
+            if calculate_perc_rel:
+                with open(fns["total_count"],'w') as counter_file:
+                    print(main_counter, end="\n", file=counter_file)
 
-                    # If calculating sentiment, write the average sentiment to
-                    # file. Range is -1 to 1, with values below 0 meaning neg
-                    # sentiment
-                    if self.sentiment:
-                        blob = TextBlob(original_body)
-                        print(blob.sentiment[0],file=sentiments)
+            # close the files to save the data
+            fin.close()
+            fout.close()
+            if self.vote_counting:
+                vote.close()
+            if self.write_original:
+                foriginal.close()
+                main_indices.close()
+            if self.author:
+                author.close()
+            if self.sentiment:
+                sentiments.close()
+            ccount.close()
+            with open(fns["timedict"], "wb") as wfh:
+                pickle.dump(timedict, wfh)
 
-                    # if we want to write the original comment to disk
-                    if self.write_original:
-                        original_body = original_body.replace(
-                            "\n", "")  # remove mid-comment lines
-                        # record the original comment
-                        print(" ".join(original_body.split()), file=foriginal)
-                        # record the index in the original files
-                        print(main_counter, file=main_indices)
-
-                    # remove mid-comment lines
-                    body = body.replace("\n", "")
-                    body = " ".join(body.split())
-
-                    # print the comment to file
-                    print(body, sep=" ", end="\n", file=fout)
-
-                # if we are interested in the upvotes
-                if self.vote_counting:
-                    if type(comment["score"]) is int:
-                        print(int(comment["score"]), end="\n", file=vote)
-                        # write the fuzzed number of upvotes to file
-                    # Some of the scores for banned subreddits like "incels"
-                    # are not available in the original dataset. Write NA for
-                    # those
-                    elif comment["score"] is None:
-                        print("None", end="\n", file=vote)
-
-                # if we are interested in the author of the posts
-                if self.author:
-                    # write their username to file
-                    print(comment["author"].strip(),
-                          end="\n", file=author)
-
-                # record the number of documents by year and month
-                created_at = datetime.datetime.fromtimestamp(
-                    int(comment["created_utc"])).strftime('%Y-%m')
-                timedict[created_at] = timedict.get(created_at, 0)
-                timedict[created_at] += 1
-
-        # write the total number of posts from the month to disk to aid in
-        # calculating proportion relevant if calculate_perc_rel = True
-        if calculate_perc_rel:
-            with open(self.path+"/total_count",'a+') as counter_file:
-                print(main_counter, end="\n", file=counter_file)
-
-        # close the files to save the data
-        fin.close()
-        fout.close()
-        if self.vote_counting:
-            vote.close()
-        if self.write_original:
-            foriginal.close()
-            main_indices.close()
-        if self.author:
-            author.close()
-        if self.sentiment:
-            sentiments.close()
-        ccount.close()
-        with open(fns["timedict"], "wb") as wfh:
-            pickle.dump(timedict, wfh)
+        # reset the missing files list for the next month
+        missing_parsing_files = []
 
         # timer
-        print("Finished parsing "+filename+" at " + time.strftime('%l:%M%p'))
+        print("Finished parsing "+filename+" at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
-        # TODO: Fix clean_raw so that it won't delete
         # if the user wishes compressed data files to be removed after processing
-        if self.clean_raw and filename not in self.on_file:
+        if self.clean_raw and filename not in self.on_file and Path(filename).is_file():
             print("Cleaning up {}/{}.".format(self.path, filename))
             # delete the recently processed file
             os.system('cd {} && rm {}'.format(self.path, filename))
 
         return
 
+    ## Pool parsed monthly data
     def pool_parsing_data(self):
         fns = self.get_parser_fns()
         # Initialize an "overall" timedict
@@ -512,6 +543,7 @@ class Parser(object):
                 continue
             subprocess.call("cat "+" ".join(fns_)+"> "+fns[kind], shell=True)
 
+    ## Calls the multiprocessing module to parse raw data in parallel
     def parse(self):
         # get the correct hashsums to check file integrity
         # self.hashsums = self.Get_Hashsums()
@@ -525,12 +557,12 @@ class Parser(object):
         pool.map(parse_one_month_wrapper, inputs)
 
         # timer
-        print("Finished parsing at " + time.strftime('%l:%M%p'))
+        print("Finished parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         # Pool parsing data from all files
         self.pool_parsing_data()
 
-    # Function to call parser when needed and parse comments
+    ## Function to call parser when needed and parse comments
     # TODO: Replace mentions of Vote in this file with mentions of sample_ratings
     # TODO: Add main counter and original comments and indices to this function
     def Parse_Rel_RC_Comments(self):
@@ -560,7 +592,7 @@ class Parser(object):
                     os.remove(self.path+"/RC_Count_Dict")
 
                 # timer
-                print("Started parsing at " + time.strftime('%l:%M%p'))
+                print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
                 self.parse()
 
             else:  # if preprocessed comments are available and
@@ -608,7 +640,7 @@ class Parser(object):
                         os.remove(self.path+"/RC_Count_Dict")
 
                     # timer
-                    print("Started parsing at " + time.strftime('%l:%M%p'))
+                    print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
                     self.parse()
 
         else:
@@ -626,14 +658,165 @@ class Parser(object):
                 os.remove(self.path+"/original_indices")
 
             # timer
-            print("Started parsing at " + time.strftime('%l:%M%p'))
+            print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
             self.parse()
 
-    # determine what percentage of the posts in each year was relevant based on content filters
-    # NOTE: Requires total comment counts (RC_Count_Total) from
-    # http://files.pushshift.io/reddit/comments/, not available after 2-2018
-    # TODO: Add support based on (total_count) for periods after 2-2018
+    ## Function for removing non-English posts picked up by the regex filter
+    def lang_filtering(self):
+
+        if Path(self.path+"/non_en").is_file(): # if corpus is already filtered
+            pass
+        else: # otherwise
+
+            # check for msising files per parameter configs
+
+            # raw dataset
+            if not Path(self.path+"/original_comm").is_file():
+                raise Exception('Original comments could not be found')
+            if not Path(self.path+"/original_indices").is_file():
+                raise Exception('Original indices could not be found')
+
+            # preprocessed data
+            if (not Path(self.path+"/lda_prep").is_file()) and self.NN == False:
+                raise Exception('Preprocessed dataset could not be found')
+            elif (not Path(self.path+"/nn_prep").is_file()) and self.NN == True:
+                raise Exception('Preprocessed dataset could not be found')
+
+            # cumulative post counts
+            if not Path(self.path+"/RC_Count_List").is_file():
+                raise Exception(
+                'Cumulative monthly comment counts could not be found')
+            else: # load the cumulative counts
+                timelist_original = []
+                with open(self.path+"/RC_Count_List","r") as f:
+                    for line in f:
+                        if line.strip() != "":
+                            timelist_original.append(int(line))
+
+            # post meta-data
+            if (not Path(self.path+"/votes").is_file()) and self.vote_counting:
+                raise Exception('Votes counld not be found')
+            if (not Path(self.path+"/author").is_file()) and self.author:
+                raise Exception('Author usernames could not be found')
+            if (not Path(self.path+"/sentiments").is_file()) and self.sentiment:
+                raise Exception('Sentiment estimates could not be found')
+
+            # Initialize variables
+
+            # timer
+            print("Started filtering out non-English posts at "
+            +time.strftime('%l:%M%p, %m/%d/%Y'))
+
+            # seed the random initializer
+            DetectorFactory.seed = 0
+
+            # counters for the number of non-English posts from each time period
+            int_non_en =np.zeros_like(timelist_original)
+
+            non_en_idx = [] # list for indices of non-English posts
+
+            int_counter = 0 # counter for the time period an index belongs to
+
+            # Filter the posts
+
+            with open(self.path+"/non_en","w") as non_en:
+                with open(self.path+"/original_comm","r") as raw_dataset:
+                    for index,post in enumerate(raw_dataset):
+                        if index > timelist_original[int_counter]:
+                            int_counter += 1 # update time interval counter
+                        try: # if post is too short to reliably analyze or
+                        # highly likely to be in English
+                            if detect(post) == 'en' or len(post.split()) <= 20:
+                                pass
+                            else: # if post is likely not to be in English
+                                non_en_idx.append(index) # record the index
+                                int_non_en[int_counter] += 1 # update
+                                # non-English post counter
+                                print(index,end="\n",file=non_en) # save index
+                        except: # if language identification failed, add the
+                        # post to the list of posts to be removed from dataset
+                            non_en_idx.append(index) # record the index
+                            int_non_en[int_counter] += 1 # update non-English
+                            # post counter
+                            print(index,end="\n",file=non_en) # save index
+
+            # remove the marked posts from the raw dataset
+            with open(self.path+"/original_comm","r") as f:
+                lines = f.readlines()
+            with open(self.path+"/original_comm","w") as f:
+                for index,line in enumerate(lines):
+                    if line.strip() != "" and index not in non_en_idx:
+                        f.write(line)
+
+            with open(self.path+"/original_indices","r") as f:
+                lines = f.readlines()
+            with open(self.path+"/original_indices","w") as f:
+                for index,line in enumerate(lines):
+                    if line.strip() != "" and index not in non_en_idx:
+                        f.write(line)
+
+            # remove the marked posts from the processed dataset
+            if self.NN == True:
+                with open(self.path+"/nn_prep","r") as f:
+                    lines = f.readlines()
+                with open(self.path+"/nn_prep","w") as f:
+                    for index,line in enumerate(lines):
+                        if line.strip() != "" and index not in non_en_idx:
+                            f.write(line)
+            else:
+                with open(self.path+"/lda_prep","r") as f:
+                    lines = f.readlines()
+                with open(self.path+"/lda_prep","w") as f:
+                    for index,line in enumerate(lines):
+                        if line.strip() != "" and index not in non_en_idx:
+                            f.write(line)
+
+            # correct post counts for all time intervals
+            running_tot_count = 0
+            for interval,count in enumerate(timelist_original):
+                running_tot_count += int_non_en[interval]
+                timelist_original[interval] = timelist_original[interval] - running_tot_count
+
+            with open(self.path+"/RC_Count_List","w") as f:
+                for interval in timelist_original:
+                    print(interval,end="\n",file=f)
+
+            # remove appended information (if any) related to marked posts
+            if self.vote_counting:
+                with open(self.path+"/votes","r") as f:
+                    lines = f.readlines()
+                with open(self.path+"/votes","w") as f:
+                    for index,line in enumerate(lines):
+                        if line.strip() != "" and index not in non_en_idx:
+                            f.write(line)
+
+            if self.author:
+                with open(self.path+"/author","r") as f:
+                    lines = f.readlines()
+                with open(self.path+"/author","w") as f:
+                    for index,line in enumerate(lines):
+                        if line.strip() != "" and index not in non_en_idx:
+                            f.write(line)
+
+            if self.sentiment:
+                with open(self.path+"/sentiments","r") as f:
+                    lines = f.readlines()
+                with open(self.path+"/sentiments","w") as f:
+                    for index,line in enumerate(lines):
+                        if line.strip() != "" and index not in non_en_idx:
+                            f.write(line)
+
+            # timer
+            print("Finished filtering out non-English posts at "
+            +time.strftime('%l:%M%p, %m/%d/%Y'))
+
+    ## Determines what percentage of the posts in each year was relevant based
+    # on content filters
+
+    # NOTE: Requires total comment counts (RC_Count_Total) from parser or disk
+
     # NOTE: Requires monthly relevant counts from parser or disk
+
     def Rel_Counter(self):
         if not Path(self.path+"/RC_Count_List").is_file():
             raise Exception(
@@ -663,6 +846,7 @@ class Parser(object):
                 total_year[str(keys[0])] = d[keys]
 
         relevant_year, _ = Get_Counts(self.path, frequency="yearly")
+
         relevant = {}
         for idx, year in enumerate(relevant_year):
             relevant[str(self.dates[0][0]+idx)] = year
@@ -675,7 +859,7 @@ class Parser(object):
         print(sorted(perc_rel.items()), file=rel)
         rel.close
 
-    # Load, calculate or re-calculate the percentage of relevant comments/year
+    ## Load, calculate or re-calculate the percentage of relevant comments/year
     def Perc_Rel_RC_Comment(self):
         if Path(self.path+"/perc_rel").is_file():  # look for extant record
             # if it exists, ask if it should be overwritten
@@ -702,6 +886,8 @@ class Parser(object):
             return iterable
         return np.random.choice(iterable, size=n, replace=False)
 
+    ## Selects a random subset of comments from the corpus to analyze
+
     # Parameters:
     #   n: Number of random comments to sample.
     #   years_to_sample: Years to select from.
@@ -716,6 +902,9 @@ class Parser(object):
                                years_to_sample=years, min_n_comments=5000,
                                overwrite=OVERWRITE):
         fns = self.get_parser_fns()
+        fns["indices_random"] = "{}/random_indices".format(self.path)
+        fns["counts_random"] = "{}/Random_Count_List".format(self.path)
+        fns["timedict_random"] = "{}/Random_Count_Dict".format(self.path)
         fout = fns["indices_random"]
 
         if (not overwrite and os.path.exists(fout)):
