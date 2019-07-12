@@ -13,44 +13,53 @@ import sys
 
 ### Model choice hyperparameters
 
-NN = False # For development purposes. Should always be set to False for LDA
+NN = False # Set to False for LDA, to true for neural network classification
 ENTIRE_CORPUS = True # Are we using a random subset of comments, or the whole
-# dataset? The names of output files will include the value of this variable
+# dataset? The names of model files and output directories will include the
+# value of this variable (e.g. the default LDA output directory label is
+# LDA_[ENTIRE_CORPUS]_[num_topics] )
 OVERWRITE = False # Overwrites existing sampled comment indices. Only matters
 # if ENTIRE_CORPUS = False
 DOWNLOAD_RAW = True # If a raw data file is not available on disk, download it
 # NOTE: Be mindful of possible changes to compression algorithm used at
 # https://files.pushshift.io/reddit/comments/ beyond 02-2019, as they would
-# not be reflected in the parser's code
+# not be reflected in the parser's code, which assumes more recent files have
+# .zst extensions
 CLEAN_RAW = True # After parsing, delete the raw data file from disk if it was
 # not downloaded during parsing
-vote_counting = True # Count number of upvotes when parsing
+vote_counting = True # Record the fuzzed number of upvotes when parsing
 WRITE_ORIGINAL = True # Write original comments to file when parsing
 author = True # Write the username of each post's author to a separate file
-# add this function
-sentiment = True # Write the average sentiment of a post to file
+sentiment = True # Write the average sentiment of a post to file (based on
+# TextBlob's algorithm)
+# NOTE: Some empirical results suggest that this algorithm is better at detecting
+# positive valence than negative valence in text. See the following:
+# https://medium.com/@Intellica.AI/vader-ibm-watson-or-textblob-which-is-better-for-unsupervised-sentiment-analysis-db4143a39445
+# TODO: create a separate function that works with preprocessed data to
+# estimate sentiment based on Vader and Watson too and outputs an aggregate
+# value, which would then be used instead of the regular TextBlob "sentiment"
+# file to pre-train the network
 
 ### Pre-processing hyperparameters
 MaxVocab = 2000000 # maximum size of the vocabulary
 FrequencyFilter = 1 # tokens with a frequency equal or less than this number
-# will be filtered out of the corpus
+# will be filtered out of the corpus (matters when NN=True, i.e. for neural nets)
 no_below = 5 # tokens that appear in less than this number of documents in
-# corpus will be filtered out
+# corpus will be filtered out (matters when NN=False, i.e. for the LDA model)
 no_above = 0.99 # tokens that appear in more than this fraction of documents in
 # corpus will be filtered out
-training_fraction = 0.99 # what percentage of data will be used for training.
-# The rest of the dataset will be used as an evaluation set for calculating
-# perplexity
+training_fraction = 0.99 # what percentage of data will be used for learning the
+# LDA model. The rest of the dataset will be used as an evaluation set for
+# calculating perplexity and preventing overfitting
 NN_training_fraction = 0.80 # fraction of the data that is used for training
 # the neural network.[1 - training_fraction] fraction of the dataset will be
 # divided randomly and equally into evaluation and test sets
 calculate_perc_rel = True # whether the percentage of relevant comments from
 # each year should be calculated and written to file
-# Should be set to False if including 3-2018 or later, as the source does
-# not report numbers for those months
 
 ### LDA hyperparameters
-# TODO: Change number of processes from manually set into a hyperparameter
+# NOTE: Number of processes for parallelization are currently set manually. See
+# notes in reddit_parser.py and and Reddit_LDA_Analysis.py for more details
 n_random_comments = 1500 # number of comments to sample from each year for
 # training. Only matters if ENTIRE_CORPUS = False.
 iterations = 1000 # number of times LDA posterior distributions will be sampled
@@ -65,24 +74,43 @@ eta = 0.1 # determines how many high probability words will be assigned to a
 # topic in general
 minimum_phi_value = 0.01 # determines the lower bound on per-term topic
 # probability. Only matters if per_word_topics = True.
+one_hot_topic_contributions=False
+# NOTE: With bad model fits sum of topic contributions for certain posts may not
+# add up to close enough to 1 and the model would fail quality assurance assetion
+# checks. You can examine the cases that have failed the assertion in a file
+# named failures in [path], with the following format: post index, word index,
+# sum of topic contributions, number of repetitions within the post
+topic_cont_freq="monthly" # The frequency of topic contribution calculation
+topic_idf = False # whether an inverse frequency term should be considered for
+# in determining the top topics in the corpus. If set to False, contribution
+# calculation will only prioritize higher overall contribution
+topic_idf_thresh = 0.1 # what proportion of contributions in a post would add to
+# the frequency count for a certain topic that will adversely affect its
+# estimated contribution to the discourse. Only matters if topic_idf = True.
+# Must be greater than zero and less than one.
+# TODO: add support for a range of idf values to be tested automatically
 calculate_perplexity = True # whether perplexity is calculated for the model
 calculate_coherence = True # whether umass coherence is calculated for the model
 
 ### Neural Network Hyperparameters
+# TODO: create a function for sampling a hundred posts at random and compare
+# the neural networks on them for sentiment analysis and pro/anti based on
+# unsupervised sentiment training AND supervised movie review pre-training
 
 ## determine kind of network
 
 special_doi = False # If False, the neural network will model sentiment.
 # If true, it will perform classification on comments based on a user-defined
 # "dimension of interest"
-pretrained = False # whether there is sentiment analysis pre-training. Can only be set to True if classifier is also True
+pretrained = False # whether there is sentiment analysis pre-training.
+# NOTE: Should only be set to True if special_doi is also True
 # NOTE: For classifier pretraining, the code should first be run with
 # special_doi = False & pretrained = False and param_path should be set
 # according to the output_path that results from the first run of the code
 # NOTE: If pre-training is on, network hyperparameters should not be changed for
 # the DOI run from the ones used for pre-training #TODO: Remove this requirement
 LDA_topics = True # whether the neural networks take as part of their input
-# topic contributions to each post as determined by a previously-run LDA
+# topic contributions to each post as determined by a previously-run LDA analysis
 # NOTE: the path to the LDA output to be used needs to be entered below manually
 authorship = True # whether the neural networks take as part of their input
 # the username of a post's author.
@@ -94,10 +122,12 @@ authorship = True # whether the neural networks take as part of their input
 
 ## Training hyperparameters
 epochs = 3 # number of epochs
-learning_rate = 0.003 # learning rate #TODO: write code for automatically testing a set of learning rates
+learning_rate = 0.003 # learning rate
+#TODO: write code for automatically testing a set of learning rates
 batchSz = 50 # number of parallel batches
-embedSz = 128 # embedding size
+word_embedSz = 128 # word embedding size
 hiddenSz = 512 # number of units in the recurrent layer
+author_embedSz = 128 # author embedding size. Matters only if authorship == True
 ff1Sz = 1000 # number of units in the first feedforward layer
 ff2Sz = 1000 # number of units in the second feedforward layer
 keepP = 0.5 # 1 - dropout rate
@@ -105,14 +135,15 @@ early_stopping = True # whether to stop training if development set perplexity i
 l2regularization = False # whether the model will be penalized for longer weight vectors. Helps prevent overfitting
 NN_alpha = 0.01 # L2 regularization constant
 
-### Sampling hyperparameters
+### LDA-based sampling hyperparameters
 top_topic_set = None # Choose specific topics to sample comments and top words
-# from. set to None to use threshold or fraction instead
-sample_topics = None # percentage of topics that will be selected for reporting
+# from. set to None to use threshold or fraction of [num_topics] instead
+sample_topics = 0.2 # proportion of topics that will be selected for reporting
 # based on average yearly contribution. Set to None if choosing topics based on
-# threshold instead
-top_topic_thresh = 0.03 # threshold for proportion contribution to the corpus
-# determining topics to report
+# threshold instead.
+# NOTE: Must be a valid proportion (not None) if topic_idf = True
+top_topic_thresh = None # threshold for proportion contribution to the corpus
+# determining topics to report. Only matters if topic_idf = False
 topn = 80 # the number of high-probability words for each topic to be exported
 # NOTE: Many of the words will inevitably be high probability general
 # non-content and non-framing words. So topn should be set to significantly
@@ -124,12 +155,8 @@ min_comm_length = 20 # the minimum acceptable number of words in a sampled
 # topic of each word is set to be simply the most probable topic. When False,
 # the topic of each word is set to the entire probability distribution over
 # num_topics topics.
-one_hot_topic_contributions=True
-# BUG: non-one-hot topic contribution phi-value calculation gives an assertion
-# error
-topic_cont_freq="monthly" # The frequency of topic contribution calculation
 num_pop = 2000 # number of the most up- or down-voted comments sampled for model
-# comparison. Set to None for no sampling. Needs prior parsing with
+# comparison. Set to None for no sampling. Needs data parsed with
 # write_original = True
 
 ### Paths
@@ -145,11 +172,9 @@ path = os.path.dirname(file_path)
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
 months=range(1,13) # month range
-years=[2008] # year range
+years=range(2008,2019) # year range
 for year in years:
     for month in months:
-        if year==2019: # until Jan 2019
-            break
         dates.append((year,month))
 
 ## where the output will be stored
@@ -163,7 +188,7 @@ for year in years:
 # important to your iteration
 
 if NN: # If running a neural network analysis
-    output_path = path+"/"+"doi_"+str(classifier)+"_pre_"+str(pretrained)+"_e_"+str(epochs)+"_"+"hd"+"_"+str(hiddenSz)
+    output_path = path+"/"+"doi_"+str(special_doi)+"_pre_"+str(pretrained)+"_e_"+str(epochs)+"_"+"hd"+"_"+str(hiddenSz)
     if not os.path.exists(output_path):
         print("Creating directory to store the output")
         os.makedirs(output_path)
