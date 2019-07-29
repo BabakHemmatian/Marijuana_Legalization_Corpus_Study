@@ -11,6 +11,7 @@ import json
 import multiprocessing
 import spacy
 import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import numpy as np
 import os
 import io
@@ -19,6 +20,7 @@ import pickle
 import re
 import time
 import subprocess
+from pycorenlp import StanfordCoreNLP
 import sys
 from textblob import TextBlob
 from config import *
@@ -275,7 +277,7 @@ class Parser(object):
         # Get names of processing files
         fns = self.get_parser_fns(year, month)
 
-        if self.NN:  # if parsing for a neural network
+        if self.NN or self.sentiment:  # if parsing for an NN or calculating sentiment
             # import the pre-trained PUNKT tokenizer for determining sentence boundaries
             sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
 
@@ -401,6 +403,9 @@ class Parser(object):
                         # file. Range is -1 to 1, with values below 0 meaning neg
                         # sentiment
                         if self.sentiment:
+
+                            ## DEBUG
+
                             blob = TextBlob(original_body)
                             print(blob.sentiment[0],file=sentiments)
 
@@ -809,6 +814,161 @@ class Parser(object):
             # timer
             print("Finished filtering out non-English posts at "
             +time.strftime('%l:%M%p, %m/%d/%Y'))
+
+    ## Records per-sentence TextBlob, Vader and CoreNLP sentiment estimates
+    # for the entire corpus
+
+    # NOTE: A post is positive if Vader estimate >0.05, negative if it is <-0.05
+    # neutral otherwise.
+    # NOTE: For CoreNLP, value bindings are: 0=Very negative,1=Negative,
+    # 2=Neutral, 3=Positive, 4=Very Positive. Averaging across sentences may
+    # result in non-integer values
+
+    # NOTE: Since the retrival of values is slow for some packages and the
+    # connection might time out, this function allows for resuming retrieval
+    # by ignoring the comments analyzed so far. This is done automatically by
+    # first counting the number of lines in files on disc and comparing that
+    # to the size of the corpus.
+
+    # NOTE: Always mark and check the last processed post in the sentiment files
+    # to make sure that duplicate sentiment values are not being stored.
+
+    def add_sentiment(self):
+
+        # Retrieve the total number of posts in the corpus (needs RC_Count_List)
+        if not Path(self.path+"/RC_Count_List").is_file():
+            raise Exception(
+            'Cumulative monthly comment counts could not be found')
+
+        with open(self.path+"/RC_Count_List",'r') as f:
+            timelist = []
+            for line in f:
+                if line.strip() != "":
+                    timelist.append(int(line))
+        goal = timelist[-1]
+
+        # Vader estimates
+
+        # check to see if Vader estimates already exist
+        # If not available, start from the first comment
+        if not Path(self.path+"/sentiments_vader").is_file():
+            ignore_v = 0
+        else: # otherwise, examine how many comments were analyzed
+            ignore_v = 0
+            with open(self.path+"/sentiments_vader",'r') as f:
+                for comment in f:
+                    ignore_v += 1
+
+        # CoreNLP estimates
+
+        # If estimates are not available, start from the first comment
+        if not Path(self.path+"/sentiments_core").is_file():
+            ignore_c = 0
+        else: # otherwise, examine how many comments were analyzed
+            ignore_c = 0
+            with open(self.path+"/sentiments_core",'r') as f:
+                for comment in f:
+                    ignore_c += 1
+
+        # TextBlob estimates
+
+        # If estimates are not available, start from the first comment
+        if not Path(self.path+"/sentiments_blob").is_file():
+            ignore_t = 0
+        else: # otherwise, examine how many comments were analyzed
+            ignore_t = 0
+            with open(self.path+"/sentiments_blob",'r') as f:
+                for comment in f:
+                    ignore_t += 1
+
+        if ignore_v == goal and ignore_c == goal and ignore_t == goal:
+            # if all estimates for all of the comments exist, move along
+            pass
+        else: # otherwise, retrieve estimates from from the packages
+
+            # check to see if corpus text is accessible
+            if not Path(self.path+"/original_comm").is_file():
+                raise Exception('Original comments could not be found')
+
+            print("Started retrieving and recording sentiment values at "
+            +time.strftime('%l:%M%p, %m/%d/%Y')) # timer
+
+            print("Vader estimates exist for the first "+str(ignore_v)+" posts. Ignoring.")
+            print("TextBlob estimates exist for the first "+str(ignore_t)+" posts. Ignoring.")
+            print("CoreNLP estimates exist for the first "+str(ignore_c)+" posts. Ignoring.")
+
+            # set up various packages
+
+            # Vader
+            sid = SentimentIntensityAnalyzer() # Vader sentiment analyzer object
+
+            # CoreNLP
+            # create a connection to the CoreNLP server to retrieve sentiment
+            # (requires CoreNLP_server.py in the same directory)
+            subprocess.run(['gnome-terminal -x python CoreNLP_server.py'],shell=True)
+            time.sleep(5) # wait for connection to the server to be established
+            # connect the Python wrapper to the server
+            nlp_wrapper = StanfordCoreNLP('http://localhost:9000')
+
+            # read the corpus and retrieve compound Vader score for each post
+            with open(self.path+"/original_comm","r") as texts, \
+            open(self.path+"/sentiments_vader","a+") as vader, \
+            open(self.path+"/sentiments_blob","a+") as textblob, \
+            open(self.path+"/sentiments_core","a+") as core:
+
+                text_reader = texts.readlines() # set up reader
+
+                # Prepare sentence tokenizer
+                sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
+
+                for index,comment in enumerate(text_reader):
+
+                    tokenized = sent_detector.tokenize(comment)
+
+                    if index >= ignore_v:
+
+                        sentence_vals = []
+
+                        for sentence in tokenized:
+
+                            ss = sid.polarity_scores(sentence)
+                            sentence_vals.append(ss["compound"])
+
+                        print(",".join([str(sentence) for sentence in sentence_vals]),end='\n',file=vader)
+
+                    if index >= ignore_t:
+
+                        sentence_vals = []
+
+                        for sentence in tokenized:
+
+                            blob = TextBlob(sentence)
+                            sentence_vals.append(blob.sentiment[0])
+
+                        print(",".join([str(sentence) for sentence in sentence_vals]),end='\n',file=textblob)
+
+                    if index >= ignore_c:
+
+                        # retrieve sentiment estimates from CoreNLP
+                        annot_doc = nlp_wrapper.annotate(comment,properties={
+                       'annotators': 'sentiment',
+                       'outputFormat': 'json',
+                       'timeout': 1000000,})
+
+                        # store the values for each sentence in a list
+                        sent_values = []
+
+                        for sentence in annot_doc["sentences"]:
+                            sent_values.append(sentence["sentimentValue"])
+
+                        # write the average sentiment value to disk
+                        print(",".join([str(sentence) for sentence in sent_values]),end='\n',file=core)
+
+                    if index != 0 and (index+1) % 1000 == 0: # every 1000 comments
+                        texts.flush() # flush the results to disk
+
+        print("Finished retrieving and recording sentiment values at "
+        +time.strftime('%l:%M%p, %m/%d/%Y')) # timer
 
     ## Determines what percentage of the posts in each year was relevant based
     # on content filters
