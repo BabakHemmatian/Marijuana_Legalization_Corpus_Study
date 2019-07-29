@@ -4,6 +4,8 @@ import numpy
 from numpy import random
 
 # create a dictionary for counting the non-junk topics
+# (needs the cleaned sample of top comments, with 
+# junk topics and identified junk posts removed)
 topic_dict = {}
 with open("cleaned_sample_keys-f.csv",'r+') as csvfile:
     reader = csv.reader(csvfile)
