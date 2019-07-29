@@ -2,6 +2,7 @@ import nltk
 import os
 import re
 import sys
+import numpy as np
 
 # NOTE: This file only contains the hyperparameters at the most abstract level,
 # those that are most likely to be tuned by the user. See relevant functions
@@ -32,18 +33,18 @@ WRITE_ORIGINAL = True # Write original comments to file when parsing
 author = True # Write the username of each post's author to a separate file
 sentiment = True # Write the average sentiment of a post to file (based on
 # TextBlob's algorithm)
-# NOTE: Some empirical results suggest that this algorithm is better at detecting
-# positive valence than negative valence in text. See the following:
+# NOTE: Some empirical results suggest that this package is better at detecting
+# positive valence than negative valence in text. See:
 # https://medium.com/@Intellica.AI/vader-ibm-watson-or-textblob-which-is-better-for-unsupervised-sentiment-analysis-db4143a39445
-# TODO: create a separate function that works with preprocessed data to
-# estimate sentiment based on Vader and Watson too and outputs an aggregate
-# value, which would then be used instead of the regular TextBlob "sentiment"
-# file to pre-train the network
+add_sentiment = False # calculates sentiment values under alternative packages
+# (NLTK's Vader and CoreNLP) and aggregates the ratings for more robust output
+# TODO: Add Textblob to the function, sentence-level sentiment (might need
+# sentence tokenization for some of them
 
 ### Pre-processing hyperparameters
 MaxVocab = 2000000 # maximum size of the vocabulary
 FrequencyFilter = 1 # tokens with a frequency equal or less than this number
-# will be filtered out of the corpus (matters when NN=True, i.e. for neural nets)
+# will be filtered out of the corpus (matters when NN=True)
 no_below = 5 # tokens that appear in less than this number of documents in
 # corpus will be filtered out (matters when NN=False, i.e. for the LDA model)
 no_above = 0.99 # tokens that appear in more than this fraction of documents in
@@ -65,7 +66,7 @@ n_random_comments = 1500 # number of comments to sample from each year for
 iterations = 1000 # number of times LDA posterior distributions will be sampled
 num_threads = 5 # number of threads used for parallelized processing of comments
 # Only matters if using _Threaded functions
-num_topics = 50 # number of topics to be generated in each LDA sampling
+num_topics = 100 # number of topics to be generated in each LDA sampling
 alpha = 0.1 # determines how many high probability topics will be assigned to a
 # document in general (not to be confused with NN l2regularization constant)
 minimum_probability = 0.01 # minimum acceptable probability for an output topic
@@ -83,14 +84,14 @@ one_hot_topic_contributions=False
 topic_cont_freq="monthly" # The frequency of topic contribution calculation
 topic_idf = False # whether an inverse frequency term should be considered for
 # in determining the top topics in the corpus. If set to False, contribution
-# calculation will only prioritize higher overall contribution
+# calculation will only prioritize higher overall contribution #TODO: Debug
 topic_idf_thresh = 0.1 # what proportion of contributions in a post would add to
 # the frequency count for a certain topic that will adversely affect its
 # estimated contribution to the discourse. Only matters if topic_idf = True.
 # Must be greater than zero and less than one.
 # TODO: add support for a range of idf values to be tested automatically
-calculate_perplexity = True # whether perplexity is calculated for the model
-calculate_coherence = True # whether umass coherence is calculated for the model
+calculate_perplexity = False # whether perplexity is calculated for the model
+calculate_coherence = False # whether umass coherence is calculated for the model
 
 ### Neural Network Hyperparameters
 # TODO: create a function for sampling a hundred posts at random and compare
@@ -136,7 +137,9 @@ l2regularization = False # whether the model will be penalized for longer weight
 NN_alpha = 0.01 # L2 regularization constant
 
 ### LDA-based sampling hyperparameters
-top_topic_set = None # Choose specific topics to sample comments and top words
+# TODO: use the top topics function in Gensim to get topic-specific coherence vals
+top_topic_set = list(range(num_topics)) # Choose specific topics to sample comments
+# and top words
 # from. set to None to use threshold or fraction of [num_topics] instead
 sample_topics = 0.2 # proportion of topics that will be selected for reporting
 # based on average yearly contribution. Set to None if choosing topics based on
