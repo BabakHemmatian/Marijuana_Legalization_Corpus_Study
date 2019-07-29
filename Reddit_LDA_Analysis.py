@@ -45,6 +45,16 @@ theparser.Parse_Rel_RC_Comments()
 theparser.lang_filtering()
 # TODO: Run the function for alternative sentiment estimates after this
 
+## TextBlob sentiment analysis is integrated into parsing. If requested and not
+# available, the following function retrieves alternative sentiment measures
+# (from NLTK's Vader and CoreNLP)
+
+# NOTE: Make sure that Stanford CoreNLP's Python package is unzipped to the
+# same directory as this file and CoreNLP_server.py is also available before
+# running this function.
+if add_sentiment:
+    theparser.add_sentiment()
+
 ## call the function for calculating the percentage of relevant comments
 if calculate_perc_rel:
     theparser.Perc_Rel_RC_Comment()
@@ -104,8 +114,8 @@ ldam.Get_Topic_Contribution()
 ldam.get_top_topics()
 
 ## Plot the temporal trends in the top topics and save it to the output path
-ldam.Plotter("{}/Temporal_Trend-{}-{}-{}.png".format(ldam.output_path,
-str(one_hot_topic_contributions),str(num_topics),"idf" if topic_idf else "f"))
+ldam.Plotter("{}/Temporal_Trend-{}-{}-{}".format(ldam.output_path,
+"1hot" if one_hot_topic_contributions else "MLE",str(num_topics),"idf" if topic_idf else "f"))
 
 ## Find the top words associated with top topics and write them to file
 with open("{}/top_words-{}".format(
