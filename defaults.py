@@ -102,7 +102,7 @@ calculate_coherence = False # whether umass coherence is calculated for the mode
 
 special_doi = False # If False, the neural network will model sentiment.
 # If true, it will perform classification on comments based on a user-defined
-# "dimension of interest"
+# "dimension of interest" #TODO: Clarify "dimension of interest"
 pretrained = False # whether there is sentiment analysis pre-training.
 # NOTE: Should only be set to True if special_doi is also True
 # NOTE: For classifier pretraining, the code should first be run with
