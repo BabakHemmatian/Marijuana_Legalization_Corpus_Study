@@ -32,7 +32,7 @@ Write_Performance()
 # original_comm, original_indices, Random_Count_Dict, Random_Count_List,
 # random_indices, RC_Count_Dict, RC_Count_List, total_count and votes
 
-theparser=Parser()
+theparser = Parser()
 theparser.Parse_Rel_RC_Comments()
 
 # Filter the dataset based on whether posts are in English (uses Google's
@@ -66,7 +66,7 @@ if not ENTIRE_CORPUS:
 
 ## Determine the comments that will comprise each set
 # NOTE: If NN = False, will create sets for LDA.
-ldam=LDAModel()
+ldam = LDAModel()
 ldam.Define_Sets()
 
 ## read the data and create the vocabulary and the term-document matrix
@@ -85,7 +85,7 @@ ldam.get_model()
 # and comment out if estimates already exist
 
 if calculate_perplexity:
-    train_per_word_perplex,eval_per_word_perplex = ldam.Get_Perplexity()
+    train_per_word_perplex, eval_per_word_perplex = ldam.Get_Perplexity()
 
 ### calculate umass coherence to allow for interpretability comparison between
 # models with different [num_topics]
@@ -115,16 +115,17 @@ ldam.get_top_topics()
 
 ## Plot the temporal trends in the top topics and save it to the output path
 ldam.Plotter("{}/Temporal_Trend-{}-{}-{}".format(ldam.output_path,
-"1hot" if one_hot_topic_contributions else "MLE",str(num_topics),"idf" if topic_idf else "f"))
+                                                 "1hot" if one_hot_topic_contributions else "MLE", str(num_topics),
+                                                 "idf" if topic_idf else "f"))
 
 ## Find the top words associated with top topics and write them to file
 with open("{}/top_words-{}".format(
-output_path,"idf" if topic_idf else "f"),'w') as f: # create a file for storing
-# the high-probability words
+        output_path, "idf" if topic_idf else "f"), 'w') as f:  # create a file for storing
+    # the high-probability words
     for topic in ldam.top_topics:
-        print(topic,file=f)
-        output = ldam.ldamodel.show_topic(topic,topn=topn)
-        print(output,file=f)
+        print(topic, file=f)
+        output = ldam.ldamodel.show_topic(topic, topn=topn)
+        print(output, file=f)
 
 ### Find the most Representative Comments for the Top Topics ###
 ### Retrieve the probability assigned to top topics for comments in the dataset
@@ -147,11 +148,11 @@ if num_pop != None:
 ldam.Get_Top_Comments()
 
 ## find top words associated with EVERY topic and write them to file
-top_words_all = {key:[] for key in range(num_topics)}
-with open(output_path+'/top_words_all_'+str(num_topics),'a+') as f:
-# create a file for storing the high-probability words
+top_words_all = {key: [] for key in range(num_topics)}
+with open(output_path + '/top_words_all_' + str(num_topics), 'a+') as f:
+    # create a file for storing the high-probability words
     for topic in top_words_all.keys():
-        print(topic,file=f)
-        output = ldam.ldamodel.show_topic(topic,topn=topn)
-        print(output,file=f)
-        top_words_all[topic] = ldam.ldamodel.show_topic(topic,topn=topn)
+        print(topic, file=f)
+        output = ldam.ldamodel.show_topic(topic, topn=topn)
+        print(output, file=f)
+        top_words_all[topic] = ldam.ldamodel.show_topic(topic, topn=topn)
