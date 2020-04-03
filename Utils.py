@@ -46,7 +46,8 @@ def Write_Performance(output_path=output_path, NN=NN):
             print("Number of epochs: "+str(epochs),file=perf)
             print("Learning_rate = " + str(learning_rate),file=perf)
             print("Batch size = " + str(batchSz),file=perf)
-            print("Embedding size = " + str(embedSz),file=perf)
+            ##TODO: should this be author_embedSz or word_embedSz?
+            print("Embedding size = " + str(word_embedSz),file=perf)
             print("Recurrent layer size = " + str(hiddenSz),file=perf)
             print("1st feedforward layer size = " + str(ff1Sz),file=perf)
             print("2nd feedforward layer size = " + str(ff2Sz),file=perf)

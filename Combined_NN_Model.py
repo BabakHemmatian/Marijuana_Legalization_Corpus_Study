@@ -10,7 +10,7 @@ from NN_Utils import *
 
 ### Define the neural network object
 
-nnmodel=NNModel(training_fraction=NN_training_fraction)
+nnmodel=NNModel()
 
 ### check key hyperparameters for correct data types
 
@@ -24,6 +24,8 @@ Write_Performance()
 ### call the parsing function
 
 theparser=Parser()
+# Create relevant folders
+theparser.safe_dir_create()
 theparser.Parse_Rel_RC_Comments()
 
 ### call the function for calculating the percentage of relevant comments
@@ -50,7 +52,7 @@ for set_key in nnmodel.set_key_list:
 if special_doi == False and pretrained == False:
     nnmodel.Get_Sentiment(path)
 elif special_doi == True:
-    nnmodel.Get_Human_Ratings(path):
+    nnmodel.Get_Human_Ratings(path)
     #TODO: Define this function. It should already somehow incorporated into 
     # the ModelEstimator
 

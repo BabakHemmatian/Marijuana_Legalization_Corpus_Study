@@ -1,1 +1,15 @@
 test.py
+*.bz2
+*.zst
+*.xz
+sentiments
+original_comm
+original_indices
+lda_prep
+nn_prep
+author
+counts
+timedict
+total_count
+votes
+*.txt

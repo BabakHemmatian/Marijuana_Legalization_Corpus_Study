@@ -1,0 +1,188 @@
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
+Training fraction = 0.8
+Vocabulary size = 2000000
+Frequency filter = below 1
+***
+special_doi = False
+pretrained = False
+Number of epochs: 3
+Learning_rate = 0.003
+Batch size = 50
+Embedding size = 128
+Recurrent layer size = 512
+1st feedforward layer size = 1000
+2nd feedforward layer size = 1000
+Dropout rate = 0.5
+L2 regularization = False
+L2 regularization constant = 0.1
+Early stopping = True
