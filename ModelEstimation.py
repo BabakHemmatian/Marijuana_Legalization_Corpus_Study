@@ -1575,13 +1575,13 @@ class NNModel(ModelEstimator):
 
         ## create placeholders for input, output, loss weights and dropout rate
 
-        inpt = tf.placeholder(tf.int32, shape=[None, None])
+        inpt = tf.compat.v1.placeholder(tf.int32, shape=[None, None])
         if self.LDA_topics:
-            lda_inpt = tf.placeholder(tf.int32, shape=[None, 1])
+            lda_inpt = tf.compat.v1.placeholder(tf.int32, shape=[None, 1])
         if self.authorship:
-            authorship_inpt = tf.placeholder(tf.int32, shape=[None, 1])
-        answr = tf.placeholder(tf.int32, shape=[None, None])
-        DOutRate = tf.placeholder(tf.float32)
+            authorship_inpt = tf.compat.v1.placeholder(tf.int32, shape=[None, 1])
+        answr = tf.compat.v1.placeholder(tf.int32, shape=[None, None])
+        DOutRate = tf.compat.v1.placeholder(tf.float32)
 
         ## set up the graph parameters
 
@@ -1607,24 +1607,24 @@ class NNModel(ModelEstimator):
         if self.special_doi and self.pretrained:
             E = tf.Variable(word_embed)
         else:
-            E = tf.Variable(tf.random_normal([len(V), word_embedSz], stddev=0.1))
+            E = tf.Variable(tf.random.normal([len(V), word_embedSz], stddev=0.1))
 
         # look up the embeddings
-        embed = tf.nn.embedding_lookup(E, inpt)
+        embed = tf.nn.embedding_lookup(params=E, ids=inpt)
 
         # calculate sum of the weights for l2regularization
         if l2regularization == True:
             sum_weights = tf.nn.l2_loss(embed)
 
         # define the recurrent layer (Gated Recurrent Unit)
-        rnn = tf.contrib.rnn.GRUCell(hiddenSz)
+        rnn = tf.compat.v1.nn.rnn_cell.GRUCell(hiddenSz)
 
         if self.special_doi and self.pretrained:
             initialState = pre_state  # load pretrained state
         else:
             initialState = rnn.zero_state(batchSz, tf.float32)
 
-        ff_inpt, nextState = tf.nn.dynamic_rnn(rnn, embed, initial_state=initialState)
+        ff_inpt, nextState = tf.compat.v1.nn.dynamic_rnn(rnn, embed, initial_state=initialState)
 
         # update sum of the weights for l2regularization
         if self.l2regularization:
@@ -1637,7 +1637,7 @@ class NNModel(ModelEstimator):
 
         if self.authorship:
             if not self.special_doi or not self.pretrained:
-                author_embed = tf.Variable(tf.random_normal([len(author_list), author_embedSz], stddev=0.1))
+                author_embed = tf.Variable(tf.random.normal([len(author_list), author_embedSz], stddev=0.1))
                 # TODO: add the author listing (author_list) to the NN
                 # pre-processing function
 
@@ -1645,7 +1645,7 @@ class NNModel(ModelEstimator):
 
         l1Sz = hiddenSz
         if self.LDA_topics:
-            lda_inpt_size = tf.size(lda_inpt)
+            lda_inpt_size = tf.size(input=lda_inpt)
             l1Sz += lda_inpt_size
 
         if self.authorship:
@@ -1653,15 +1653,15 @@ class NNModel(ModelEstimator):
 
         if not self.special_doi:  # sentiment analysis (pos/neut/neg)
             # create weights and biases for three feedforward layers
-            W1 = tf.Variable(tf.random_normal([l1Sz, ff1Sz], stddev=0.1))
-            b1 = tf.Variable(tf.random_normal([ff1Sz], stddev=0.1))
+            W1 = tf.Variable(tf.random.normal([l1Sz, ff1Sz], stddev=0.1))
+            b1 = tf.Variable(tf.random.normal([ff1Sz], stddev=0.1))
             l1logits = tf.nn.relu(tf.tensordot(ff_inpt, W1, [[2], [0]]) + b1)
-            l1Output = tf.nn.dropout(l1logits, DOutRate)  # apply dropout
-            W2 = tf.Variable(tf.random_normal([ff1Sz, ff2Sz], stddev=0.1))
-            b2 = tf.Variable(tf.random_normal([ff2Sz], stddev=0.1))
+            l1Output = tf.nn.dropout(l1logits, 1 - (DOutRate))  # apply dropout
+            W2 = tf.Variable(tf.random.normal([ff1Sz, ff2Sz], stddev=0.1))
+            b2 = tf.Variable(tf.random.normal([ff2Sz], stddev=0.1))
             l2Output = tf.nn.relu(tf.tensordot(l1Output, W2, [[2], [0]]) + b2)
-            W3 = tf.Variable(tf.random_normal([ff2Sz, 3], stddev=0.1))
-            b3 = tf.Variable(tf.random_normal([3], stddev=0.1))
+            W3 = tf.Variable(tf.random.normal([ff2Sz, 3], stddev=0.1))
+            b3 = tf.Variable(tf.random.normal([3], stddev=0.1))
             # NOTE: Remember to adjust dimensions for the last layer if trinary
             # classification is not the goal of the neural network
 
@@ -1679,28 +1679,28 @@ class NNModel(ModelEstimator):
             xEnt = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=answr)
 
             if self.l2regularization:
-                loss = tf.reduce_mean(xEnt) + (alpha * sum_weights)
+                loss = tf.reduce_mean(input_tensor=xEnt) + (alpha * sum_weights)
             else:
-                loss = tf.reduce_mean(xEnt)
+                loss = tf.reduce_mean(input_tensor=xEnt)
 
         elif self.special_doi:  # classification for a DOI
             if not self.pretrained:  # if initializing parameters
                 # create weights and biases for three feedforward layers
-                W1 = tf.Variable(tf.random_normal([l1Sz, ff1Sz], stddev=0.1))
-                b1 = tf.Variable(tf.random_normal([ff1Sz], stddev=0.1))
+                W1 = tf.Variable(tf.random.normal([l1Sz, ff1Sz], stddev=0.1))
+                b1 = tf.Variable(tf.random.normal([ff1Sz], stddev=0.1))
                 l1logits = tf.nn.relu(tf.matmul(ff_inpt, W1) + b1)
-                l1Output = tf.nn.dropout(l1logits, keepP)  # apply dropout
-                W2 = tf.Variable(tf.random_normal([ff1Sz, ff2Sz], stddev=0.1))
-                b2 = tf.Variable(tf.random_normal([ff2Sz], stddev=0.1))
+                l1Output = tf.nn.dropout(l1logits, 1 - (keepP))  # apply dropout
+                W2 = tf.Variable(tf.random.normal([ff1Sz, ff2Sz], stddev=0.1))
+                b2 = tf.Variable(tf.random.normal([ff2Sz], stddev=0.1))
                 l2Output = tf.nn.relu(tf.matmul(l1Output, W2) + b2)
-                W3 = tf.Variable(tf.random_normal([ff2Sz, 3], stddev=0.1))
-                b3 = tf.Variable(tf.random_normal([3], stddev=0.1))
+                W3 = tf.Variable(tf.random.normal([ff2Sz, 3], stddev=0.1))
+                b3 = tf.Variable(tf.random.normal([3], stddev=0.1))
 
             elif self.pretrained:  # if using pre-trained weights
                 W1 = tf.Variable(weights1)
                 b1 = tf.Variable(biases1)
                 l1logits = tf.nn.relu(tf.matmul(nextState, W1) + b1)
-                l1Output = tf.nn.dropout(l1logits, keepP)  # apply dropout
+                l1Output = tf.nn.dropout(l1logits, 1 - (keepP))  # apply dropout
                 W2 = tf.Variable(weights2)
                 b2 = tf.Variable(biases2)
                 l2Output = tf.nn.relu(tf.matmul(l1Output, W2) + b2)
@@ -1720,26 +1720,26 @@ class NNModel(ModelEstimator):
             prbs = tf.nn.softmax(logits)
 
             # calculate cross-entropy loss
-            xEnt = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=answr)
+            xEnt = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.stop_gradient(answr))
 
             if self.l2regularization:
-                loss = tf.reduce_mean((xEnt) + (NN_alpha * sum_weights))
+                loss = tf.reduce_mean(input_tensor=(xEnt) + (NN_alpha * sum_weights))
             else:
-                loss = tf.reduce_mean(xEnt)
+                loss = tf.reduce_mean(input_tensor=xEnt)
 
             # calculate accuracy
-            numCorrect = tf.equal(tf.argmax(prbs, 1), tf.argmax(answr, 1))
-            numCorrect = tf.reduce_sum(tf.cast(numCorrect, tf.float32))
+            numCorrect = tf.equal(tf.argmax(input=prbs, axis=1), tf.argmax(input=answr, axis=1))
+            numCorrect = tf.reduce_sum(input_tensor=tf.cast(numCorrect, tf.float32))
 
         ## training with AdamOptimizer
 
-        train = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
+        train = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
         ## create the session and initialize the variables
 
-        config = tf.ConfigProto(device_count=self.device_count)
-        sess = tf.Session(config=config)
-        sess.run(tf.global_variables_initializer())
+        config = tf.compat.v1.ConfigProto(device_count=self.device_count)
+        sess = tf.compat.v1.Session(config=config)
+        sess.run(tf.compat.v1.global_variables_initializer())
         if not pretrained:
             state = sess.run(initialState)
 
