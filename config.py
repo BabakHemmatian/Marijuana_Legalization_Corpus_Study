@@ -1,7 +1,9 @@
+from pip._vendor.distlib.compat import raw_input
+
 from defaults import *
 from lda_config import *
-from NN_config import *
-from ratings_config import *
+#TODO: Should this be NN_Utils.py / what do we want to import from here
+from NN_Utils import *
 
 # ENTIRE_CORPUS should be True if NN is True
 if NN:

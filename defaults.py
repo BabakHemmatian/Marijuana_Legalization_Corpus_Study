@@ -14,7 +14,7 @@ import numpy as np
 
 ### Model choice hyperparameters
 
-NN = False # Set to False for LDA, to true for neural network classification
+NN = True # Set to False for LDA, to true for neural network classification
 ENTIRE_CORPUS = True # Are we using a random subset of comments, or the whole
 # dataset? The names of model files and output directories will include the
 # value of this variable (e.g. the default LDA output directory label is
@@ -102,7 +102,7 @@ calculate_coherence = False # whether umass coherence is calculated for the mode
 
 special_doi = False # If False, the neural network will model sentiment.
 # If true, it will perform classification on comments based on a user-defined
-# "dimension of interest"
+# "dimension of interest" #TODO: Clarify "dimension of interest"
 pretrained = False # whether there is sentiment analysis pre-training.
 # NOTE: Should only be set to True if special_doi is also True
 # NOTE: For classifier pretraining, the code should first be run with
