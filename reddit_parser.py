@@ -1,4 +1,5 @@
 import bz2
+import errno
 import lzma
 import zstandard as zstd
 from langdetect import DetectorFactory
@@ -33,7 +34,7 @@ from Utils import *
 
 def parse_one_month_wrapper(args):
     year, month, on_file, kwargs = args
-    Parser(**kwargs).parse_one_month(year, month, on_file)
+    Parser(**kwargs).parse_one_month(year, month)
 
 
 ### Create global helper function for formatting names of data files
@@ -248,27 +249,27 @@ class Parser(object):
             suffix = ""
         else:
             suffix = "-{}-{}".format(year, month)
-        fns = dict((("lda_prep", "{}/lda_prep{}".format(self.path, suffix)),
-                  ("original_comm", "{}/original_comm{}".format(self.path, suffix)),
-                  ("original_indices", "{}/original_indices{}".format(self.path, suffix)),
-                  ("counts", "{}/RC_Count_List{}".format(self.path, suffix)),
-                  ("timedict", "{}/RC_Count_Dict{}".format(self.path, suffix)),
-                  ("total_count", "{}/total_count{}".format(self.path, suffix)),
+        fns = dict((("lda_prep", "{}/lda_prep/lda_prep{}".format(self.path, suffix)),
+                  ("original_comm", "{}/original_comm/original_comm{}".format(self.path, suffix)),
+                  ("original_indices", "{}/original_indices/original_indices{}".format(self.path, suffix)),
+                  ("counts", "{}/counts/RC_Count_List{}".format(self.path, suffix)),
+                  ("timedict", "{}/timedict/RC_Count_Dict{}".format(self.path, suffix)),
+                  ("total_count", "{}/total_counts/total_count{}".format(self.path, suffix)),
                   ))
         if self.NN:
-            fns["nn_prep"] = "{}/nn_prep{}".format(self.path, suffix)
+            fns["nn_prep"] = "{}/nn_prep/nn_prep{}".format(self.path, suffix)
         if self.vote_counting:
-            fns["votes"] = "{}/votes{}".format(self.path, suffix)
+            fns["votes"] = "{}/votes/votes{}".format(self.path, suffix)
         if self.author:
-            fns["author"] = "{}/author{}".format(self.path, suffix)
+            fns["author"] = "{}/author/author{}".format(self.path, suffix)
         if self.sentiment:
-            fns["sentiments"] = "{}/sentiments{}".format(self.path, suffix)
+            fns["sentiments"] = "{}/sentiments/sentiments{}".format(self.path, suffix)
         return fns
 
     ## The main parsing function
     # NOTE: Parses for LDA if NN = False
     # NOTE: Saves the text of the non-processed comment to file as well if write_original = True
-    def parse_one_month(self, year, month, on_file):
+    def parse_one_month(self, year, month):
         timedict = dict()
 
         # get the relevant compressed data file name
@@ -311,19 +312,19 @@ class Parser(object):
                 # calculate hashsum for the data file on disk
                 filesum = self.sha256(filename)
                 attempt = 0  # number of hashsum check trials for the current file
-                # if the file hashsum does not match the correct hashsum
-                while filesum != self.hashsums[filename]:
-                    attempt += 1  # update hashsum check counter
-                    if attempt == 3:  # if failed hashsum check three times,
-                    # ignore the error to prevent an infinite loop
-                        print("Failed to pass hashsum check 3 times. Ignoring.")
-                        break
-                    # notify the user
-                    print("Corrupt data file detected")
-                    print("Expected hashsum value: " +
-                          self.hashsums[filename]+"\nBut calculated: "+filesum)
-                    os.remove(self.path+'/'+filename)  # remove the corrupted file
-                    self.download(year, month)  # download it again
+                # # if the file hashsum does not match the correct hashsum
+                # while filesum != self.hashsums[filename]:
+                #     attempt += 1  # update hashsum check counter
+                #     if attempt == 3:  # if failed hashsum check three times,
+                #     # ignore the error to prevent an infinite loop
+                #         print("Failed to pass hashsum check 3 times. Ignoring.")
+                #         break
+                #     # notify the user
+                #     print("Corrupt data file detected")
+                #     print("Expected hashsum value: " +
+                #           self.hashsums[filename]+"\nBut calculated: "+filesum)
+                #     os.remove(self.path+'/'+filename)  # remove the corrupted file
+                #     self.download(year, month)  # download it again
 
             # if the file is not available, but download is turned off
             elif not filename in self.on_file:
@@ -407,7 +408,7 @@ class Parser(object):
                             ## DEBUG
 
                             blob = TextBlob(original_body)
-                            print(blob.sentiment[0],file=sentiments)
+                            print(blob.sentiment[0], file=sentiments)
 
                         # if we want to write the original comment to disk
                         if self.write_original:
@@ -551,7 +552,7 @@ class Parser(object):
     ## Calls the multiprocessing module to parse raw data in parallel
     def parse(self):
         # get the correct hashsums to check file integrity
-        # self.hashsums = self.Get_Hashsums()
+     #   self.hashsums = self.Get_Hashsums()
 
         # Parallelize parsing by month
         # NOTE: For best results, set the number of processes in the following
@@ -566,6 +567,20 @@ class Parser(object):
 
         # Pool parsing data from all files
         self.pool_parsing_data()
+
+    ## Function to safely create folder structure for parsed files
+    def safe_dir_create(self):
+        fns = self.get_parser_fns()
+        for key in fns:
+            try:
+                new_path = os.path.join(self.path, key)
+                os.makedirs(new_path)
+            except OSError as exc:  # Python >2.5
+                if exc.errno == errno.EEXIST and os.path.isdir(path):
+                    continue
+                else:
+                    raise
+
 
     ## Function to call parser when needed and parse comments
     # TODO: Replace mentions of Vote in this file with mentions of sample_ratings
