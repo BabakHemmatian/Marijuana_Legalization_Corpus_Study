@@ -13,4 +13,5 @@ timedict
 total_count
 votes
 *.txt
-venv
+venv/
+.DS_Store
