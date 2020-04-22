@@ -15,3 +15,4 @@ votes
 *.txt
 venv
 bert_prep
+stanford-corenlp-full-2020-04-20

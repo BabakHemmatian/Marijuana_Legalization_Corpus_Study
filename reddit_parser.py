@@ -1,4 +1,5 @@
 import bz2
+import copy
 import errno
 import lzma
 import zstandard as zstd
@@ -28,6 +29,7 @@ from config import *
 from Utils import *
 from transformers import BertTokenizer
 from keras.preprocessing.sequence import pad_sequences
+import hashlib
 
 
 ### Wrapper for the multi-processing parser
@@ -91,7 +93,8 @@ class Parser(object):
     #   download_raw: If the raw data doesn't exist in path, download a copy from
     #       https://files.pushshift.io/reddit/comments/.
     #   clean_raw: Delete the raw data file when finished.
-    def __init__(self, clean_raw=CLEAN_RAW, dates=dates,
+
+    def __init__(self, nlp_wrapper=StanfordCoreNLP('http://localhost:9000'),bert_tokenizer=BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True), clean_raw=CLEAN_RAW, dates=dates,
                  download_raw=DOWNLOAD_RAW, hashsums=None, NN=NN, path=path,
                  legality=legality, marijuana=marijuana, stop=stop,
                  write_original=WRITE_ORIGINAL, vote_counting=vote_counting, author=author, sentiment=sentiment,
@@ -124,6 +127,10 @@ class Parser(object):
         self.author = author
         self.sentiment = sentiment
         self.on_file = on_file
+        self.bert_tokenizer = bert_tokenizer
+         # connect the Python wrapper to the server
+        # Instantiate CoreNLP wrapper than can be used across multiple threads
+        self.nlp_wrapper = nlp_wrapper
 
     ## Download Reddit comment data
     def download(self, year=None, month=None, filename=None):
@@ -205,7 +212,7 @@ class Parser(object):
     def NN_encode(self, text):
         # check input arguments for valid type
         assert type(text) is list or type(text) is str
-        bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+
         # Create 2d arrays for sentence ids and segment ids.
         sentence_ids = [] # each subarray is an array of vocab ids for each token in the sentence
         segment_ids = [] # each subarray is an array of ids indicating which sentence each token belongs to
@@ -216,14 +223,14 @@ class Parser(object):
         #   (4) Map tokens to their IDs.
         id = 0
         for index, sent in enumerate(text):  # iterate over the sentences
-            encoded_sent = bert_tokenizer.encode(sent,  # Sentence to encode
-                                                 add_special_tokens=True)  # Add '[CLS]' and '[SEP]'
-            segment = id * len(bert_tokenizer.tokenize(sent))
-            sentence_ids.append(encoded_sent)
-            segment_ids.append(segment)
-            # alternate segment id between 0 and 1
-            # TODO: Ask Babak about this
-            id = 1 - id
+             encoded_sent = self.bert_tokenizer.encode(sent,  # Sentence to encode
+                                                      add_special_tokens=True)  # Add '[CLS]' and '[SEP]'
+             segment = [id] * len(self.bert_tokenizer.tokenize(sent))
+             sentence_ids.append(encoded_sent)
+             segment_ids.append(segment)
+            # # alternate segment id between 0 and 1
+            # # TODO: Ask Babak about this
+             id = 1 - id
         return sentence_ids, segment_ids
 
     ## Gets attention masks so BERT knows which tokens correspond to real words vs padding
@@ -254,14 +261,13 @@ class Parser(object):
                                             value=0, truncating="post", padding="post")
         # Create attention masks
         attention_masks = self.NN_attention_masks(padded_sentence_ids)
-        data_to_write = {}
-        data_to_write['parsed_data'] = []
-        data_to_write['parsed_data'].append({
+        data_to_write = {
             'tokenized_sentences': body,
-            'sentence_ids': padded_sentence_ids,
+            'sentence_ids': padded_sentence_ids.tolist(),
+            ## These below should also be ndarrays
             'segment_ids': segment_ids,
             'attention_masks' : attention_masks
-        })
+        }
         return data_to_write
 
     ## define the preprocessing function to lemmatize, and remove punctuation,
@@ -298,7 +304,7 @@ class Parser(object):
                     ("counts", "{}/counts/RC_Count_List{}".format(self.path, suffix)),
                     ("timedict", "{}/timedict/RC_Count_Dict{}".format(self.path, suffix)),
                     ("total_count", "{}/total_counts/total_count{}".format(self.path, suffix)),
-                    ("bert_prep", "{}/bert_prep/bert_prep{}".format(self.path, suffix))
+                    ("bert_prep", "{}/bert_prep/bert_prep{}.json".format(self.path, suffix))
                     ))
         if self.NN:
             fns["nn_prep"] = "{}/nn_prep/nn_prep{}".format(self.path, suffix)
@@ -309,6 +315,30 @@ class Parser(object):
         if self.sentiment:
             fns["sentiments"] = "{}/sentiments/sentiments{}".format(self.path, suffix)
         return fns
+
+    def write_avg_sentiment(self, original_body, sentiments):
+        sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
+        nltk.download('vader_lexicon')
+        tokenized = sent_detector.tokenize(original_body)
+        total_vader = 0
+        total_core_nlp = 0
+        total_textblob = 0
+        annot_doc = self.nlp_wrapper.annotate(original_body, properties={
+            'annotators': 'sentiment',
+            'outputFormat': 'json',
+            'timeout': 1000000, })
+        for i in range(0, len(annot_doc['sentences'])):
+            total_core_nlp += int(annot_doc['sentences'][i]['sentimentValue'])
+        for sentence in tokenized:
+            # Vader score
+            sid = SentimentIntensityAnalyzer()
+            score_dict = sid.polarity_scores(sentence)
+            total_vader += score_dict['compound']
+            # Get TextBlob sentiment
+            blob = TextBlob(sentence)
+            total_textblob += blob.sentiment[0]
+        avg_score = total_vader + total_core_nlp + total_textblob / 3
+        print(avg_score, file=sentiments)
 
     ## The main parsing function
     # NOTE: Parses for LDA if NN = False
@@ -445,16 +475,28 @@ class Parser(object):
                         # Get JSON formatted objects for BERT
                         data_to_write = self.parse_for_bert(body)
                         # Write to bert_prep folder
-                        with open(fns["bert_prep"], 'w') as outfile:
-                            json.dump(data_to_write, outfile)
+                        # with open(fns["bert_prep"]) as readfile:
+                        #     if readfile.read(1) == "":
+                        #         data = {}
+                        #         data["parsed_data"] = [data_to_write]
+                        #         with open(fns["bert_prep"], 'w') as outfile:
+                        #             json.dump(data, outfile, indent=5)
+                        #     else:
+                        #         content = readfile.read()
+                        #         data = json.loads(content)
+                        #         temp = data['parsed_data']
+                        #         temp.append(data_to_write)
+                        #         data = temp
+                        #         with open(fns["bert_prep"], 'w') as outfile:
+                        #             json.dump(data, outfile, indent=5)
 
                         # If calculating sentiment, write the average sentiment to
                         # file. Range is -1 to 1, with values below 0 meaning neg
-                        # sentiment
+                        # sentiment.
                         if self.sentiment:
-                            ## DEBUG
-                            blob = TextBlob(original_body)
-                            print(blob.sentiment[0], file=sentiments)
+                            # TODO: parallelize coreNLP
+                            # get comments x number at a time, write them to text files, send them t core NLP
+                            self.write_avg_sentiment(original_body, sentiments)
 
                         # if we want to write the original comment to disk
                         if self.write_original:
@@ -478,8 +520,7 @@ class Parser(object):
                         # file. Range is -1 to 1, with values below 0 meaning neg
                         # sentiment
                         if self.sentiment:
-                            blob = TextBlob(original_body)
-                            print(blob.sentiment[0], file=sentiments)
+                            self.write_avg_sentiment(original_body, sentiments)
 
                         # if we want to write the original comment to disk
                         if self.write_original:

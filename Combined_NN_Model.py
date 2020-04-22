@@ -1,9 +1,15 @@
 ### import the required modules and functions
 #TODO: Is this the correct Write_Performance()?
+import subprocess
+import time
+
+from pycorenlp import StanfordCoreNLP
+
 from Utils import Write_Performance
 from config import *
 from reddit_parser import Parser
 from ModelEstimation import NNModel
+from transformers import BertTokenizer
 from NN_Utils import *
 
 # NOTE: Don't forget to set NN=True in defaults.py before running this file
@@ -22,6 +28,13 @@ nnmodel.NN_param_typecheck()
 Write_Performance()
 
 ### call the parsing function
+
+# CoreNLP
+# create a connection to the CoreNLP server to retrieve sentiment
+# (requires CoreNLP_server.py in the same directory)
+subprocess.Popen(['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer'],
+               shell=True, cwd="./stanford-corenlp-full-2020-04-20")
+time.sleep(5)  # wait for connection to the server to be established
 
 theparser=Parser()
 # Create relevant folders
