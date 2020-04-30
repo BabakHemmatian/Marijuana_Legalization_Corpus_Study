@@ -131,6 +131,7 @@ class Parser(object):
          # connect the Python wrapper to the server
         # Instantiate CoreNLP wrapper than can be used across multiple threads
         self.nlp_wrapper = nlp_wrapper
+        nltk.download('vader_lexicon')
 
     ## Download Reddit comment data
     def download(self, year=None, month=None, filename=None):
@@ -318,7 +319,6 @@ class Parser(object):
 
     def write_avg_sentiment(self, original_body, sentiments):
         sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
-        nltk.download('vader_lexicon')
         tokenized = sent_detector.tokenize(original_body)
         total_vader = 0
         total_core_nlp = 0
@@ -337,7 +337,12 @@ class Parser(object):
             # Get TextBlob sentiment
             blob = TextBlob(sentence)
             total_textblob += blob.sentiment[0]
-        avg_score = total_vader + total_core_nlp + total_textblob / 3
+        avg_vader = total_vader / len(tokenized)
+        avg_blob = total_textblob / len(tokenized)
+        avg_core_nlp = total_core_nlp / len(annot_doc['sentences'])
+        # Normalizing core nlp so it's between -1 and 1
+        normalized_core_nlp = ((avg_core_nlp / 4) * 2) - 1
+        avg_score = (avg_vader + avg_blob + normalized_core_nlp) / 3
         print(avg_score, file=sentiments)
 
     ## The main parsing function

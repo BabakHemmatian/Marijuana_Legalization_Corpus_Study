@@ -17,6 +17,9 @@ from config import *
 from reddit_parser import Parser
 import tensorflow as tf
 parser_fns = Parser().get_parser_fns()
+from simpletransformers.classification import ClassificationModel
+from transformers import BertModel, BertTokenizer
+import torch
 from Utils import *
 
 
@@ -1342,7 +1345,7 @@ class LDAModel(ModelEstimator):
 
 
 class NNModel(ModelEstimator):
-    def __init__(self, FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
+    def __init__(self, use_simple_bert=use_simple_bert, FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
                  batchSz=batchSz, word_embedSz=word_embedSz, hiddenSz=hiddenSz,
                  author_embedSz=author_embedSz, ff1Sz=ff1Sz, ff2Sz=ff2Sz,
                  keepP=keepP, l2regularization=l2regularization, NN_alpha=NN_alpha,
@@ -1365,6 +1368,9 @@ class NNModel(ModelEstimator):
         self.LDA_topics = LDA_topics
         self.num_topics = num_topics
         self.authorship = authorship
+        self.use_simple_bert = use_simple_bert
+        self.bert_model = None
+        self.bert_tokenizer = None
         self.set_key_list = ['train', 'dev', 'test']  # for NN
         self.sets = {key: [] for key in self.set_key_list}  # for NN
         self.indices = {key: [] for key in self.set_key_list}
@@ -1375,8 +1381,27 @@ class NNModel(ModelEstimator):
         self.accuracy = {key: [] for key in self.set_key_list}
         for set_key in self.set_key_list:
             self.accuracy[set_key] = np.empty(epochs)
-
         self.fns = self.get_fns()
+    def train_bert_model(self, train_data):
+        if self.use_simple_bert:
+            self.bert_model = ClassificationModel('roberta', 'roberta-base',
+                                              args={"output_hidden_states" : True})  # Model for word embeddings
+
+        else:
+            self.bert_model = BertModel.from_pretrained('bert-base-uncased')
+            self.bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+       # self.bert_model.train_model(train_data)
+    def bert_predictions(self, sentence):
+        if use_simple_bert:
+            to_predict = [sentence]
+            _, _, all_embedding_outputs, hidden_states = self.bert_model.predict(to_predict)
+            return hidden_states
+        else:
+            input_ids = torch.tensor(self.bert_tokenizer.encode(sentence, add_special_tokens=True)).unsqueeze(0)  # Batch size 1
+            outputs = self.bert_model(input_ids)
+            last_hidden_states = outputs[0]
+            return last_hidden_states
 
     def get_fns(self, **kwargs):
         fns = {"nn_prep": "{}/nn_prep".format(self.path),
