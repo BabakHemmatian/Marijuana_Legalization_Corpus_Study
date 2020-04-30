@@ -40,6 +40,7 @@ add_sentiment = False # calculates sentiment values under alternative packages
 # (NLTK's Vader and CoreNLP) and aggregates the ratings for more robust output
 # TODO: Add Textblob to the function, sentence-level sentiment (might need
 # sentence tokenization for some of them
+use_simple_bert = True
 
 ### Pre-processing hyperparameters
 MaxVocab = 2000000 # maximum size of the vocabulary

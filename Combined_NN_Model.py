@@ -18,6 +18,7 @@ from NN_Utils import *
 
 nnmodel=NNModel()
 
+
 ### check key hyperparameters for correct data types
 
 nnmodel.NN_param_typecheck()
