@@ -1396,6 +1396,8 @@ class NNModel(ModelEstimator):
         if use_simple_bert:
             to_predict = [sentence]
             _, _, all_embedding_outputs, hidden_states = self.bert_model.predict(to_predict)
+            # have a function reading in from the 3 files, average and then determine the correct label -- then attach the correct label to each document
+            # use author indices to pass in as additional args to bert
             return hidden_states
         else:
             input_ids = torch.tensor(self.bert_tokenizer.encode(sentence, add_special_tokens=True)).unsqueeze(0)  # Batch size 1
