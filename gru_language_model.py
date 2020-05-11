@@ -8,7 +8,6 @@ from collections import Counter
 import tensorflow as tf 
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.utils import to_categorical
-#from tensorflow.keras.utils.data_utils import get_file
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Embedding, GRU, Dense
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
@@ -39,7 +38,7 @@ if __name__ == "__main__":
     validation_split = 0.2
 
     if machine == 'ccv':
-        path = 'users/afengler/data/nlp/nietzsche.txt'
+        path = '/users/afengler/data/nlp/nietzsche.txt'
 
     if machine == 'alex' or machine == 'babak':
         path = 'data_files/nietzsche.txt'
@@ -113,7 +112,7 @@ if __name__ == "__main__":
 
     if machine == 'alex' or machine == 'babak':
         f = open('data_files/glove.6B.50d.txt')
-        
+
     for line in f:
         values = line.split()
         word = values[0]
