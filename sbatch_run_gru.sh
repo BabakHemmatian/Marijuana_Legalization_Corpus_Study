@@ -29,14 +29,11 @@
 #SBATCH -p gpu --gres=gpu:1
 #SBATCH --array=0-3
 
-# source /users/afengler/.bashrc
-# conda deactivate
-# conda activate tf-gpu-py37
+source /users/afengler/.bashrc
+conda deactivate
+conda activate tf-gpu-py37
 # module load python/3.7.4 cuda/10.0.130 cudnn/7.4 tensorflow/2.0.0_gpu_py37
 
-# source /users/afengler/.bashrc
-# conda deactivate
-# conda activate base
 machine='ccv'
 
-python gru_language_model.py --machine $machine  --idx 0 #$SLURM_ARRAY_TASK_ID
+python gru_language_model.py --machine $machine  --idx $SLURM_ARRAY_TASK_ID

@@ -38,7 +38,11 @@ if __name__ == "__main__":
     batch_size = 32
     validation_split = 0.2
 
-    path = 'data_files/nietzsche.txt'
+    if machine == 'ccv':
+        path = 'users/afengler/data/nlp/nietzsche.txt'
+
+    if machine == 'alex' or machine == 'babak':
+        path = 'data_files/nietzsche.txt'
     #get_file('nietzsche.txt', origin = 'https://s3.amazonaws.com/text-datasets/nietzsche.txt')
 
     with open(path, encoding = 'utf-8') as f:
@@ -104,7 +108,12 @@ if __name__ == "__main__":
     print('example sequence:\n', X[0])
 
     embeddings_index = {}
-    f = open('data_files/glove.6B.50d.txt')
+    if machine == 'ccv':
+        f = open('/users/afengler/data/nlp/glove.6B.50d.txt')
+
+    if machine == 'alex' or machine == 'babak':
+        f = open('data_files/glove.6B.50d.txt')
+        
     for line in f:
         values = line.split()
         word = values[0]
