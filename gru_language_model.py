@@ -147,7 +147,6 @@ if __name__ == "__main__":
     model.compile(loss = 'categorical_crossentropy', optimizer = 'adam')
     print(model.summary())
 
-
     def elapsed(sec):
         """
         Converts elapsed time into a more human readable format.
@@ -195,9 +194,9 @@ if __name__ == "__main__":
         return model_info
 
     if machine == 'ccv':
-        address1 = '/users/afengler/git_repos/marijuana_legalization_corpus_study/keras_models/gru_language_pred_seq/gru_weights1.hdf5'
+        address1 = '/users/afengler/git_repos/Marijuana_legalization_corpus_study/keras_models/gru_language_pred_seq/gru_weights' + '_' + idx + '.h5'
     if machine  == 'alex':
-        address1 = '/users/afengler/OneDrive/git_repos/marijuana_legalization_corpus_study/keras_models/gru_language_pred_seq/gru_weights1.hdf5'
+        address1 = '/users/afengler/OneDrive/git_repos/marijuana_legalization_corpus_study/keras_models/gru_language_pred_seq/gru_weight' + '_' + idx + '.h5'
     if machine == 'babak':
         # PUT YOUR FOLDER STRUCTURE HERE
         pass
