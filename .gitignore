@@ -7,3 +7,5 @@ lda_prep
 nn_prep
 bert_prep
 stanford-corenlp-full-2020-04-20
+sentiments
+votes
