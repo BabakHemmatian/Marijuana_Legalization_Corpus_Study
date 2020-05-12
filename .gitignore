@@ -9,3 +9,4 @@ bert_prep
 stanford-corenlp-full-2020-04-20
 sentiments
 votes
+*.DS_Store
