@@ -233,7 +233,7 @@ with open("legality.txt",'r') as f:
     for line in f:
         legality.append(re.compile(line.lower().strip()))
 # get the list of words relevant to marijuana from disk
-# (requires marijuana.txtto be located in the same directory)
+# (requires marijuana.txt be located in the same directory)
 marijuana = []
 with open("marijuana.txt",'r') as f:
     for line in f:

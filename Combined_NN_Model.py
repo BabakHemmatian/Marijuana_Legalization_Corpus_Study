@@ -33,7 +33,7 @@ Write_Performance()
 # CoreNLP
 # create a connection to the CoreNLP server to retrieve sentiment
 # (requires CoreNLP_server.py in the same directory)
-subprocess.Popen(['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer'],
+subprocess.Popen(['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer --quiet'],
                shell=True, cwd="./stanford-corenlp-full-2020-04-20")
 time.sleep(5)  # wait for connection to the server to be established
 
