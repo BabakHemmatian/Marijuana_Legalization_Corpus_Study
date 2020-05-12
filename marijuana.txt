@@ -9,7 +9,7 @@
 \bKush\b
 \bWeed\b(?! out\b)(?! through\b)(?! killer)(?! control)(?! its' way into)(?! its way into)
 \bNug\b
-(?<!melting-)(?<!melting )(?<!crack )(?<!stir the )(?<!stirring the )(?<!stirred the )(?<!sweeten the )(?<!pol )(?<flower )(?<!honey )(?<!meet )(?<!crock )(?<!smoke )(?<!split the)\bpot\b(?!.shot)(?!.luck)(?! of )(?! black)(?! calling the kettle)(?!.hole)
+(?<!melting-)(?<!melting )(?<!crack )(?<!stir the )(?<!stirring the )(?<!stirred the )(?<!sweeten the )(?<!pol )(?<!flower )(?<!honey )(?<!meet )(?<!crock )(?<!smoke )(?<!split the)\bpot\b(?!.shot)(?!.luck)(?! of )(?! black)(?! calling the kettle)(?!.hole)
 \bTHC\b
 \bSativa\b
 \bZambi\b

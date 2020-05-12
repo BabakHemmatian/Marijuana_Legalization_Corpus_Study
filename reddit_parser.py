@@ -475,10 +475,10 @@ class Parser(object):
                     ## TODO is this for one comment or for all of the comments in a month?
                     if self.NN:
                         # Tokenize the sentences
-                        body = sent_detector.tokenize(
-                            original_body)
+                        #body = sent_detector.tokenize(
+                         #   original_body)
                         # Get JSON formatted objects for BERT
-                        data_to_write = self.parse_for_bert(body)
+                        # data_to_write = self.parse_for_bert(body)
                         # Write to bert_prep folder
                         # with open(fns["bert_prep"]) as readfile:
                         #     if readfile.read(1) == "":
