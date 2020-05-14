@@ -1,4 +1,4 @@
-name: Marijuana_Study
+name: marijuana_study
 channels:
   - conda-forge
   - pytorch
@@ -66,10 +66,10 @@ dependencies:
   - tensorboard=2.0.0=pyhb38c66f_1
  # - tensorflow=2.0.0=mkl_py37hda344b4_0
   #- tensorflow-base=2.0.0=mkl_py37h66b1bf0_0
-  - tensorflow-estimator=2.0.0=pyh2649769_0
+ # - tensorflow-estimator=2.0.0=pyh2649769_0
   - termcolor=1.1.0=py37_1
   #- tk=8.6.8=ha441bb4_0
-  - werkzeug=1.0.0=py_0
+  #- werkzeug=1.0.0=py_0
   #- wget=1.20.1=h051b688_0
   - wheel=0.34.2=py37_0
   #- wrapt=1.12.1=py37h1de35cc_1
@@ -146,5 +146,7 @@ dependencies:
     - urllib3==1.25.3
     - wasabi==0.2.2
     - zstandard==0.11.1
-prefix: /Users/nathanielgoodman/opt/anaconda3/envs/Marijuana_Study
+
+
+
 
