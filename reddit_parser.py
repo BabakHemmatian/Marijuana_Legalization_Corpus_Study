@@ -641,7 +641,7 @@ class Parser(object):
         # NOTE: For best results, set the number of processes in the following
         # line based on (number of physical cores)*(hyper-threading multiplier)
         # -1 (for synchronization overhead)
-        pool = multiprocessing.Pool(processes=7)
+        pool = multiprocessing.Pool(processes=20)
         inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
         pool.map(parse_one_month_wrapper, inputs)
         # timer
