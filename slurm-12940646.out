@@ -1,0 +1,571 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 12940646
+##  Job Name : Combined_NN
+##  Nodelist : node1156
+##      CPUs : 
+##  Mem/Node : 24576 MB
+## Directory : /gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study
+##   Started : Thu May 21 11:27:11 EDT 2020
+###############################################################################
+module: loading 'anaconda/3-5.2.0'
+Using TensorFlow backend.
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+[main] INFO CoreNLP - --- StanfordCoreNLPServer#main() called ---
+[main] INFO CoreNLP - Setting default constituency parser to SR parser: edu/stanford/nlp/models/srparser/englishSR.ser.gz
+[main] INFO CoreNLP -     Threads: 24
+[main] INFO CoreNLP - Starting server...
+[main] INFO CoreNLP - StanfordCoreNLPServer listening at /0:0:0:0:0:0:0:0:9000
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+Started parsing at 11:27AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2008, month 1:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2008-1', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2008-1', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2008-1']
+Initiating preprocessing of RC_2008-01.bz2at 11:27AM, 05/21/2020
+The following needed processed file(s) were missing for 2008, month 6:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2008-6', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2008-6', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2008-6']
+Initiating preprocessing of RC_2008-06.bz2at 11:27AM, 05/21/2020
+The following needed processed file(s) were missing for 2008, month 11:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2008-11', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2008-11', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2008-11']
+Initiating preprocessing of RC_2008-11.bz2at 11:27AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2009, month 5:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2009-5', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2009-5', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2009-5']
+Initiating preprocessing of RC_2009-05.bz2at 11:27AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2009, month 10:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2009-10', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2009-10', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2009-10']
+Initiating preprocessing of RC_2009-10.bz2at 11:27AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2010, month 4:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2010-4', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2010-4', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2010-4']
+Initiating preprocessing of RC_2010-04.bz2at 11:27AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2010, month 9:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2010-9', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2010-9', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2010-9']
+Initiating preprocessing of RC_2010-09.bz2at 11:27AM, 05/21/2020
+[pool-1-thread-7] INFO edu.stanford.nlp.pipeline.StanfordCoreNLP - Adding annotator tokenize
+[pool-1-thread-7] INFO edu.stanford.nlp.pipeline.StanfordCoreNLP - Adding annotator ssplit
+[pool-1-thread-7] INFO edu.stanford.nlp.pipeline.StanfordCoreNLP - Adding annotator pos
+[pool-1-thread-7] INFO edu.stanford.nlp.tagger.maxent.MaxentTagger - Loading POS tagger from edu/stanford/nlp/models/pos-tagger/english-left3words-distsim.tagger ... done [0.5 sec].
+[pool-1-thread-7] INFO edu.stanford.nlp.pipeline.StanfordCoreNLP - Adding annotator parse
+[pool-1-thread-7] INFO edu.stanford.nlp.parser.common.ParserGrammar - Loading parser from serialized file edu/stanford/nlp/models/srparser/englishSR.ser.gz ... done [12.3 sec].
+[pool-1-thread-7] INFO edu.stanford.nlp.pipeline.StanfordCoreNLP - Adding annotator sentiment
+[pool-1-thread-7] INFO edu.stanford.nlp.sentiment.SentimentModel - Loading sentiment model edu/stanford/nlp/models/sentiment/sentiment.ser.gz ... done [0.1 sec].
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ￼ (U+FFFC, decimal: 65532)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2011, month 3:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2011-3', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2011-3', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2011-3']
+Initiating preprocessing of RC_2011-03.bz2at 11:28AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2011, month 8:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2011-8', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2011-8', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2011-8']
+Initiating preprocessing of RC_2011-08.bz2at 11:29AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2012, month 2:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2012-2', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2012-2', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2012-2']
+Initiating preprocessing of RC_2012-02.bz2at 11:30AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2012, month 7:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2012-7', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2012-7', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2012-7']
+Initiating preprocessing of RC_2012-07.bz2at 11:31AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2013, month 1:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2013-1', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2013-1', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2013-1']
+Initiating preprocessing of RC_2013-01.bz2at 11:31AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2013, month 6:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2013-6', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2013-6', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2013-6']
+Initiating preprocessing of RC_2013-06.bz2at 11:31AM, 05/21/2020
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2013, month 11:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2013-11', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2013-11', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2013-11']
+Initiating preprocessing of RC_2013-11.bz2at 11:31AM, 05/21/2020
+[pool-2-thread-6] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-18] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-15] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-12] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+F04A, decimal: 61514)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2014, month 5:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2014-5', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2014-5', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2014-5']
+Initiating preprocessing of RC_2014-05.bz2at 12:15PM, 05/21/2020
+[pool-2-thread-14] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-9] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+11, decimal: 17)
+[pool-2-thread-11] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[nltk_data] Error loading vader_lexicon: <urlopen error [Errno 110]
+[nltk_data]     Connection timed out>
+The following needed processed file(s) were missing for 2014, month 10:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2014-10', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2014-10', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2014-10']
+Initiating preprocessing of RC_2014-10.bz2at 12:36PM, 05/21/2020
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-19] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+9D, decimal: 157)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2015, month 4:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2015-4', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2015-4', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2015-4']
+Initiating preprocessing of RC_2015-04.bz2at 12:59PM, 05/21/2020
+[pool-2-thread-11] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+F0B7, decimal: 61623)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2015, month 9:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2015-9', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2015-9', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2015-9']
+Initiating preprocessing of RC_2015-09.bz2at  1:08PM, 05/21/2020
+[pool-2-thread-23] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ༼ (U+F3C, decimal: 3900)
+[pool-2-thread-3] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+F0B7, decimal: 61623)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: 􏰀 (U+10FC00, decimal: 1113088)
+[pool-2-thread-23] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ് (U+D4D, decimal: 3405)
+[pool-2-thread-22] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+F139, decimal: 61753)
+[pool-2-thread-19] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ︵ (U+FE35, decimal: 65077)
+[pool-2-thread-8] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-14] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+1C, decimal: 28)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‽ (U+203D, decimal: 8253)
+[pool-2-thread-22] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+1, decimal: 1)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-22] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‭ (U+202D, decimal: 8237)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2016, month 3:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2016-3', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2016-3', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2016-3']
+Initiating preprocessing of RC_2016-03.bz2at  2:05PM, 05/21/2020
+[pool-2-thread-17] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2016, month 8:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2016-8', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/timedict/RC_Count_Dict-2016-8', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2016-8', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2016-8']
+Initiating preprocessing of RC_2016-08.bz2at  2:12PM, 05/21/2020
+[pool-2-thread-7] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+9D, decimal: 157)
+[pool-2-thread-14] INFO edu.stanford.nlp.sentiment.SentimentCostAndGradient - SentimentCostAndGradient: warning: Tree not correctly binarized: (ROOT (`` ") (SBAR (@S (@S (S (NP (DT The) (NN study)) (VP (VBD was) (NP (@NP (NP (DT a) (NN success)) (PP (IN in) (NP (DT the) (NN sense)))) (SBAR (IN that) (S (NP we) (VP (@VP (VBD did) (RB not)) (VP (VB have) (NP (DT any) (@NP (JJ noteworthy) (@NP (JJ adverse) (NNS effects))))))))))) (, ...)) ('' ")) (S (INTJ Well) (@S (: ...) (@S (NP I) (VP (VBP have) (NP (DT no) (@NP (JJ effective) (@NP (NN reason) (S (TO to) (VP (VB doubt) (NP this))))))))))) (. .))
+[pool-1-thread-21] WARN CoreNLP - java.util.concurrent.ExecutionException: java.lang.AssertionError: Tree not correctly binarized
+  java.util.concurrent.FutureTask.report(FutureTask.java:122)
+  java.util.concurrent.FutureTask.get(FutureTask.java:206)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.handle(StanfordCoreNLPServer.java:923)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.AuthFilter.doFilter(AuthFilter.java:83)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:82)
+  sun.net.httpserver.ServerImpl$Exchange$LinkHandler.handle(ServerImpl.java:675)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.ServerImpl$Exchange.run(ServerImpl.java:647)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+Caused by: class java.lang.AssertionError: Tree not correctly binarized
+  edu.stanford.nlp.sentiment.SentimentCostAndGradient.forwardPropagateTree(SentimentCostAndGradient.java:532)
+  edu.stanford.nlp.sentiment.SentimentCostAndGradient.forwardPropagateTree(SentimentCostAndGradient.java:512)
+  edu.stanford.nlp.pipeline.SentimentAnnotator.doOneSentence(SentimentAnnotator.java:115)
+  edu.stanford.nlp.pipeline.SentenceAnnotator.annotate(SentenceAnnotator.java:102)
+  edu.stanford.nlp.pipeline.AnnotationPipeline.annotate(AnnotationPipeline.java:76)
+  edu.stanford.nlp.pipeline.StanfordCoreNLP.annotate(StanfordCoreNLP.java:640)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.lambda$handle$0(StanfordCoreNLPServer.java:918)
+  java.util.concurrent.FutureTask.run(FutureTask.java:266)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2017, month 2:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2017-2', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/timedict/RC_Count_Dict-2017-2', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2017-2', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2017-2']
+Initiating preprocessing of RC_2017-02.bz2at  2:16PM, 05/21/2020
+[pool-2-thread-15] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ︶ (U+FE36, decimal: 65078)
+[pool-2-thread-12] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-22] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+205F, decimal: 8287)
+[pool-2-thread-12] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+205F, decimal: 8287)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ￼ (U+FFFC, decimal: 65532)
+[nltk_data] Error loading vader_lexicon: <urlopen error [Errno 110]
+[nltk_data]     Connection timed out>
+The following needed processed file(s) were missing for 2017, month 7:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2017-7', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/timedict/RC_Count_Dict-2017-7', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2017-7', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2017-7']
+Initiating preprocessing of RC_2017-07.bz2at  2:27PM, 05/21/2020
+[pool-2-thread-19] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-18] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+205F, decimal: 8287)
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+F04A, decimal: 61514)
+[pool-2-thread-11] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-1-thread-17] WARN CoreNLP - java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException
+  java.util.concurrent.FutureTask.report(FutureTask.java:122)
+  java.util.concurrent.FutureTask.get(FutureTask.java:206)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.handle(StanfordCoreNLPServer.java:923)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.AuthFilter.doFilter(AuthFilter.java:83)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:82)
+  sun.net.httpserver.ServerImpl$Exchange$LinkHandler.handle(ServerImpl.java:675)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.ServerImpl$Exchange.run(ServerImpl.java:647)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+Caused by: class java.lang.IllegalArgumentException: null
+  edu.stanford.nlp.semgraph.SemanticGraph.parentPairs(SemanticGraph.java:730)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$DEPENDENT$1.advance(GraphRelation.java:325)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$SearchNodeIterator.initialize(GraphRelation.java:1103)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$SearchNodeIterator.<init>(GraphRelation.java:1084)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$DEPENDENT$1.<init>(GraphRelation.java:310)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$DEPENDENT.searchNodeIterator(GraphRelation.java:310)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.resetChildIter(NodePattern.java:337)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.<init>(NodePattern.java:332)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern.matcher(NodePattern.java:293)
+  edu.stanford.nlp.semgraph.semgrex.CoordinationPattern$CoordinationMatcher.<init>(CoordinationPattern.java:146)
+  edu.stanford.nlp.semgraph.semgrex.CoordinationPattern.matcher(CoordinationPattern.java:120)
+  edu.stanford.nlp.semgraph.semgrex.CoordinationPattern$CoordinationMatcher.<init>(CoordinationPattern.java:146)
+  edu.stanford.nlp.semgraph.semgrex.CoordinationPattern.matcher(CoordinationPattern.java:120)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.resetChild(NodePattern.java:356)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.goToNextNodeMatch(NodePattern.java:455)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.matches(NodePattern.java:572)
+  edu.stanford.nlp.semgraph.semgrex.SemgrexMatcher.find(SemgrexMatcher.java:193)
+  edu.stanford.nlp.trees.UniversalEnglishGrammaticalStructure.processComplex2WP(UniversalEnglishGrammaticalStructure.java:1596)
+  edu.stanford.nlp.trees.UniversalEnglishGrammaticalStructure.processMultiwordPreps(UniversalEnglishGrammaticalStructure.java:1533)
+  edu.stanford.nlp.trees.UniversalEnglishGrammaticalStructure.addEnhancements(UniversalEnglishGrammaticalStructure.java:916)
+  edu.stanford.nlp.trees.GrammaticalStructure.typedDependenciesEnhancedPlusPlus(GrammaticalStructure.java:916)
+  edu.stanford.nlp.semgraph.SemanticGraphFactory.makeFromTree(SemanticGraphFactory.java:249)
+  edu.stanford.nlp.semgraph.SemanticGraphFactory.generateEnhancedPlusPlusDependencies(SemanticGraphFactory.java:129)
+  edu.stanford.nlp.pipeline.ParserAnnotatorUtils.fillInParseAnnotations(ParserAnnotatorUtils.java:67)
+  edu.stanford.nlp.pipeline.ParserAnnotator.finishSentence(ParserAnnotator.java:309)
+  edu.stanford.nlp.pipeline.ParserAnnotator.doOneSentence(ParserAnnotator.java:275)
+  edu.stanford.nlp.pipeline.SentenceAnnotator.annotate(SentenceAnnotator.java:102)
+  edu.stanford.nlp.pipeline.AnnotationPipeline.annotate(AnnotationPipeline.java:76)
+  edu.stanford.nlp.pipeline.StanfordCoreNLP.annotate(StanfordCoreNLP.java:640)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.lambda$handle$0(StanfordCoreNLPServer.java:918)
+  java.util.concurrent.FutureTask.run(FutureTask.java:266)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2018, month 1:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2018-1', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/timedict/RC_Count_Dict-2018-1', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2018-1', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2018-1']
+Initiating preprocessing of RC_2018-01.xzat  2:57PM, 05/21/2020
+[pool-2-thread-8] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-11] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+9D, decimal: 157)
+[pool-2-thread-5] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ︵ (U+FE35, decimal: 65077)
+[pool-2-thread-6] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-18] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-7] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-18] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-6] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+F0B7, decimal: 61623)
+[pool-2-thread-14] INFO edu.stanford.nlp.sentiment.SentimentCostAndGradient - SentimentCostAndGradient: warning: Tree not correctly binarized: (ROOT (-LRB- -LRB-) (S (@S (S (VB look) (PP (IN at) (SBAR (WHNP what) (S (VBZ has) (VP (VBN been) (VP (VBN discovered) (ADVP (ADVP (IN as) (RB far)) (PP (IN as) (NP (@NP (@NP (@NP (NP (NP marijuana) (PP (IN for) (NP epilepsy))) (, ,)) (NP (NN cancer) (NN pain))) (, ,)) (ADVP etc.)))))))))) (CC but)) (S (VP (VB imagine) (SBARQ (WHADVP (@WHADVP (WRB how) (RB far)) (PP (IN along) (NP medicine))) (VP (MD would) (VP (VB be) (SBAR (IN if) (S (NP generations) (VP (@VP (VBD had) (RB not)) (VP (VBN been) (VP (VBN brainwashed) (PP (IN into) (S (VBG thinking) (SBAR (NP it) (VP (VBD was) (NP (NP something) (ADJP terrible))))))))))))))) (-RRB- -RRB-))) (. .))
+[pool-1-thread-10] WARN CoreNLP - java.util.concurrent.ExecutionException: java.lang.AssertionError: Tree not correctly binarized
+  java.util.concurrent.FutureTask.report(FutureTask.java:122)
+  java.util.concurrent.FutureTask.get(FutureTask.java:206)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.handle(StanfordCoreNLPServer.java:923)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.AuthFilter.doFilter(AuthFilter.java:83)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:82)
+  sun.net.httpserver.ServerImpl$Exchange$LinkHandler.handle(ServerImpl.java:675)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.ServerImpl$Exchange.run(ServerImpl.java:647)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+Caused by: class java.lang.AssertionError: Tree not correctly binarized
+  edu.stanford.nlp.sentiment.SentimentCostAndGradient.forwardPropagateTree(SentimentCostAndGradient.java:532)
+  edu.stanford.nlp.sentiment.SentimentCostAndGradient.forwardPropagateTree(SentimentCostAndGradient.java:512)
+  edu.stanford.nlp.pipeline.SentimentAnnotator.doOneSentence(SentimentAnnotator.java:115)
+  edu.stanford.nlp.pipeline.SentenceAnnotator.annotate(SentenceAnnotator.java:102)
+  edu.stanford.nlp.pipeline.AnnotationPipeline.annotate(AnnotationPipeline.java:76)
+  edu.stanford.nlp.pipeline.StanfordCoreNLP.annotate(StanfordCoreNLP.java:640)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.lambda$handle$0(StanfordCoreNLPServer.java:918)
+  java.util.concurrent.FutureTask.run(FutureTask.java:266)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2018, month 6:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2018-6', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/timedict/RC_Count_Dict-2018-6', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2018-6', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2018-6']
+Initiating preprocessing of RC_2018-06.xzat  3:27PM, 05/21/2020
+[pool-2-thread-6] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ⁎ (U+204E, decimal: 8270)
+[pool-2-thread-15] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-15] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-11] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-11] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ￼ (U+FFFC, decimal: 65532)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‭ (U+202D, decimal: 8237)
+[pool-2-thread-6] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‽ (U+203D, decimal: 8253)
+[pool-2-thread-3] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-7] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2018, month 11:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2018-11', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/timedict/RC_Count_Dict-2018-11', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2018-11', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2018-11']
+Initiating preprocessing of RC_2018-11.zstat  4:11PM, 05/21/2020
+[pool-2-thread-22] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ് (U+D4D, decimal: 3405)
+[pool-2-thread-5] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-7] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-15] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‽ (U+203D, decimal: 8253)
+[pool-2-thread-14] INFO edu.stanford.nlp.sentiment.SentimentCostAndGradient - SentimentCostAndGradient: warning: Tree not correctly binarized: (ROOT (S (NP She) (@S (VP (VBD kept) (S (@VP (VBG making) (NP fun)) (PP (IN of) (NP (PRP$ my) (NNS choices))))) (`` "))) (S (NP That) (VP (@VP (VBD was) (NP (NP (NN #) (CD 1)) (NP (NP (PRP$ my) (NN problem)) (PP (IN with) (NP (DT an) (@NP (JJ old) (NN friend))))))) (ADVP too))) (. .))
+[pool-1-thread-21] WARN CoreNLP - java.util.concurrent.ExecutionException: java.lang.AssertionError: Tree not correctly binarized
+  java.util.concurrent.FutureTask.report(FutureTask.java:122)
+  java.util.concurrent.FutureTask.get(FutureTask.java:206)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.handle(StanfordCoreNLPServer.java:923)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.AuthFilter.doFilter(AuthFilter.java:83)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:82)
+  sun.net.httpserver.ServerImpl$Exchange$LinkHandler.handle(ServerImpl.java:675)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.ServerImpl$Exchange.run(ServerImpl.java:647)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+Caused by: class java.lang.AssertionError: Tree not correctly binarized
+  edu.stanford.nlp.sentiment.SentimentCostAndGradient.forwardPropagateTree(SentimentCostAndGradient.java:532)
+  edu.stanford.nlp.sentiment.SentimentCostAndGradient.forwardPropagateTree(SentimentCostAndGradient.java:512)
+  edu.stanford.nlp.pipeline.SentimentAnnotator.doOneSentence(SentimentAnnotator.java:115)
+  edu.stanford.nlp.pipeline.SentenceAnnotator.annotate(SentenceAnnotator.java:102)
+  edu.stanford.nlp.pipeline.AnnotationPipeline.annotate(AnnotationPipeline.java:76)
+  edu.stanford.nlp.pipeline.StanfordCoreNLP.annotate(StanfordCoreNLP.java:640)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.lambda$handle$0(StanfordCoreNLPServer.java:918)
+  java.util.concurrent.FutureTask.run(FutureTask.java:266)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+9D, decimal: 157)
+[nltk_data] Error loading vader_lexicon: <urlopen error [Errno 110]
+[nltk_data]     Connection timed out>
+The following needed processed file(s) were missing for 2019, month 5:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2019-5', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/timedict/RC_Count_Dict-2019-5', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2019-5', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2019-5']
+Initiating preprocessing of RC_2019-05.zstat  4:31PM, 05/21/2020
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-3] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-17] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+9D, decimal: 157)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‍ (U+200D, decimal: 8205)
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ⵽ (U+2D7D, decimal: 11645)
+[pool-2-thread-5] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-8] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‍ (U+200D, decimal: 8205)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-8] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ༼ (U+F3C, decimal: 3900)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‪ (U+202A, decimal: 8234)
+[pool-2-thread-14] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‭ (U+202D, decimal: 8237)
+[pool-2-thread-22] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-18] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-22] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ㎝ (U+339D, decimal: 13213)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-15] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-23] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ⁠ (U+2060, decimal: 8288)
+[pool-2-thread-24] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ￼ (U+FFFC, decimal: 65532)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+14, decimal: 20)
+[pool-2-thread-19] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ￼ (U+FFFC, decimal: 65532)
+[pool-2-thread-22] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-19] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+15, decimal: 21)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‍ (U+200D, decimal: 8205)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-7] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-3] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+F0D8, decimal: 61656)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‽ (U+203D, decimal: 8253)
+[pool-2-thread-24] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‪ (U+202A, decimal: 8234)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‽ (U+203D, decimal: 8253)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‭ (U+202D, decimal: 8237)
+[pool-2-thread-18] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-3] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+13, decimal: 19)
+[nltk_data] Downloading package vader_lexicon to
+[nltk_data]     /users/ngoodma3/anaconda/marijuana_study/lib/nltk_data
+[nltk_data]     ...
+[nltk_data]   Package vader_lexicon is already up-to-date!
+The following needed processed file(s) were missing for 2019, month 10:
+['/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/lda_prep/lda_prep-2019-10', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/timedict/RC_Count_Dict-2019-10', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/total_counts/total_count-2019-10', '/gpfs/scratch/ngoodma3/Marijuana_Legalization_Corpus_Study/nn_prep/nn_prep-2019-10']
+Initiating preprocessing of RC_2019-10.zstat  5:20PM, 05/21/2020
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-23] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+F0B7, decimal: 61623)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ￼ (U+FFFC, decimal: 65532)
+[pool-2-thread-7] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-9] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-17] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-17] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-1-thread-15] WARN CoreNLP - java.util.concurrent.ExecutionException: java.lang.IllegalArgumentException
+  java.util.concurrent.FutureTask.report(FutureTask.java:122)
+  java.util.concurrent.FutureTask.get(FutureTask.java:206)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.handle(StanfordCoreNLPServer.java:923)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.AuthFilter.doFilter(AuthFilter.java:83)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:82)
+  sun.net.httpserver.ServerImpl$Exchange$LinkHandler.handle(ServerImpl.java:675)
+  com.sun.net.httpserver.Filter$Chain.doFilter(Filter.java:79)
+  sun.net.httpserver.ServerImpl$Exchange.run(ServerImpl.java:647)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+Caused by: class java.lang.IllegalArgumentException: null
+  edu.stanford.nlp.semgraph.SemanticGraph.parentPairs(SemanticGraph.java:730)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$DEPENDENT$1.advance(GraphRelation.java:325)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$SearchNodeIterator.initialize(GraphRelation.java:1103)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$SearchNodeIterator.<init>(GraphRelation.java:1084)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$DEPENDENT$1.<init>(GraphRelation.java:310)
+  edu.stanford.nlp.semgraph.semgrex.GraphRelation$DEPENDENT.searchNodeIterator(GraphRelation.java:310)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.resetChildIter(NodePattern.java:337)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.<init>(NodePattern.java:332)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern.matcher(NodePattern.java:293)
+  edu.stanford.nlp.semgraph.semgrex.CoordinationPattern$CoordinationMatcher.<init>(CoordinationPattern.java:146)
+  edu.stanford.nlp.semgraph.semgrex.CoordinationPattern.matcher(CoordinationPattern.java:120)
+  edu.stanford.nlp.semgraph.semgrex.CoordinationPattern$CoordinationMatcher.<init>(CoordinationPattern.java:146)
+  edu.stanford.nlp.semgraph.semgrex.CoordinationPattern.matcher(CoordinationPattern.java:120)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.resetChild(NodePattern.java:356)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.goToNextNodeMatch(NodePattern.java:455)
+  edu.stanford.nlp.semgraph.semgrex.NodePattern$NodeMatcher.matches(NodePattern.java:572)
+  edu.stanford.nlp.semgraph.semgrex.SemgrexMatcher.find(SemgrexMatcher.java:193)
+  edu.stanford.nlp.trees.UniversalEnglishGrammaticalStructure.processComplex2WP(UniversalEnglishGrammaticalStructure.java:1596)
+  edu.stanford.nlp.trees.UniversalEnglishGrammaticalStructure.processMultiwordPreps(UniversalEnglishGrammaticalStructure.java:1533)
+  edu.stanford.nlp.trees.UniversalEnglishGrammaticalStructure.addEnhancements(UniversalEnglishGrammaticalStructure.java:916)
+  edu.stanford.nlp.trees.GrammaticalStructure.typedDependenciesEnhancedPlusPlus(GrammaticalStructure.java:916)
+  edu.stanford.nlp.semgraph.SemanticGraphFactory.makeFromTree(SemanticGraphFactory.java:249)
+  edu.stanford.nlp.semgraph.SemanticGraphFactory.generateEnhancedPlusPlusDependencies(SemanticGraphFactory.java:129)
+  edu.stanford.nlp.pipeline.ParserAnnotatorUtils.fillInParseAnnotations(ParserAnnotatorUtils.java:67)
+  edu.stanford.nlp.pipeline.ParserAnnotator.finishSentence(ParserAnnotator.java:309)
+  edu.stanford.nlp.pipeline.ParserAnnotator.doOneSentence(ParserAnnotator.java:275)
+  edu.stanford.nlp.pipeline.SentenceAnnotator.annotate(SentenceAnnotator.java:102)
+  edu.stanford.nlp.pipeline.AnnotationPipeline.annotate(AnnotationPipeline.java:76)
+  edu.stanford.nlp.pipeline.StanfordCoreNLP.annotate(StanfordCoreNLP.java:640)
+  edu.stanford.nlp.pipeline.StanfordCoreNLPServer$CoreNLPHandler.lambda$handle$0(StanfordCoreNLPServer.java:918)
+  java.util.concurrent.FutureTask.run(FutureTask.java:266)
+  java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)
+  java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)
+  java.lang.Thread.run(Thread.java:745)
+[pool-2-thread-8] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ҉ (U+489, decimal: 1161)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-23] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ⁠ (U+2060, decimal: 8288)
+[pool-2-thread-6] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-12] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-23] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ⁠ (U+2060, decimal: 8288)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: 󾓦 (U+FE4E6, decimal: 1041638)
+[pool-2-thread-7] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-6] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‍ (U+200D, decimal: 8205)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-10] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ゜ (U+309C, decimal: 12444)
+[pool-2-thread-23] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+1C, decimal: 28)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-23] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-11] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+9D, decimal: 157)
+[pool-2-thread-5] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+9D, decimal: 157)
+[pool-2-thread-17] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‍ (U+200D, decimal: 8205)
+[pool-2-thread-9] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-3] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-11] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-9] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-12] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-5] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ￼ (U+FFFC, decimal: 65532)
+[pool-2-thread-9] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ️ (U+FE0F, decimal: 65039)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+1F, decimal: 31)
+[pool-2-thread-17] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-7] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+14, decimal: 20)
+[pool-2-thread-8] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ￼ (U+FFFC, decimal: 65532)
+[pool-2-thread-2] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ් (U+DCA, decimal: 3530)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-17] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‍ (U+200D, decimal: 8205)
+[pool-2-thread-21] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+10, decimal: 16)
+[pool-2-thread-1] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-18] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-15] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)
+[pool-2-thread-4] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:  (U+8, decimal: 8)
+[pool-2-thread-13] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: ‪ (U+202A, decimal: 8234)
+[pool-2-thread-12] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-20] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable: � (U+FFFD, decimal: 65533)
+[pool-2-thread-16] WARN edu.stanford.nlp.process.PTBLexer - Untokenizable:   (U+202F, decimal: 8239)

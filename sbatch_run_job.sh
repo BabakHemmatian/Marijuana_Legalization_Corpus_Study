@@ -26,7 +26,6 @@
 ##SBATCH --constraint='cascade'
 #SBATCH -p gpu --gres=gpu:1
 #SBATCH --array=0-3
-
 module load anaconda/3-5.2.0
 conda activate marijuana_study
 ##module load python/3.7.4 cuda/10.0.130 cudnn/7.4 tensorflow/2.0.0_gpu_py37
