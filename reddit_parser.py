@@ -354,47 +354,12 @@ class Parser(object):
         # get the relevant compressed data file name
         filename = get_rc_filename(year, month)
 
-        # preprocess raw data
-        # if the file is available on disk and download is on, prevent deletion
-        if not filename in self.on_file and self.download_raw:
-            self.download(year, month)  # download the relevant file
-
-            # check data file integrity and download again if needed
-
-            # NOTE: sometimes inaccurate reported hashsums in the online dataset
-            # cause this check to invariably fail. Comment out the code section
-            # below if that becomes a problem.
-
-            # calculate hashsum for the data file on disk
-            filesum = self.sha256(filename)
-            attempt = 0  # number of hashsum check trials for the current file
-            # # if the file hashsum does not match the correct hashsum
-            # while filesum != self.hashsums[filename]:
-            #     attempt += 1  # update hashsum check counter
-            #     if attempt == 3:  # if failed hashsum check three times,
-            #     # ignore the error to prevent an infinite loop
-            #         print("Failed to pass hashsum check 3 times. Ignoring.")
-            #         break
-            #     # notify the user
-            #     print("Corrupt data file detected")
-            #     print("Expected hashsum value: " +
-            #           self.hashsums[filename]+"\nBut calculated: "+filesum)
-            #     os.remove(self.path+'/'+filename)  # remove the corrupted file
-            #     self.download(year, month)  # download it again
-
-        # if the file is not available, but download is turned off
-        elif not filename in self.on_file:
-            # notify the user
-            print('Can\'t find data for {}/{}. Skipping.'.format(month, year))
-            return
-
         # Get names of processing files
         fns = self.get_parser_fns(year, month)
 
         if self.NN or self.sentiment:  # if parsing for an NN or calculating sentiment
             # import the pre-trained PUNKT tokenizer for determining sentence boundaries
             sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
-
 
         decoder = json.JSONDecoder()
 
@@ -413,7 +378,39 @@ class Parser(object):
                   + time.strftime('%l:%M%p, %m/%d/%Y'))
 
 
+            # preprocess raw data
+            # if the file is available on disk and download is on, prevent deletion
+            if not filename in self.on_file and self.download_raw:
+                self.download(year, month)  # download the relevant file
 
+                # check data file integrity and download again if needed
+
+                # NOTE: sometimes inaccurate reported hashsums in the online dataset
+                # cause this check to invariably fail. Comment out the code section
+                # below if that becomes a problem.
+
+                # calculate hashsum for the data file on disk
+                filesum = self.sha256(filename)
+                attempt = 0  # number of hashsum check trials for the current file
+                # # if the file hashsum does not match the correct hashsum
+                # while filesum != self.hashsums[filename]:
+                #     attempt += 1  # update hashsum check counter
+                #     if attempt == 3:  # if failed hashsum check three times,
+                #     # ignore the error to prevent an infinite loop
+                #         print("Failed to pass hashsum check 3 times. Ignoring.")
+                #         break
+                #     # notify the user
+                #     print("Corrupt data file detected")
+                #     print("Expected hashsum value: " +
+                #           self.hashsums[filename]+"\nBut calculated: "+filesum)
+                #     os.remove(self.path+'/'+filename)  # remove the corrupted file
+                #     self.download(year, month)  # download it again
+
+            # if the file is not available, but download is turned off
+            elif not filename in self.on_file:
+                # notify the user
+                print('Can\'t find data for {}/{}. Skipping.'.format(month, year))
+                return
 
             # create a file to write the processed text to
             if self.NN:  # if doing NN
