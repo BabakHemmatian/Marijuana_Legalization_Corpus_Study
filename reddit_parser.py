@@ -323,6 +323,7 @@ class Parser(object):
         total_vader = 0
         total_core_nlp = 0
         total_textblob = 0
+        print(len(tokenized))
         annot_doc = self.nlp_wrapper.annotate(original_body, properties={
             'annotators': 'sentiment',
             'outputFormat': 'json',
@@ -381,6 +382,9 @@ class Parser(object):
             # preprocess raw data
             # if the file is available on disk and download is on, prevent deletion
             if not filename in self.on_file and self.download_raw:
+                print("MONTH and YEAR")
+                print(month)
+                print(year)
                 self.download(year, month)  # download the relevant file
 
                 # check data file integrity and download again if needed
@@ -641,7 +645,7 @@ class Parser(object):
         # NOTE: For best results, set the number of processes in the following
         # line based on (number of physical cores)*(hyper-threading multiplier)
         # -1 (for synchronization overhead)
-        pool = multiprocessing.Pool(processes=20)
+        pool = multiprocessing.Pool(processes=10)
         inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
         pool.map(parse_one_month_wrapper, inputs)
         # timer
