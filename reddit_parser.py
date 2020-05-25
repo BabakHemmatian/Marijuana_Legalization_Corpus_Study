@@ -323,11 +323,11 @@ class Parser(object):
         total_vader = 0
         total_core_nlp = 0
         total_textblob = 0
-        print(len(tokenized))
+
         annot_doc = self.nlp_wrapper.annotate(original_body, properties={
-            'annotators': 'sentiment',
+            'annotators': 'sentiment,quote',
             'outputFormat': 'json',
-            'timeout': 1000000, })
+            'timeout': 1000000 })
         for i in range(0, len(annot_doc['sentences'])):
             total_core_nlp += int(annot_doc['sentences'][i]['sentimentValue'])
         for sentence in tokenized:
