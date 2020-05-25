@@ -323,9 +323,10 @@ class Parser(object):
         total_vader = 0
         total_core_nlp = 0
         total_textblob = 0
+        original_without_quotes = original_body.replace("\"", "")
 
-        annot_doc = self.nlp_wrapper.annotate(original_body, properties={
-            'annotators': 'sentiment,quote',
+        annot_doc = self.nlp_wrapper.annotate(original_without_quotes, properties={
+            'annotators': 'sentiment',
             'outputFormat': 'json',
             'timeout': 1000000 })
         for i in range(0, len(annot_doc['sentences'])):
