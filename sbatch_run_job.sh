@@ -22,8 +22,8 @@
 #SBATCH -N 1
 
 module load anaconda/3-5.2.0
-conda activate marijuana_study
+source activate marijuana_study
 
 machine='ccv'
 
-python Combined_NN_Model.py --machine $machine --idx $SLURM_ARRAY_TASK_ID
+python Combined_NN_Model.py --machine $machine 
