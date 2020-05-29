@@ -2,7 +2,6 @@ import csv
 import defaults as df
 from reddit_parser import Parser
 from os import path
-
 import sentiment_pretraining.sentiment_defaults as sent_df
 
 
@@ -27,11 +26,12 @@ class DataPrep(object):
         self.parser = Parser()
 
     # Function to create training or testing data as a csv file with two
-    # columns : label and comment.
+    # columns : comment and label.
     def create_data_set(self, file_name):
         with open(file_name, mode='w+') as file:
-            field_names = ['text', 'label']
+            field_names = ['text', 'labels']
             csv_writer = csv.DictWriter(file, fieldnames=field_names)
+            csv_writer.writeheader()
             size = sent_df.train_size
             if file_name == 'test.csv':
                 size = sent_df.eval_size
@@ -51,7 +51,7 @@ class DataPrep(object):
                                 sentiment = sents.readline()
                                 while comment and sentiment:
                                     rounded = transform_avg_sentiment(sentiment)
-                                    csv_writer.writerow({'text': comment, 'label': rounded})
+                                    csv_writer.writerow({'text': comment, 'labels': int(rounded)})
                                     comment = comments.readline()
                                     sentiment = sents.readline()
 

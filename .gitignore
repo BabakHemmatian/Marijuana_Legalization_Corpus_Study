@@ -10,3 +10,8 @@ sentiments
 stanford-corenlp-full-2020-04-20
 votes
 *.DS_Store
+test.csv
+train.csv
+cache_dir
+outputs
+runs

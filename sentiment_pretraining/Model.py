@@ -6,9 +6,10 @@ class Model(object):
     def __init__(self, train_df, eval_df):
         self.train_df = train_df
         self.eval_df = eval_df
-        self.model = ClassificationModel('bert', 'bert-base-uncased', num_labels=3, use_cuda=False,
-                                         args={'learning_rate': 1e-5, 'num_train_epochs': 5,
-                                               'overwrite_output_dir': True})
+        self.model = ClassificationModel('bert', 'bert-base-cased', num_labels=3, use_cuda=False,
+                                         args={'fp16': False, 'num_train_epochs': 2, 'manual_seed':1,
+                                               "eval_batch_size": 8,
+                                               "train_batch_size": 8})
 
     def train(self):
         self.model.train_model(self.train_df)
