@@ -15,3 +15,4 @@ train.csv
 cache_dir
 outputs
 runs
+*/__pycache__/*
