@@ -6,7 +6,7 @@ from config import *
 import reddit_parser
 
 ### Function for writing parameters and model performance to file
-## TODO: Write a separate set of variables to file for NN
+## TODO: NN variables should be updated
 def Write_Performance(output_path=output_path, NN=NN):
     with open(output_path+"/Performance",'a+') as perf:
         if not NN:
