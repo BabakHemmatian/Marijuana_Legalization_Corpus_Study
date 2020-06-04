@@ -6,14 +6,20 @@ import fnmatch
 import os
 import sys
 import numpy as np
-from pathlib2 import Path
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import KFold
 
 ### hyperparameters
-epochs = 1
-training_fraction = 0.9
-# add other hyperparameters as needed
+ep = 1 # number of epochs
+k = 10 # number of folds
+trial = 1
+full = False # If True, the model will be trained on all available data.
+# If False, models will be trained on subsets and tested using cross-validation.
+weight = [1,1] # class weights
 
-# TODO: set up k-fold cross-validation
+# Output paths based on parameters. Currently based on number of epochs and trial
+file_path = os.path.abspath(__file__)
+path = os.path.dirname(file_path) + "/"+str(ep)+"_"+str(trial)+"/"
 
 ### This section loads ratings of 6 human raters for comments subsampled from
 # posts representative of LDA topics. Topics whose top posts were mostly composed
@@ -62,11 +68,9 @@ for post in human_ratings:
         if other_posts[0] == id and other_posts[1] != rating:
             not_matching.append(int(id))
 
-# TODO: calculate Cohen's Kappa for pairs of raters
-
 ### Since the human-rated posts were predominantly relevant, de-duplicated
 # negative examples are sampled here from those LDA topics whose top comments
-# were mostly irrelevant
+# were mostly irrelevant for more balanced training
 with open('sample_keys-f.csv','r') as lda_ratings:
     reader = csv.reader(lda_ratings)
     for idx, row in enumerate(reader):
@@ -98,8 +102,8 @@ with open('sample_keys-f.csv','r') as lda_ratings:
 
 ### To further balance the training set, negative examples from random samples
 # of 2008, 2013 and 2018 posts--extracted to evaluate and improve the regex across
-# its various iterations are added here to the sample. Babak Hemmatian personally
-# rated the relevance of posts in these samples
+# its various iterations--are added here to the sample. Babak Hemmatian rated
+# the relevance of posts in these samples
 rand_filenames=[]
 for file in os.listdir('.'):
     if 'sampled_' in file and 'csv' in file:
@@ -120,10 +124,10 @@ for file in rand_filenames:
                 combined[proposed] = row[2]
 
 
-### aggregate the samples into a list of lists where each inner list has two
-# elements: first, the text of the comment as a string. Second, its integer label
-# (0 if irrelevant, 1 if relevant)
-# NOTE: Posts about which raters disagreed are considered relevant
+### aggregate the samples above into simpletransformers' default formate:
+# a list of lists where each inner list has two elements: first, the text of the
+# comment as a string. Second, its integer label(0 if irrelevant, 1 if relevant)
+# NOTE: Posts about which raters disagreed are considered relevant.
 data = []
 sampled_so_far = []
 for post in human_ratings:
@@ -141,46 +145,113 @@ for elem in data:
 print("number of positive examples: "+str(sum))
 print("number of negative examples: "+str(len(data)-sum))
 
-### define the training and evaluation sets
-train_size = int(training_fraction * len(data))
-val_size = len(data) - train_size
+### Training and evaluation
+if not full: # if training and evaluating using cross-validation
 
-# Divide the dataset by randomly selecting samples.
-train_data = []
-eval_data = []
-eval_indices = np.random.choice(len(data),val_size)
+    kfold = KFold(k, True, 1) # # Set up the k folds, shuffle, and use 1 as seed
+    k = 0 # fold counter
 
-# populate the sets
-for idx,post in enumerate(data):
-    if idx in eval_indices:
-        eval_data.append(post)
-    else:
-        train_data.append(post)
+    # containers for cross-folds evaluation results
+    f1_folds = []
+    precision_folds = []
+    recall_folds = []
 
-### set up neural network runtime configurations
-logging.basicConfig(level=logging.INFO)
-transformers_logger = logging.getLogger("transformers")
-transformers_logger.setLevel(logging.WARNING)
+    for train, test in kfold.split(data): # for each training and eval fold
 
-# Datasets need to be in Pandas Dataframes
-train_df = pd.DataFrame(train_data)
-eval_df = pd.DataFrame(eval_data)
+        ## create containers for the data
+        train_data = []
+        eval_data = []
+        ## populate the containers based on the fold indices
+        for idx,post in enumerate(data):
+            if idx in train:
+                train_data.append(post)
+            elif idx in test:
+                eval_data.append(post)
+        if k == 0: # for the first fold
+            print("Size of the training fold: ")
+            print(len(train_data))
+            print("Size of the evaluation fold: ")
+            print(len(eval_data))
 
-### Define the classification model object. Model configurations can be changed
-# by adding the correct entries to the "args" dict. See simpletransformers' github
-# page for more information
-# TODO: Allow loading of previously checkpointed models
-model = ClassificationModel('roberta', 'roberta-base',use_cuda=False,args={'fp16': False,'num_train_epochs': epochs, 'manual_seed':0, 'use_early_stopping':True,'save_eval_checkpoints':True}) # You can set class weights by using the optional weight argument
+        k += 1 # update the fold counter
+        output_path = path + "/"+str(k)+"/" # path for storing model and results
 
-### Train the model
-model.train_model(train_df)
+        ## set up neural network runtime configurations
+        logging.basicConfig(level=logging.INFO)
+        transformers_logger = logging.getLogger("transformers")
+        transformers_logger.setLevel(logging.WARNING)
 
-### Evaluate the model
-result, model_outputs, wrong_predictions = model.eval_model(eval_df)
+        ## Datasets need to be in Pandas Dataframes
+        train_df = pd.DataFrame(train_data)
+        eval_df = pd.DataFrame(eval_data)
 
-### write model results to file
-# TODO: write models with different hyperparameters to different folders
-with open('results.txt', 'w') as f, open('wrong.txt','w') as g:
-    f.write(''.join('{}:{}\n'.format(key, val) for key, val in result.items()))
-    np.save("output",model_outputs)
-    g.write('\n'.join('{}'.format(prediction) for prediction in wrong_predictions))
+        ## Define the classification model object. Model configurations changed
+        # by adding the correct entries to the "args" dict. See simpletransformers
+        # on github for more information
+
+        model = ClassificationModel('roberta', 'roberta-base', use_cuda=False,
+        weight = weight, args={'fp16': False,'num_train_epochs': ep, 'manual_seed':1})
+
+        ## Train the model
+        model.train_model(train_df, output_dir=output_path)
+
+        ## Evaluate the model
+        result, model_outputs, wrong_predictions = model.eval_model(eval_df, accuracy=accuracy_score)
+
+        ### write model results to file.
+        # NOTE: results.txt saves f1, precision, recall and accuracy for a fold
+        # NOTE: wrong.txt saves evaluation set documents that were wrongly
+        # classified, along with the model's prediction for each
+        # NOTE: Model_outputs saves the output layer's activation for various
+        # classes for each evaluation set document
+        with open(output_path+'results.txt', 'w') as f, open(output_path+'wrong.txt','w') as g:
+            f.write(''.join('{}:{}\n'.format(key, val) for key, val in result.items()))
+            for prediction in wrong_predictions:
+                g.write(prediction.text_a + "; " + str(prediction.label))
+                g.write("\n")
+        np.save(output_path+"model_outputs",model_outputs)
+
+        # calculate precision, recall and f1
+        precision = (float(result['tp']) / (float(result['tp'])+float(result['fp'])))
+        recall = (float(result['tp']) / (float(result['tp'])+float(result['fn'])))
+        f1 = (2 * (precision*recall))/(precision + recall)
+
+        # write results to file
+        with open(output_path+"results.txt","a+") as f:
+            f.write("precision: "+ str(precision) + "\n")
+            f.write("recall: "+ str(recall) + "\n")
+            f.write("f1: "+ str(f1) + "\n")
+
+        # adds the fold results to lists
+        precision_folds.append(precision)
+        recall_folds.append(recall)
+        f1_folds.append(f1)
+
+
+    # Writes fold micro-averages and their macro average to file
+    with open("cross_folds_res.txt","r") as full_results:
+        full_results.write("Fold f1: "+str(f1_folds))
+        full_results.write("Mean f1: "+str(np.mean(f1_folds)))
+        full_results.write("Folds precision: "+str(precision_folds))
+        full_results.write("Mean precision: "+str(np.mean(precision_folds)))
+        full_results.write("Fold recall: "+str(recall_folds))
+        full_results.write("Mean recall: "+str(np.mean(recall_folds)))
+
+else: # if training on all available data
+
+    ## path currently set to number of data points
+    output_path = path + "/full_" + str(len(data)) + "/"
+
+    ## set up neural network runtime configurations
+    logging.basicConfig(level=logging.INFO)
+    transformers_logger = logging.getLogger("transformers")
+    transformers_logger.setLevel(logging.WARNING)
+
+    data = pd.DataFrame(data) # turn the data into a Pandas dataframe
+
+    ## Define the classification model object. See above for more details
+    model = ClassificationModel('roberta', 'roberta-base', num_labels=3, use_cuda=False,
+    args={'fp16': False,'num_train_epochs': ep, 'manual_seed':1})
+
+    ## Train the model
+    model.train_model(data, output_dir=output_path)
