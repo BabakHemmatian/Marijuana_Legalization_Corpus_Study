@@ -135,6 +135,7 @@ authorship = True # whether the neural networks take as part of their input
 # posting
 # NOTE: The functions assume that "author" files from pre-processing are
 # available in the same folder as the one containing this file
+use_simple_bert = True
 
 ## Training hyperparameters
 epochs = 3 # number of epochs
