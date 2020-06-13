@@ -12,7 +12,7 @@ import numpy as np
 
 ### determine hyperparameters ###
 
-### Model choice hyperparameters
+### Data management hyperparameters
 
 NN = True # Set to False for LDA, to true for neural network classification
 ENTIRE_CORPUS = True # Are we using a random subset of comments, or the whole
@@ -33,9 +33,23 @@ WRITE_ORIGINAL = True # Write original comments to file when parsing
 author = True # Write the username of each post's author to a separate file
 sentiment = True # Write sentence- and document-level sentiment of a post to
 # file (based on TextBlob, Vader and CoreNLP packages)
+# NOTE: Make sure that Stanford CoreNLP's Python package is unzipped to the
+# same directory as this file and CoreNLP_server.py is also available before
+# running this function.
 
 
 ### Pre-processing hyperparameters
+try: # see if the run request is coming from the CCV cluster
+    machine
+    CLEAN_RAW = True
+except NameError: # if not, set the "machine" variable to "local"
+    machine = "local"
+
+machine = "ccv" # for debug
+batch_id = 0 # for debug
+# NOTE: Matters for optimization of the parallelizations used in the functions.
+# NOTE: On Brown University's supercomputer, batches of 24 months were found to
+# be optimal
 MaxVocab = 2000000 # maximum size of the vocabulary
 FrequencyFilter = 1 # tokens with a frequency equal or less than this number
 # will be filtered out of the corpus (when NN=True)
@@ -135,7 +149,6 @@ authorship = True # whether the neural networks take as part of their input
 # posting
 # NOTE: The functions assume that "author" files from pre-processing are
 # available in the same folder as the one containing this file
-use_simple_bert = True
 
 ## Training hyperparameters
 epochs = 3 # number of epochs
@@ -190,11 +203,14 @@ path = os.path.dirname(file_path)
 
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
-months=range(1,12) # month range
-years=range(2008,2020) # year range
+# months=range(1,12) # month range
+# years=range(2008,2020) # year range
+months = [1,2]
+years = [2008]
 for year in years:
     for month in months:
         dates.append((year,month))
+
 
 ## where the output will be stored
 
