@@ -23,7 +23,7 @@
 #SBATCH --mem=64G
 #SBATCH -c 32
 #SBATCH -N 1
-#SBATCH --batch_id=0-100
+#SBATCH --array=0-100
 
 eval "$(conda shell.bash hook)"
 conda activate marijuana_study
