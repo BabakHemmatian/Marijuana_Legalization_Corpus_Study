@@ -8,15 +8,17 @@ prep.prep_data()
 
 # Prepare data frames for training
 
-train_df = pd.read_csv('train.csv', dtype={'labels': 'int64'})
+#train_df = pd.read_csv('train.csv', dtype={'labels': 'int64'})
 
-eval_df = pd.read_csv('test.csv', dtype={'labels': 'int64'})
+#eval_df = pd.read_csv('test.csv', dtype={'labels': 'int64'})
 
 
 # Run model
-model = Model(train_df, eval_df)
+#model = Model(train_df, eval_df)
 
-model.train()
+#model.train()
 
 # Evaluate model
-result, model_outputs, wrong_predictions = model.eval()
+#result, model_outputs, wrong_predictions = model.eval()
+
+

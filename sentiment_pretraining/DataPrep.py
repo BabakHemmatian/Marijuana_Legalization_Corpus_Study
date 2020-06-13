@@ -2,6 +2,8 @@ import csv
 import defaults as df
 from reddit_parser import Parser
 from os import path
+import numpy as np
+import matplotlib.pyplot as plt
 import sentiment_pretraining.sentiment_defaults as sent_df
 
 
@@ -10,11 +12,11 @@ import sentiment_pretraining.sentiment_defaults as sent_df
 def transform_avg_sentiment(original_sentiment):
     num = float(original_sentiment)
     # Negative
-    if num <= -0.5:
+    if num < -0.1:
         return 0
     else:
         # Neutral
-        if -0.5 < num < 0.5:
+        if -0.1 <= num <= 0.1:
             return 1
         # Positive
         else:
@@ -24,10 +26,12 @@ def transform_avg_sentiment(original_sentiment):
 class DataPrep(object):
     def __init__(self):
         self.parser = Parser()
+        self.original_sents = None
 
     # Function to create training or testing data as a csv file with two
     # columns : comment and label.
     def create_data_set(self, file_name):
+        sentiments_df = []
         with open(file_name, mode='w+') as file:
             field_names = ['text', 'labels']
             csv_writer = csv.DictWriter(file, fieldnames=field_names)
@@ -50,10 +54,13 @@ class DataPrep(object):
                                 comment = comments.readline()
                                 sentiment = sents.readline()
                                 while comment and sentiment:
+                                    sentiments_df.append(float(sentiment))
                                     rounded = transform_avg_sentiment(sentiment)
                                     csv_writer.writerow({'text': comment, 'labels': int(rounded)})
                                     comment = comments.readline()
                                     sentiment = sents.readline()
+        self.original_sents = sentiments_df
+
 
     # Function to create data sets if they don't exist
     def prep_data(self):
@@ -61,6 +68,9 @@ class DataPrep(object):
             print("Creating training and test sets")
             self.create_data_set('train.csv')
             self.create_data_set('test.csv')
+            plt.title("Sentiment values")
+            plt.hist(self.original_sents)
+            plt.show()
         else:
             print("Training and test sets have already been created!"
                   " Delete the files and re-run if you would like to update them.")

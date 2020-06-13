@@ -1,5 +1,5 @@
 from simpletransformers.classification import ClassificationModel
-
+from sklearn.utils import shuffle
 
 # Class to save the training set, eval set, and create the model from simpletransformers
 class Model(object):
@@ -12,7 +12,8 @@ class Model(object):
                                                "train_batch_size": 8})
 
     def train(self):
-        self.model.train_model(self.train_df)
+        shuffled = shuffle(self.train_df)
+        self.model.train_model(shuffled)
 
     def eval(self):
         return self.model.eval_model(self.eval_df)

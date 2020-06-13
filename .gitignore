@@ -16,3 +16,7 @@ cache_dir
 outputs
 runs
 */__pycache__/*
+*.pyc
+sentiment_pretraining/*.txt
+sentiment_pretraining/*.csv
+
