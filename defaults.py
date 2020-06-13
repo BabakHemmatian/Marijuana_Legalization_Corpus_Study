@@ -24,30 +24,23 @@ OVERWRITE = False # Overwrites existing sampled comment indices. Only matters
 DOWNLOAD_RAW = True # If a raw data file is not available on disk, download it
 # NOTE: Be mindful of possible changes to compression algorithm used at
 # https://files.pushshift.io/reddit/comments/ beyond 02-2019, as they would
-# not be reflected in the parser's code, which assumes more recent files have
+# not be reflected in the parser's code, which assumes the latest files have
 # .zst extensions
 CLEAN_RAW = True # After parsing, delete the raw data file from disk if it was
 # not downloaded during parsing
 vote_counting = True # Record the fuzzed number of upvotes when parsing
 WRITE_ORIGINAL = True # Write original comments to file when parsing
 author = True # Write the username of each post's author to a separate file
-sentiment = True # Write the average sentiment of a post to file (based on
-# TextBlob's algorithm)
-# NOTE: Some empirical results suggest that this package is better at detecting
-# positive valence than negative valence in text. See:
-# https://medium.com/@Intellica.AI/vader-ibm-watson-or-textblob-which-is-better-for-unsupervised-sentiment-analysis-db4143a39445
-add_sentiment = False # calculates sentiment values under alternative packages
-# (NLTK's Vader and CoreNLP) and aggregates the ratings for more robust output
-# TODO: Add Textblob to the function, sentence-level sentiment (might need
-# sentence tokenization for some of them
-use_simple_bert = True
+sentiment = True # Write sentence- and document-level sentiment of a post to
+# file (based on TextBlob, Vader and CoreNLP packages)
+
 
 ### Pre-processing hyperparameters
 MaxVocab = 2000000 # maximum size of the vocabulary
 FrequencyFilter = 1 # tokens with a frequency equal or less than this number
-# will be filtered out of the corpus (matters when NN=True)
+# will be filtered out of the corpus (when NN=True)
 no_below = 5 # tokens that appear in less than this number of documents in
-# corpus will be filtered out (matters when NN=False, i.e. for the LDA model)
+# corpus will be filtered out (when NN=False, i.e. for the LDA model)
 no_above = 0.99 # tokens that appear in more than this fraction of documents in
 # corpus will be filtered out
 training_fraction = 0.99 # what percentage of data will be used for learning the
@@ -58,6 +51,27 @@ NN_training_fraction = 0.80 # fraction of the data that is used for training
 # divided randomly and equally into evaluation and test sets
 calculate_perc_rel = True # whether the percentage of relevant comments from
 # each year should be calculated and written to file
+num_process = 3 # the number of parallel processes to be executed for parsing
+# NOTE: Uses Python's multiprocessing package
+Neural_Relevance_Filtering = True # The dataset will be cleaned from posts
+# irrelevant to the topic using a pre-trained neural network model.
+# NOTE: Needs results of parsing for the same dates with WRITE_ORIGINAL==True
+# NOTE: Requires a pre-trained simpletransformers model. One such model trained
+# for the marijuana legalization Reddit dataset is included in the repository.
+# NOTE: Default model_path is [repository path]/Human_Ratings/1_1/full_1005/
+# See ROBERTA_Classifier.py for training, learning and evaluation details.
+# NOTE: This task takes a long time to complete.
+rel_sample_num = 200 # By default, a random sample of this size will be extracted
+# from the dataset to evaluate the classification model.
+# NOTE: Make sure that your minority category (probably the irrelevant docs)
+# are more numerous in the dataset than about half this number.
+balanced_rel_sample = True # whether the random filtering sample should be
+# balanced across classification categories (relevant, irrelevant by default)
+eval_relevance = True # F1, recall, precision and accuracy for the sample derived
+# from Neural_Relevance_Filtering. Requires the sample to be complemented by
+# manual labels. The default location for the sample is
+# [repository path]/original_comm/sample_auto_labeled.csv
+
 
 ### LDA hyperparameters
 # NOTE: Number of processes for parallelization are currently set manually. See
@@ -121,6 +135,7 @@ authorship = True # whether the neural networks take as part of their input
 # posting
 # NOTE: The functions assume that "author" files from pre-processing are
 # available in the same folder as the one containing this file
+use_simple_bert = True
 
 ## Training hyperparameters
 epochs = 3 # number of epochs
@@ -166,12 +181,12 @@ num_pop = 2000 # number of the most up- or down-voted comments sampled for model
 ### Paths
 
 ## where the data is
+file_path = os.path.abspath(__file__)
+path = os.path.dirname(file_path)
 # NOTE: if not fully available on file, set Download for Parser function to
 # True (source: http://files.pushshift.io/reddit/comments/)
 # NOTE: if not in the same directory as this file, change the path variable
 # accordingly
-file_path = os.path.abspath(__file__)
-path = os.path.dirname(file_path)
 
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
@@ -182,6 +197,7 @@ for year in years:
         dates.append((year,month))
 
 ## where the output will be stored
+
 # NOTE: To avoid confusion between different kinds of models, record the
 # variables most important to your iteration in the folder name
 

@@ -35,6 +35,14 @@ Write_Performance()
 theparser = Parser()
 theparser.Parse_Rel_RC_Comments()
 
+if Neural_Relevance_Filtering:
+    # Use a transformer-based neural network trained on human ratings to prune the
+    # dataset from irrelevant posts. Path will default to the Human_Ratings folder
+    theparser.Neural_Relevance_Screen()
+
+    # Needs results from Neural_Relevance_Screen
+    theparser.Neural_Relevance_Clean()
+
 # Filter the dataset based on whether posts are in English (uses Google's
 # language detection)
 # NOTE: Requires original text of comments to be available on disk

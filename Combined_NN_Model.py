@@ -1,7 +1,10 @@
 ### import the required modules and functions
-#TODO: Is this the correct Write_Performance()?
+#TODO: Is this the correct Write_Performance()? --> NO, it's not. We should
+# update it with the parameters important for the NN in Utils.py
+# Same for NN_param_typecheck in NN_Utils.py
 import subprocess
 import time
+import sys
 
 from pycorenlp import StanfordCoreNLP
 
@@ -34,16 +37,32 @@ Write_Performance()
 # create a connection to the CoreNLP server to retrieve sentiment
 # (requires CoreNLP_server.py in the same directory)
 subprocess.Popen(['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer --quiet'],
-               shell=True, cwd="./stanford-corenlp-full-2020-04-20")
+               shell=True, cwd="./stanford-corenlp-4.0.0")
 time.sleep(5)  # wait for connection to the server to be established
 
 theparser=Parser()
 # Create relevant folders
 theparser.safe_dir_create()
+
+# parse the documents
 theparser.Parse_Rel_RC_Comments()
 
-### call the function for calculating the percentage of relevant comments
+if Neural_Relevance_Filtering:
+    # Use a transformer-based neural network trained on human ratings to prune the
+    # dataset from irrelevant posts. Path will default to the Human_Ratings folder
+    theparser.Neural_Relevance_Screen()
 
+    # Needs results from Neural_Relevance_Screen
+    theparser.Neural_Relevance_Clean()
+
+theparser.lang_filtering() # filter non-English posts
+
+# NOTE: Requires a Neural_Relevance_Screen random sample hand-annotated for accuracy
+if eval_relevance:
+    theparser.eval_relevance()
+
+### call the function for calculating the percentage of relevant comments
+# NOTE: May work only for full-year sets of dates
 if calculate_perc_rel:
     theparser.Perc_Rel_RC_Comment()
 
@@ -67,7 +86,7 @@ if special_doi == False and pretrained == False:
     nnmodel.Get_Sentiment(path)
 elif special_doi == True:
     nnmodel.Get_Human_Ratings(path)
-    #TODO: Define this function. It should already somehow incorporated into 
+    #TODO: Define this function. It should already somehow incorporated into
     # the ModelEstimator
 
 ### Sentiment Modeling/DOI Classification Neural Networks

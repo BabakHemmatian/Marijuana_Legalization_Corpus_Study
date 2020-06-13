@@ -95,6 +95,7 @@ dependencies:
     - eth-utils==1.6.0
     - filelock==3.0.12
     - future==0.18.2
+    - gensim
     - html-parser==0.2
     - idna==2.8
     - joblib==0.14.1

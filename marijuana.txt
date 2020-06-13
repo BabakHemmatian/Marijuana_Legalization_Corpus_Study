@@ -35,7 +35,7 @@ Grand Daddy Purp
 Granddaddy purp
 Grand Daddy purple
 Granddaddy purple
-Grass
+\bGrass\b(?!.root)(?!.fire)(?!.fed)(?! withers)
 Green Crack
 Green Goblin
 Green Goddess
