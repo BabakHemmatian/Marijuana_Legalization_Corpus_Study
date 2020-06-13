@@ -24,7 +24,7 @@
 #SBATCH -c 32
 #SBATCH -N 1
 #SBATCH --array=0-100
-
+module load anaconda/3-5.2.0
 eval "$(conda shell.bash hook)"
 conda activate marijuana_study
 
