@@ -843,7 +843,7 @@ class Parser(object):
                         pass
                 else:
 
-                    mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs)]
+                    mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs))]
 
                     # NOTE: For best results, set the number of processes in the following
                     # line based on (number of physical cores)*(hyper-threading multiplier)
@@ -857,7 +857,7 @@ class Parser(object):
                     if current_batch + num_process >= len(inputs):
                         self.pool_parsing_data()
                         self.lang_filtering() # filter non-English posts
-                        break
+                        #break
 
             except:
                 raise Exception("Error in receiving batch IDs from the cluster.")
@@ -1454,7 +1454,7 @@ class Parser(object):
                             pass
                     else:
 
-                        mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs)]
+                        mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs))]
 
                         # NOTE: For best results, set the number of processes in the following
                         # line based on (number of physical cores)*(hyper-threading multiplier)
@@ -1585,7 +1585,7 @@ class Parser(object):
                                 for document in sampled_docs:
                                     writer.writerow(document)
 
-                            break
+                           # break
 
                 except:
                     raise Exception("Error in receiving batch IDs from the cluster.")
