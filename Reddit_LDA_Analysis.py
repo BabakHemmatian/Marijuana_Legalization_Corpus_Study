@@ -33,6 +33,10 @@ Write_Performance()
 # random_indices, RC_Count_Dict, RC_Count_List, total_count and votes
 
 theparser = Parser()
+
+# create the relevant subfolders for storing dataset attributes
+theparser.safe_dir_create()
+
 theparser.Parse_Rel_RC_Comments()
 
 if Neural_Relevance_Filtering:
