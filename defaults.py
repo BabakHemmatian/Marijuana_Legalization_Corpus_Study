@@ -26,7 +26,7 @@ DOWNLOAD_RAW = True # If a raw data file is not available on disk, download it
 # https://files.pushshift.io/reddit/comments/ beyond 02-2019, as they would
 # not be reflected in the parser's code, which assumes the latest files have
 # .zst extensions
-CLEAN_RAW = True # After parsing, delete the raw data file from disk if it was
+CLEAN_RAW = False # After parsing, delete the raw data file from disk if it was
 # not downloaded during parsing
 vote_counting = True # Record the fuzzed number of upvotes when parsing
 WRITE_ORIGINAL = True # Write original comments to file when parsing
@@ -41,7 +41,7 @@ sentiment = True # Write sentence- and document-level sentiment of a post to
 ### Pre-processing hyperparameters
 try: # see if the run request is coming from the CCV cluster
     machine
-    CLEAN_RAW = True
+    CLEAN_RAW = False
 except NameError: # if not, set the "machine" variable to "local"
     machine = "local"
 
@@ -81,7 +81,7 @@ rel_sample_num = 200 # By default, a random sample of this size will be extracte
 # are more numerous in the dataset than about half this number.
 balanced_rel_sample = True # whether the random filtering sample should be
 # balanced across classification categories (relevant, irrelevant by default)
-eval_relevance = True # F1, recall, precision and accuracy for the sample derived
+eval_relevance = False # F1, recall, precision and accuracy for the sample derived
 # from Neural_Relevance_Filtering. Requires the sample to be complemented by
 # manual labels. The default location for the sample is
 # [repository path]/original_comm/sample_auto_labeled.csv
@@ -96,11 +96,11 @@ iterations = 1000 # number of times LDA posterior distributions will be sampled
 num_threads = 5 # number of threads used for parallelized processing of comments
 # Only matters if using _Threaded functions
 num_topics = 100 # number of topics to be generated in each LDA sampling
-alpha = 0.1 # determines how many high probability topics will be assigned to a
+alpha = 'auto' # determines how many high probability topics will be assigned to a
 # document in general (not to be confused with NN l2regularization constant)
 minimum_probability = 0.01 # minimum acceptable probability for an output topic
 # across corpus
-eta = 0.1 # determines how many high probability words will be assigned to a
+eta = 'auto' # determines how many high probability words will be assigned to a
 # topic in general
 minimum_phi_value = 0.01 # determines the lower bound on per-term topic
 # probability. Only matters if per_word_topics = True.
@@ -194,8 +194,8 @@ num_pop = 2000 # number of the most up- or down-voted comments sampled for model
 ### Paths
 
 ## where the data is
-file_path = os.path.abspath(__file__)
-path = '/users/ssloman/data/Reddit_Dataset'
+model_path = os.path.abspath(__file__)
+data_path = '/users/ssloman/data/Reddit_Dataset'
 # NOTE: if not fully available on file, set Download for Parser function to
 # True (source: http://files.pushshift.io/reddit/comments/)
 # NOTE: if not in the same directory as this file, change the path variable
@@ -203,14 +203,11 @@ path = '/users/ssloman/data/Reddit_Dataset'
 
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
-# months=range(1,12) # month range
-# years=range(2008,2020) # year range
-months = [1,2,3]
-years = [2008, 2009, 2010]
+months=range(1,13) # month range
+years=range(2008) # year range
 for year in years:
     for month in months:
         dates.append((year,month))
-
 
 ## where the output will be stored
 
