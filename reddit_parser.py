@@ -357,40 +357,46 @@ class Parser(object):
         total_textblob = 0
         original_without_quotes = original_body.replace("\"", "")
 
+        per_sentence = []
+        error_indicator = 0
+
         try:
             annot_doc = self.nlp_wrapper.annotate(original_without_quotes, properties={
                 'annotators': 'sentiment',
                 'outputFormat': 'json',
                 'timeout': 1000000 })
-            with open(fns["c_sentiments"],"a+") as c_sentiments:
-
-                if self.machine == "ccv":
-                    per_sentence = []
-                try:
-                    for i in range(0, len(annot_doc['sentences'])):
-                        total_core_nlp += int(annot_doc['sentences'][i]['sentimentValue'])
-                        if self.machine == "local":
-                            c_sentiments.write(str(annot_doc['sentences'][i]['sentimentValue'])+",")
-                        elif self.machine == "ccv":
-                            per_sentence.append(str(annot_doc['sentences'][i]['sentimentValue']))
-                except:
-                    per_sentence = "None"
-                    if self.machine == "local":
-                        c_sentiments.write("None"+"\n")
-                    elif self.machine == "ccv":
-                        c_sentiments.append("None")
-                if self.machine == "local":
-                    if per_sentence != "None":
-                        c_sentiments.write("\n")
-                elif self.machine == "ccv":
-                    if per_sentence != "None":
-                        c_sentiments.append(",".join(per_sentence))
-
         except:
             print("CoreNLP error")
+            error_indicator = 1
+
             with open("CoreNLP_errors.txt","a+") as errors:
                 errors.write(str(month)+","+str(main_counter)+","+ " ".join(original_body.split()).replace("\n",""))
-            # potential BUG: do we need to write None to the sentiment file? Or does the failed sentence just get ignored?
+            if self.machine == "local":
+                with open(fns["c_sentiments"],"a+") as c_sentiments:
+                    c_sentiments.write("None" + "\n")
+            elif self.machine == "ccv":
+                c_sentiments.append("None")
+
+        if error_indicator == 0:
+            try:
+                for i in range(0, len(annot_doc['sentences'])):
+                    total_core_nlp += int(annot_doc['sentences'][i]['sentimentValue'])
+                    per_sentence.append(str(annot_doc['sentences'][i]['sentimentValue']))
+            except:
+                per_sentence.append("None")
+
+            if len(per_sentence) != 0 and "None" not in per_sentence:
+                if self.machine == "local":
+                    with open(fns["c_sentiments"],"a+") as c_sentiments:
+                        c_sentiments.write(",".join(per_sentence)+"\n")
+                elif self.machine == "ccv":
+                    c_sentiments.append(",".join(per_sentence))
+            else:
+                if self.machine == "local":
+                    with open(fns["c_sentiments"],"a+") as c_sentiments:
+                        c_sentiments.write("None")
+                elif self.machine == "ccv":
+                    c_sentiments.append("None")
 
         if self.machine == "local":
             with open(fns["v_sentiments"],"a+") as v_sentiments, open(fns["t_sentiments"],"a+") as t_sentiments:
@@ -422,13 +428,13 @@ class Parser(object):
                 blob = TextBlob(sentence)
                 total_textblob += blob.sentiment[0]
                 t_per_sentence.append(str(blob.sentiment[0]))
-            v_sentiments.append(v_per_sentence)
-            t_sentiments.append(t_per_sentence)
+            v_sentiments.append(",".join(v_per_sentence))
+            t_sentiments.append(",".join(t_per_sentence))
 
         avg_vader = total_vader / len(tokenized)
         avg_blob = total_textblob / len(tokenized)
 
-        if per_sentence != "None":
+        if len(per_sentence) != 0 and "None" not in per_sentence:
             avg_core_nlp = total_core_nlp / len(annot_doc['sentences'])
             # Normalizing core nlp so it's between -1 and 1
             normalized_core_nlp = ((avg_core_nlp / 4) * 2) - 1
@@ -477,9 +483,6 @@ class Parser(object):
             # preprocess raw data
             # if the file is available on disk and download is on, prevent deletion
             if not filename in self.on_file and self.download_raw:
-                print("MONTH and YEAR")
-                print(month)
-                print(year)
                 self.download(year, month)  # download the relevant file
 
                 # check data file integrity and download again if needed
@@ -681,7 +684,7 @@ class Parser(object):
                         elif machine == "ccv":
 
                             if not self.NN:
-                                fout.append(body + "/n")
+                                fout.append(body + "\n")
 
                             if self.write_original:
                                 original_body = original_body.replace(
@@ -762,6 +765,12 @@ class Parser(object):
                 c_sentiments.close()
                 t_sentiments.close()
             elif self.sentiment and machine == "ccv":
+
+                assert len(sentiments) == main_counter
+                assert len(c_sentiments) == main_counter
+                assert len(v_sentiments) == main_counter
+                assert len(t_sentiments) == main_counter
+
                 with open(fns["sentiments"],'w') as f:
                     for element in sentiments:
                         f.write(str(element)+"\n")
