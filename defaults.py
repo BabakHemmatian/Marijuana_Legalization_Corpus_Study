@@ -96,11 +96,11 @@ iterations = 1000 # number of times LDA posterior distributions will be sampled
 num_threads = 5 # number of threads used for parallelized processing of comments
 # Only matters if using _Threaded functions
 num_topics = 100 # number of topics to be generated in each LDA sampling
-alpha = 0.1 # determines how many high probability topics will be assigned to a
+alpha = 'auto' # determines how many high probability topics will be assigned to a
 # document in general (not to be confused with NN l2regularization constant)
 minimum_probability = 0.01 # minimum acceptable probability for an output topic
 # across corpus
-eta = 0.1 # determines how many high probability words will be assigned to a
+eta = 'auto' # determines how many high probability words will be assigned to a
 # topic in general
 minimum_phi_value = 0.01 # determines the lower bound on per-term topic
 # probability. Only matters if per_word_topics = True.
@@ -203,10 +203,8 @@ path = os.path.dirname(file_path)
 
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
-# months=range(1,12) # month range
-# years=range(2008,2020) # year range
-months = [1,2,3,4]
-years = [2008, 2009, 2010, 2011]
+months=range(1,13) # month range
+years=range(2008) # year range
 for year in years:
     for month in months:
         dates.append((year,month))

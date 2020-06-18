@@ -85,9 +85,8 @@ on_file = []
 for date in dates:
     mo, yr = date[0], date[1]
     proper_filename = get_rc_filename(mo, yr)
-    if Path(path + '/' + proper_filename).is_file():
+    if Path(data_path + '/' + proper_filename).is_file():
         on_file.append(proper_filename)
-
 
 ### Define the parser class
 
@@ -104,11 +103,11 @@ class Parser(object):
     #   clean_raw: Delete the raw data file when finished.
 
     def __init__(self, nlp_wrapper=StanfordCoreNLP('http://localhost:9000'),bert_tokenizer=BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True), clean_raw=CLEAN_RAW, dates=dates,
-                 download_raw=DOWNLOAD_RAW, hashsums=None, NN=NN, path=path,
-                 legality=legality, marijuana=marijuana, stop=stop,
-                 write_original=WRITE_ORIGINAL, vote_counting=vote_counting,
-                 author=author, sentiment=sentiment, machine=machine,
-                 on_file=on_file,num_process=num_process,
+                 download_raw=DOWNLOAD_RAW, hashsums=None, NN=NN, data_path=data_path,
+                 model_path=model_path,legality=legality, marijuana=marijuana,
+                 stop=stop, write_original=WRITE_ORIGINAL,
+                 vote_counting=vote_counting,author=author, sentiment=sentiment,
+                 machine=machine,on_file=on_file,num_process=num_process,
                  rel_sample_num=rel_sample_num,balanced_rel_sample=balanced_rel_sample,
                  Neural_Relevance_Filtering=Neural_Relevance_Filtering):
         # check input arguments for valid type
@@ -119,9 +118,10 @@ class Parser(object):
         assert type(write_original) is bool
         assert type(download_raw) is bool
         assert type(clean_raw) is bool
-        assert type(path) is str
+        assert type(data_path) is str
+        assert type(model_path) is str
         # check the given path
-        if not os.path.exists(path):
+        if not os.path.exists(data_path) or not os.path.exists(model_path):
             raise Exception('Invalid path')
         assert type(stop) is set or type(stop) is list
 
@@ -130,7 +130,8 @@ class Parser(object):
         self.download_raw = download_raw
         self.hashsums = hashsums
         self.NN = NN
-        self.path = path
+        self.data_path = data_path
+        self.model_path = model_path
         self.legality = legality
         self.marijuana = marijuana
         self.stop = stop
@@ -165,11 +166,11 @@ class Parser(object):
             url = BASE_URL + get_rc_filename(year, month)
         print('Sending request to {}.'.format(url))
         try:
-            os.system('cd {} && wget -nv {}'.format(self.path, url)) # non-verbose
+            os.system('cd {} && wget -nv {}'.format(self.data_path, url)) # non-verbose
         except: # if download fails, mark the months affected so that they can
         # be re-downloaded
             print("Download error for year "+str(year)+", month "+str(month))
-            with open(self.path+"Download_Errors.txt","a+") as file:
+            with open(self.data_path+"Download_Errors.txt","a+") as file:
                 file.write(str(year)+","+str(month)+"\n")
 
     ## Get Reddit compressed data file hashsums to check downloaded files'
@@ -180,13 +181,13 @@ class Parser(object):
         # set the URL to download hashsums from
         url = 'https://files.pushshift.io/reddit/comments/sha256sum.txt'
         # remove any old hashsum file
-        if Path(self.path + '/sha256sum.txt').is_file():
-            os.remove(self.path + '/sha256sum.txt')
+        if Path(self.model_path + '/sha256sum.txt').is_file():
+            os.remove(self.model_path + '/sha256sum.txt')
         # download hashsums
-        os.system('cd {} && wget {}'.format(self.path, url))
+        os.system('cd {} && wget {}'.format(self.model_path, url))
         # retrieve the correct hashsums
         hashsums = {}
-        with open(self.path + '/sha256sum.txt', 'rb') as f:
+        with open(self.model_path + '/sha256sum.txt', 'rb') as f:
             for line in f:
                 line = line.decode("utf-8")
                 if line.strip() != "":
@@ -197,7 +198,7 @@ class Parser(object):
     ## calculate hashsums for downloaded files in chunks of size 4096B
     def sha256(self, fname):
         hash_sha256 = hashlib.sha256()
-        with open("{}/{}".format(self.path, fname), "rb") as f:
+        with open("{}/{}".format(self.model_path, fname), "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_sha256.update(chunk)
         return hash_sha256.hexdigest()
@@ -322,26 +323,26 @@ class Parser(object):
             suffix = ""
         else:
             suffix = "-{}-{}".format(year, month)
-        fns = dict((("original_comm", "{}/original_comm/original_comm{}".format(self.path, suffix)),
-                    ("original_indices", "{}/original_indices/original_indices{}".format(self.path, suffix)),
-                    ("counts", "{}/counts/RC_Count_List{}".format(self.path, suffix)),
-                    ("timedict", "{}/timedict/RC_Count_Dict{}".format(self.path, suffix)),
-                    ("total_count", "{}/total_count/total_count{}".format(self.path, suffix))
+        fns = dict((("original_comm", "{}/original_comm/original_comm{}".format(self.model_path, suffix)),
+                    ("original_indices", "{}/original_indices/original_indices{}".format(self.model_path, suffix)),
+                    ("counts", "{}/counts/RC_Count_List{}".format(self.model_path, suffix)),
+                    ("timedict", "{}/timedict/RC_Count_Dict{}".format(self.model_path, suffix)),
+                    ("total_count", "{}/total_count/total_count{}".format(self.model_path, suffix))
                     ))
         if self.NN:
-            # fns["nn_prep"] = "{}/nn_prep/nn_prep{}".format(self.path, suffix)
-            fns["bert_prep"] = "{}/bert_prep/bert_prep{}.json".format(self.path, suffix)
+            # fns["nn_prep"] = "{}/nn_prep/nn_prep{}".format(self.model_path, suffix)
+            fns["bert_prep"] = "{}/bert_prep/bert_prep{}.json".format(self.model_path, suffix)
         else:
-            fns["lda_prep"] = "{}/lda_prep/lda_prep{}".format(self.path, suffix)
+            fns["lda_prep"] = "{}/lda_prep/lda_prep{}".format(self.model_path, suffix)
         if self.vote_counting:
-            fns["votes"] = "{}/votes/votes{}".format(self.path, suffix)
+            fns["votes"] = "{}/votes/votes{}".format(self.model_path, suffix)
         if self.author:
-            fns["author"] = "{}/author/author{}".format(self.path, suffix)
+            fns["author"] = "{}/author/author{}".format(self.model_path, suffix)
         if self.sentiment:
-            fns["sentiments"] = "{}/sentiments/sentiments{}".format(self.path, suffix)
-            fns["c_sentiments"] = "{}/sentiments/c_sentiments{}".format(self.path, suffix)
-            fns["t_sentiments"] = "{}/sentiments/t_sentiments{}".format(self.path, suffix)
-            fns["v_sentiments"] = "{}/sentiments/v_sentiments{}".format(self.path, suffix)
+            fns["sentiments"] = "{}/sentiments/sentiments{}".format(self.model_path, suffix)
+            fns["c_sentiments"] = "{}/sentiments/c_sentiments{}".format(self.model_path, suffix)
+            fns["t_sentiments"] = "{}/sentiments/t_sentiments{}".format(self.model_path, suffix)
+            fns["v_sentiments"] = "{}/sentiments/v_sentiments{}".format(self.model_path, suffix)
         return fns
 
     ## Receives as input one document and its index, as well as output address
@@ -567,14 +568,14 @@ class Parser(object):
 
             # open the file as a text file, in utf8 encoding, based on encoding type
             if '.zst' in filename:
-                file = open(filename, 'rb')
+                file = open(self.data_path + "/" + filename, 'rb')
                 dctx = zstd.ZstdDecompressor()
                 stream_reader = dctx.stream_reader(file)
                 fin = io.TextIOWrapper(stream_reader, encoding='utf-8')
             elif '.xz' in filename:
-                fin = lzma.open(filename, 'r')
+                fin = lzma.open(self.data_path + "/" + filename, 'r')
             elif '.bz2' in filename:
-                fin = bz2.BZ2File(self.path + '/' + filename, 'r')
+                fin = bz2.BZ2File(self.data_path + '/' + filename, 'r')
             else:
                 raise Exception('File format not recognized')
 
@@ -771,10 +772,10 @@ class Parser(object):
         print("Finished parsing " + filename + " at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         # if the user wishes compressed data files to be removed after processing
-        if self.clean_raw and filename not in self.on_file and Path(filename).is_file():
-            print("Cleaning up {}/{}.".format(self.path, filename))
+        if self.clean_raw and filename not in self.on_file and Path(self.data_path + "/"+ filename).is_file():
+            print("Cleaning up {}/{}.".format(self.data_path, filename))
             # delete the recently processed file
-            os.system('cd {} && rm {}'.format(self.path, filename))
+            os.system('cd {} && rm {}'.format(self.data_path, filename))
 
         return
 
@@ -814,16 +815,16 @@ class Parser(object):
         #   self.hashsums = self.Get_Hashsums()
 
         # check for failed downloads and parse those months again
-        if Path(self.path+"Download_Errors.txt").is_file():
-            with open(self.path+"Download_Errors.txt","r") as file:
+        if Path(self.model_path+"Download_Errors.txt").is_file():
+            with open(self.model_path+"Download_Errors.txt","r") as file:
                 for line in file:
                     year,month = int(line.strip().split(","))
                     if (year,month) not in self.dates:
                         self.dates.append((year,month))
-                    if Path(self.path+ get_rc_filename(year,month)).is_file:
-                        print("Corrupt download detected. Cleaning up {}/{}.".format(self.path, filename))
-                        os.system('cd {} && rm {}'.format(self.path, filename))
-            os.system('cd {} && rm {}'.format(self.path, "Download_Errors.txt"))
+                    if Path(self.data_path+ get_rc_filename(year,month)).is_file:
+                        print("Corrupt download detected. Cleaning up {}/{}.".format(self.data_path, filename))
+                        os.system('cd {} && rm {}'.format(self.data_path, filename))
+            os.system('cd {} && rm {}'.format(self.data_path, "Download_Errors.txt"))
 
         # Parallelize parsing by month
         inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
@@ -882,10 +883,10 @@ class Parser(object):
         fns = self.get_parser_fns()
         for key in fns:
             try:
-                new_path = os.path.join(self.path, key)
+                new_path = os.model_path.join(self.model_path, key)
                 os.makedirs(new_path)
             except OSError as exc:  # Python >2.5
-                if exc.errno == errno.EEXIST and os.path.isdir(path):
+                if exc.errno == errno.EEXIST and os.path.isdir(model_path):
                     continue
                 else:
                     raise
@@ -895,30 +896,30 @@ class Parser(object):
     # TODO: Add main counter and original comments and indices to this function
     def Parse_Rel_RC_Comments(self,num_process=num_process,machine=machine):
         # if preprocessed comments are available, ask if they should be rewritten
-        if (self.NN and Path(self.path + "/bert_prep/bert_prep").is_file()) or (
-                not self.NN and Path(self.path + "/lda_prep/lda_prep").is_file()):
+        if (self.NN and Path(self.model_path + "/bert_prep/bert_prep").is_file()) or (
+                not self.NN and Path(self.model_path + "/lda_prep/lda_prep").is_file()):
             Q = input(
                 "Preprocessed comments are already available. Do you wish to delete them and parse again [Y/N]?")
             if Q == 'Y' or Q == 'y':  # if the user wishes to overwrite the comments
                 # delete previous preprocessed data
                 if self.NN:  # for NN
-                    shutil.rmtree(self.path + "/bert_prep")
+                    shutil.rmtree(self.model_path + "/bert_prep")
                 elif not self.NN:  # for LDA
-                    shutil.rmtree(self.path + "/lda_prep")
-                if Path(self.path + "/original_indices/original_indices").is_file() and self.write_original:
-                    shutil.rmtree(self.path + "/original_indices")
-                if Path(self.path + "/original_comm/original_comm").is_file() and self.write_original:
-                    shutil.rmtree(self.path + "/original_comm")
-                if Path(self.path + "/votes/votes").is_file() and self.vote_counting:
-                    shutil.rmtree(self.path + "/votes")
-                if Path(self.path + "/author/author").is_file() and self.author:
-                    shutil.rmtree(self.path + "/author")
-                if Path(self.path + "/sentiments/sentiments").is_file() and self.sentiment:
-                    shutil.rmtree(self.path + "/sentiments")
-                if Path(self.path + "counts/RC_Count_List").is_file():
-                    shutil.rmtree(self.path + "/counts")
-                if Path(self.path + "timedict/RC_Count_Dict").is_file():
-                    shutil.rmtree(self.path + "timedict")
+                    shutil.rmtree(self.model_path + "/lda_prep")
+                if Path(self.model_path + "/original_indices/original_indices").is_file() and self.write_original:
+                    shutil.rmtree(self.model_path + "/original_indices")
+                if Path(self.model_path + "/original_comm/original_comm").is_file() and self.write_original:
+                    shutil.rmtree(self.model_path + "/original_comm")
+                if Path(self.model_path + "/votes/votes").is_file() and self.vote_counting:
+                    shutil.rmtree(self.model_path + "/votes")
+                if Path(self.model_path + "/author/author").is_file() and self.author:
+                    shutil.rmtree(self.model_path + "/author")
+                if Path(self.model_path + "/sentiments/sentiments").is_file() and self.sentiment:
+                    shutil.rmtree(self.model_path + "/sentiments")
+                if Path(self.model_path + "counts/RC_Count_List").is_file():
+                    shutil.rmtree(self.model_path + "/counts")
+                if Path(self.model_path + "timedict/RC_Count_Dict").is_file():
+                    shutil.rmtree(self.model_path + "timedict")
 
                 # timer
                 print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
@@ -931,69 +932,69 @@ class Parser(object):
                 # check for other required files aside from main data
                 missing_files = 0
 
-                if not Path(self.path + "counts/RC_Count_List").is_file():
+                if not Path(self.model_path + "counts/RC_Count_List").is_file():
                     missing_files += 1
 
-                if not Path(self.path + "votes/votes").is_file() and self.vote_counting:
+                if not Path(self.model_path + "votes/votes").is_file() and self.vote_counting:
                     missing_files += 1
 
-                if not Path(self.path + "author/author").is_file() and self.author:
+                if not Path(self.model_path + "author/author").is_file() and self.author:
                     missing_files += 1
 
-                if not Path(self.path + "sentiments/sentiments").is_file() and self.sentiment:
+                if not Path(self.model_path + "sentiments/sentiments").is_file() and self.sentiment:
                     missing_files += 1
 
-                if not Path(self.path + "sentiments/v_sentiments").is_file() and self.sentiment:
+                if not Path(self.model_path + "sentiments/v_sentiments").is_file() and self.sentiment:
                     missing_files += 1
 
-                if not Path(self.path + "sentiments/c_sentiments").is_file() and self.sentiment:
+                if not Path(self.model_path + "sentiments/c_sentiments").is_file() and self.sentiment:
                     missing_files += 1
 
-                if not Path(self.path + "sentiments/t_sentiments").is_file() and self.sentiment:
+                if not Path(self.model_path + "sentiments/t_sentiments").is_file() and self.sentiment:
                     missing_files += 1
 
                 # if there are missing files, delete any partial record and parse again
                 if missing_files != 0:
                     print("Deleting partial record and parsing again")
 
-                    if Path(self.path + "votes/votes").is_file():
-                        shutil.rmtree(self.path + "votes")
+                    if Path(self.model_path + "votes/votes").is_file():
+                        shutil.rmtree(self.model_path + "votes")
 
-                    if Path(self.path + "author/author").is_file():
-                        shutil.rmtree(self.path + "author")
+                    if Path(self.model_path + "author/author").is_file():
+                        shutil.rmtree(self.model_path + "author")
 
-                    if Path(self.path + "sentiments/sentiments").is_file():
-                        shutil.rmtree(self.path + "sentiments")
+                    if Path(self.model_path + "sentiments/sentiments").is_file():
+                        shutil.rmtree(self.model_path + "sentiments")
 
                     if self.NN:  # for NN
-                        shutil.rmtree(self.path + "bert_prep")
+                        shutil.rmtree(self.model_path + "bert_prep")
 
                     elif not self.NN:  # for LDA
-                        shutil.rmtree(self.path + "lda_prep")
+                        shutil.rmtree(self.model_path + "lda_prep")
 
-                    if Path(self.path + "counts/RC_Count_List").is_file():
-                        shutil.rmtree(self.path + "counts")
+                    if Path(self.model_path + "counts/RC_Count_List").is_file():
+                        shutil.rmtree(self.model_path + "counts")
 
-                    if Path(self.path + "timedict/RC_Count_Dict").is_file():
-                        shutil.rmtree(self.path + "timedict")
+                    if Path(self.model_path + "timedict/RC_Count_Dict").is_file():
+                        shutil.rmtree(self.model_path + "timedict")
 
                     # timer
                     print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
                     self.parse(num_process,machine)
 
         else:
-            if Path(self.path + "counts/RC_Count_List").is_file():
-                shutil.rmtree(self.path + "counts")
-            if Path(self.path + "votes/votes").is_file() and self.vote_counting:
-                shutil.rmtree(self.path + "votes")
-            if Path(self.path + "author/author").is_file() and self.author:
-                shutil.rmtree(self.path + "author")
-            if Path(self.path + "sentiments/sentiments").is_file() and self.sentiment:
-                shutil.rmtree(self.path + "sentiments")
-            if Path(self.path + "original_comm/original_comm").is_file() and self.write_original:
-                shutil.rmtree(self.path + "original_comm")
-            if Path(self.path + "original_indices/original_indices").is_file() and self.write_original:
-                shutil.rmtree(self.path + "original_indices")
+            if Path(self.model_path + "counts/RC_Count_List").is_file():
+                shutil.rmtree(self.model_path + "counts")
+            if Path(self.model_path + "votes/votes").is_file() and self.vote_counting:
+                shutil.rmtree(self.model_path + "votes")
+            if Path(self.model_path + "author/author").is_file() and self.author:
+                shutil.rmtree(self.model_path + "author")
+            if Path(self.model_path + "sentiments/sentiments").is_file() and self.sentiment:
+                shutil.rmtree(self.model_path + "sentiments")
+            if Path(self.model_path + "original_comm/original_comm").is_file() and self.write_original:
+                shutil.rmtree(self.model_path + "original_comm")
+            if Path(self.model_path + "original_indices/original_indices").is_file() and self.write_original:
+                shutil.rmtree(self.model_path + "original_indices")
 
             # timer
             print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
@@ -1002,7 +1003,7 @@ class Parser(object):
     ## Function for removing non-English posts picked up by the regex filter
     def lang_filtering(self,dates=dates):
 
-        if Path(self.path + "/non_en").is_file():  # if corpus is already filtered
+        if Path(self.model_path + "/non_en").is_file():  # if corpus is already filtered
             print("Found language filtering results on file. Moving on.")
             pass
         else:  # otherwise
@@ -1010,41 +1011,41 @@ class Parser(object):
             # check for missing files per parameter configs
 
             # raw dataset
-            if not Path(self.path + "/original_comm/original_comm").is_file():
+            if not Path(self.model_path + "/original_comm/original_comm").is_file():
                 raise Exception('Original comments are needed and could not be found')
-            if not Path(self.path + "/original_indices/original_indices").is_file():
+            if not Path(self.model_path + "/original_indices/original_indices").is_file():
                 raise Exception('Original indices are needed and could not be found')
 
             # preprocessed data
-            if (not Path(self.path + "/lda_prep/lda_prep").is_file()) and self.NN == False:
+            if (not Path(self.model_path + "/lda_prep/lda_prep").is_file()) and self.NN == False:
                 raise Exception('Preprocessed dataset could not be found')
-            elif (not Path(self.path + "/bert_prep/bert_prep.json").is_file()) and self.NN == True:
+            elif (not Path(self.model_path + "/bert_prep/bert_prep.json").is_file()) and self.NN == True:
                 raise Exception('Preprocessed dataset could not be found')
 
             # cumulative post counts
-            if not Path(self.path + "/counts/RC_Count_List").is_file():
+            if not Path(self.model_path + "/counts/RC_Count_List").is_file():
                 raise Exception(
                     'Cumulative monthly comment counts could not be found')
             else:  # load the cumulative counts
                 timelist_original = []
-                with open(self.path + "/counts/RC_Count_List", "r") as f:
+                with open(self.model_path + "/counts/RC_Count_List", "r") as f:
                     for line in f:
                         if line.strip() != "":
                             timelist_original.append(int(float(line.strip())))
 
             # post meta-data
-            if (not Path(self.path + "/votes/votes").is_file()) and self.vote_counting:
+            if (not Path(self.model_path + "/votes/votes").is_file()) and self.vote_counting:
                 raise Exception('Votes counld not be found')
-            if (not Path(self.path + "/author/author").is_file()) and self.author:
+            if (not Path(self.model_path + "/author/author").is_file()) and self.author:
                 raise Exception('Author usernames could not be found')
             if self.sentiment:
-                if not Path(self.path + "/sentiments/sentiments").is_file():
+                if not Path(self.model_path + "/sentiments/sentiments").is_file():
                     raise Exception('Sentiment estimates could not be found')
-                if not Path(self.path + "/sentiments/v_sentiments").is_file():
+                if not Path(self.model_path + "/sentiments/v_sentiments").is_file():
                     raise Exception('Vader sentiment estimates could not be found')
-                if not Path(self.path + "/sentiments/t_sentiments").is_file():
+                if not Path(self.model_path + "/sentiments/t_sentiments").is_file():
                     raise Exception('TextBlob sentiment estimates could not be found')
-                if not Path(self.path + "/sentiments/c_sentiments").is_file():
+                if not Path(self.model_path + "/sentiments/c_sentiments").is_file():
                     raise Exception('CoreNLP sentiment estimates could not be found')
 
             # Initialize variables
@@ -1065,9 +1066,9 @@ class Parser(object):
 
             # Filter the posts
 
-            with open(self.path + "/non_en", "w") as non_en:
+            with open(self.model_path + "/non_en", "w") as non_en:
                 total_count = 0
-                with open(self.path + "/original_comm/original_comm", "r") as raw_dataset:
+                with open(self.model_path + "/original_comm/original_comm", "r") as raw_dataset:
                     for index, post in enumerate(raw_dataset):
                         total_count += 1
                         try:
@@ -1123,9 +1124,9 @@ class Parser(object):
 
             for file in filenames: # for each file in the list above
 
-                with open(self.path + file,"r") as f: # read each line
+                with open(self.model_path + file,"r") as f: # read each line
                     lines = f.readlines()
-                with open(self.path + file, "w") as f: # write only the relevant posts
+                with open(self.model_path + file, "w") as f: # write only the relevant posts
                     for index, line in enumerate(lines):
                         if line.strip() != "" and index not in non_en_idx:
                             f.write(line)
@@ -1135,9 +1136,9 @@ class Parser(object):
                 # update monthly files
                 total_counter = 0
                 for yr,mo in self.dates:
-                    with open(self.path + file +"-{}-{}".format(yr,mo),"r") as monthly_file:
+                    with open(self.model_path + file +"-{}-{}".format(yr,mo),"r") as monthly_file:
                         lines = f.readlines()
-                    with open(self.path + file +"-{}-{}".format(yr,mo),"w") as monthly_file:
+                    with open(self.model_path + file +"-{}-{}".format(yr,mo),"w") as monthly_file:
                         for index, line in enumerate(monthly_file):
                             if line.strip() != "" and index not in non_en_idx:
                                 monthly_file.write(line)
@@ -1151,7 +1152,7 @@ class Parser(object):
 
             #BUG: bert_prep is not being updated. Okay for now, but bad if we'll be using it
 
-            with open(self.path + "/counts/RC_Count_List", "w") as f:
+            with open(self.model_path + "/counts/RC_Count_List", "w") as f:
                 for interval in timelist_original:
                     print(interval, end="\n", file=f)
 
@@ -1161,7 +1162,7 @@ class Parser(object):
             for yr,mo in dates:
                 file_counter = 0
                 interval_counter = 0
-                with open(self.path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"r") as f:
+                with open(self.model_path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"r") as f:
                     for line in f:
                         if line.strip() != "":
                             file_counter = int(line.strip())
@@ -1170,7 +1171,7 @@ class Parser(object):
                     if index >= total_counter and index < total_counter + file_counter:
                         interval_counter += 1
                 total_counter += int(line.strip())
-                with open(self.path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"w") as f:
+                with open(self.model_path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"w") as f:
                     new_count = file_counter - interval_counter
                     f.write(str(new_count))
 
@@ -1199,11 +1200,11 @@ class Parser(object):
     def add_sentiment(self):
 
         # Retrieve the total number of posts in the corpus (needs RC_Count_List)
-        if not Path(self.path + "/RC_Count_List").is_file():
+        if not Path(self.model_path + "/RC_Count_List").is_file():
             raise Exception(
                 'Cumulative monthly comment counts could not be found')
 
-        with open(self.path + "counts/RC_Count_List", 'r') as f:
+        with open(self.model_path + "counts/RC_Count_List", 'r') as f:
             timelist = []
             for line in f:
                 if line.strip() != "":
@@ -1214,33 +1215,33 @@ class Parser(object):
 
         # check to see if Vader estimates already exist
         # If not available, start from the first comment
-        if not Path(self.path + "/sentiments_vader").is_file():
+        if not Path(self.model_path + "/sentiments_vader").is_file():
             ignore_v = 0
         else:  # otherwise, examine how many comments were analyzed
             ignore_v = 0
-            with open(self.path + "/sentiments_vader", 'r') as f:
+            with open(self.model_path + "/sentiments_vader", 'r') as f:
                 for comment in f:
                     ignore_v += 1
 
         # CoreNLP estimates
 
         # If estimates are not available, start from the first comment
-        if not Path(self.path + "/sentiments_core").is_file():
+        if not Path(self.model_path + "/sentiments_core").is_file():
             ignore_c = 0
         else:  # otherwise, examine how many comments were analyzed
             ignore_c = 0
-            with open(self.path + "/sentiments_core", 'r') as f:
+            with open(self.model_path + "/sentiments_core", 'r') as f:
                 for comment in f:
                     ignore_c += 1
 
         # TextBlob estimates
 
         # If estimates are not available, start from the first comment
-        if not Path(self.path + "/sentiments_blob").is_file():
+        if not Path(self.model_path + "/sentiments_blob").is_file():
             ignore_t = 0
         else:  # otherwise, examine how many comments were analyzed
             ignore_t = 0
-            with open(self.path + "/sentiments_blob", 'r') as f:
+            with open(self.model_path + "/sentiments_blob", 'r') as f:
                 for comment in f:
                     ignore_t += 1
 
@@ -1250,7 +1251,7 @@ class Parser(object):
         else:  # otherwise, retrieve estimates from from the packages
 
             # check to see if corpus text is accessible
-            if not Path(self.path + "/original_comm").is_file():
+            if not Path(self.model_path + "/original_comm").is_file():
                 raise Exception('Original comments could not be found')
 
             print("Started retrieving and recording sentiment values at "
@@ -1274,10 +1275,10 @@ class Parser(object):
             nlp_wrapper = StanfordCoreNLP('http://localhost:9000')
 
             # read the corpus and retrieve compound Vader score for each post
-            with open(self.path + "/original_comm", "r") as texts, \
-                    open(self.path + "/sentiments_vader", "a+") as vader, \
-                    open(self.path + "/sentiments_blob", "a+") as textblob, \
-                    open(self.path + "/sentiments_core", "a+") as core:
+            with open(self.model_path + "/original_comm", "r") as texts, \
+                    open(self.model_path + "/sentiments_vader", "a+") as vader, \
+                    open(self.model_path + "/sentiments_blob", "a+") as textblob, \
+                    open(self.model_path + "/sentiments_core", "a+") as core:
 
                 text_reader = texts.readlines()  # set up reader
 
@@ -1342,7 +1343,7 @@ class Parser(object):
         transformers_logger.setLevel(logging.WARNING)
 
         # load the pre-trained neural network from model_path
-        model = ClassificationModel('roberta', model_path, use_cuda=False,
+        model = ClassificationModel('roberta', rel_model_path, use_cuda=False,
         args={'fp16': False,'num_train_epochs': 1, 'manual_seed':1, 'silent':True})
 
         total_count = 0 # counter for all documents in the dataset
@@ -1350,10 +1351,10 @@ class Parser(object):
         start = time.time() # measure processing time
 
         # if labels for that month exist, load them
-        if Path(data_path+"auto_labels-{}-{}".format(year,month)).is_file():
+        if Path(self.model_path+"auto_labels/auto_labels-{}-{}".format(year,month)).is_file():
             print("Found labels for year "+str(year)+", month "+str(month)+". Loading.")
 
-            with open(data_path+"auto_labels-{}-{}".format(year, month),"r") as labels:
+            with open(self.model_path+"auto_labels/auto_labels-{}-{}".format(year, month),"r") as labels:
                 for label in labels:
                     if label.strip() != "":
                         general_labels.append(label)
@@ -1365,14 +1366,19 @@ class Parser(object):
             # NOTE: Might be slightly different from the actual
             # monthly counts
             file_counter = 0
-            with open(self.path+"/counts/RC_Count_List-{}-{}".format(year, month),"r") as counts:
+            with open(self.model_path+"/counts/RC_Count_List-{}-{}".format(year, month),"r") as counts:
                 for line in counts:
                     if line.strip() != "":
                         file_counter = int(line)
                         total_count += int(line)
 
             # use original comment text to auto-generate labels
-            with open(data_path+"original_comm-{}-{}".format(year, month),"r") as texts, open(data_path+"auto_labels-{}-{}".format(year, month),"w") as labels:
+
+            # create folder for automatic relevance labels if none exists
+            if not os.path.isdir(self.model_path+"auto_labels"):
+                os.system('cd {} && mkdir {}'.format(self.data_path, "auto_labels"))
+
+            with open(self.model_path+"original_comm/original_comm-{}-{}".format(year, month),"r") as texts, open(self.model_path+"auto_labels/auto_labels-{}-{}".format(year, month),"w") as labels:
 
                 counter = 0 # doc counter for batching
 
@@ -1402,25 +1408,25 @@ class Parser(object):
         Parser(**kwargs).Screen_One_Month(year,month)
 
     ## Uses a pre-trained neural network to prune dataset from irrelevant posts
-    def Neural_Relevance_Screen(self,data_path=path+"/original_comm/",
-    model_path=path+"/Human_Ratings/1_1/full_1005/",dates=dates,
+    def Neural_Relevance_Screen(self,
+    rel_model_path=model_path+"/Human_Ratings/1_1/full_1005/",dates=dates,
     rel_sample_num=rel_sample_num,balanced_rel_sample=balanced_rel_sample):
 
         # BUG: Add pooling function to the end
         # BUG: General labels should be a list, or better yet a pre-det np array
 
         # check for previous screening results
-        if Path(data_path + "sample_auto_labeled.csv").is_file():
+        if Path(self.model_path + "auto_labels/sample_auto_labeled.csv").is_file():
 
             print("A sample of auto-labeled posts was found, suggesting neural relevance screening was previously performed. Moving on.")
 
         else: # if screening results not found
 
             # check for a complete record of labels
-            if Path(data_path+"auto_labels").is_file():
+            if Path(self.model_path+"auto_labels/auto_labels").is_file():
                 print("Found full dataset labels. Loading.")
 
-                with open(data_path+"auto_labels","r") as f:
+                with open(self.model_path+"auto_labels/auto_labels","r") as f:
                     for line in f:
                         if line.strip() != "":
                             total_count += 1
@@ -1432,12 +1438,12 @@ class Parser(object):
 
                 # Load cumulative number of relevant posts for each month, from disk
 
-                if not Path(self.path + "/counts/RC_Count_List").is_file():
+                if not Path(self.model_path + "/counts/RC_Count_List").is_file():
                     raise Exception(
                         'Cumulative monthly comment counts could not be found')
                 else:
                     timelist_original = []
-                    with open(self.path + "/counts/RC_Count_List", "r") as f:
+                    with open(self.model_path + "/counts/RC_Count_List", "r") as f:
                         for line in f:
                             if line.strip() != "":
                                 timelist_original.append(int(line))
@@ -1470,9 +1476,9 @@ class Parser(object):
 
                         if current_batch + num_process >= len(inputs):
 
-                            with open(data_path+"auto_labels","a+") as general_labels:
+                            with open(self.model_path+"auto_labels/auto_labels","a+") as general_labels:
                                 for yr,mo in inputs:
-                                    with open(data_path+"auto_labels-{}-{}".format(yr,mo),"r") as monthly:
+                                    with open(self.model_path+"auto_labels/auto_labels-{}-{}".format(yr,mo),"r") as monthly:
                                         for line in monthly:
                                             if line.strip() != "":
                                                 general_labels.write(line.strip())
@@ -1483,7 +1489,7 @@ class Parser(object):
 
                             # read labels from disk and identify indices of irrelevant posts
                             irrel_idxes = []
-                            with open(data_path+"auto_labels","r") as labels:
+                            with open(self.model_path+"auto_labels/auto_labels","r") as labels:
                                 for idx,line in enumerate(labels):
                                     if line.strip() == '0' or line.strip() == 'None':
                                         labels_array[idx] = 0
@@ -1539,7 +1545,7 @@ class Parser(object):
                             sampled_docs = []
                             int_counter = 0
 
-                            with open(data_path+"original_comm","r") as sampling:
+                            with open(self.model_path+"/original_comm/original_comm","r") as sampling:
                                 sampled_idxes =[]
                                 for idx,sampler in enumerate(sampling):
                                     try:
@@ -1569,7 +1575,7 @@ class Parser(object):
                             # load labels for the sampled documents
                             general_counter = 0
                             sample_counter = 0
-                            with open(data_path+"auto_labels","r") as labels:
+                            with open(self.model_path+"auto_labels/auto_labels","r") as labels:
                                 for idx,line in enumerate(labels):
                                     if idx in random_sample:
                                         sampled_docs[sample_counter].append(line)
@@ -1582,7 +1588,7 @@ class Parser(object):
                                 assert len(element) == 4
 
                             # write the sampled files to a csvfile
-                            with open(data_path+"sample_auto_labeled.csv", 'a+') as csvfile:
+                            with open(self.model_path+"auto_labels/sample_auto_labeled.csv", 'a+') as csvfile:
                                 writer = csv.writer(csvfile)
                                 writer.writerow(['year','month','text','auto label','accuracy'])
                                 for document in sampled_docs:
@@ -1605,7 +1611,7 @@ class Parser(object):
 
                 # read labels from disk and identify indices of irrelevant posts
                 irrel_idxes = []
-                with open(data_path+"auto_labels","r") as labels:
+                with open(self.model_path+"auto_labels/auto_labels","r") as labels:
                     for idx,line in enumerate(labels):
                         if line.strip() == '0' or line.strip() == 'None':
                             labels_array[idx] = 0
@@ -1661,7 +1667,7 @@ class Parser(object):
                 sampled_docs = []
                 int_counter = 0
 
-                with open(data_path+"original_comm","r") as sampling:
+                with open(self.model_path+"original_comm/original_comm","r") as sampling:
                     sampled_idxes =[]
                     for idx,sampler in enumerate(sampling):
                         try:
@@ -1691,7 +1697,7 @@ class Parser(object):
                 # load labels for the sampled documents
                 general_counter = 0
                 sample_counter = 0
-                with open(data_path+"auto_labels","r") as labels:
+                with open(self.model_path+"auto_labels/auto_labels","r") as labels:
                     for idx,line in enumerate(labels):
                         if idx in random_sample:
                             sampled_docs[sample_counter].append(line)
@@ -1704,7 +1710,7 @@ class Parser(object):
                     assert len(element) == 4
 
                 # write the sampled files to a csvfile
-                with open(data_path+"sample_auto_labeled.csv", 'a+') as csvfile:
+                with open(self.model_path+"auto_labels/sample_auto_labeled.csv", 'a+') as csvfile:
                     writer = csv.writer(csvfile)
                     writer.writerow(['year','month','text','auto label','accuracy'])
                     for document in sampled_docs:
@@ -1712,10 +1718,10 @@ class Parser(object):
 
     ## Function that uses the results of Neural_Relevance_Screen to remove posts
     # likely to be irrelevant from the dataset.
-    def Neural_Relevance_Clean(self,path=path, dates=dates):
+    def Neural_Relevance_Clean(self,model_path=model_path, dates=dates):
 
         # check to see if relevance filtering was previously performed
-        if Path(self.path+"rel_clean_cert.txt").is_file():
+        if Path(self.model_path+"rel_clean_cert.txt").is_file():
             print("A certificate for a previously finished relevance filtering was found. Moving on.")
 
         else: # if not
@@ -1725,41 +1731,41 @@ class Parser(object):
             # if we end up using it
 
             # raw dataset and indices
-            if not Path(self.path + "/original_comm/original_comm").is_file():
+            if not Path(self.model_path + "/original_comm/original_comm").is_file():
                 raise Exception('Original comments could not be found')
-            if not Path(self.path + "/original_indices/original_indices").is_file():
+            if not Path(self.model_path + "/original_indices/original_indices").is_file():
                 raise Exception('Original indices could not be found')
 
             # preprocessed data for LDA and NN
-            if (not Path(self.path + "/lda_prep/lda_prep").is_file()) and self.NN == False:
+            if (not Path(self.model_path + "/lda_prep/lda_prep").is_file()) and self.NN == False:
                 raise Exception('Preprocessed dataset could not be found')
-            elif (not Path(self.path + "/bert_prep/bert_prep.json").is_file()) and self.NN == True:
+            elif (not Path(self.model_path + "/bert_prep/bert_prep.json").is_file()) and self.NN == True:
                 raise Exception('Preprocessed dataset could not be found')
 
             # cumulative post counts
-            if not Path(self.path + "/counts/RC_Count_List").is_file():
+            if not Path(self.model_path + "/counts/RC_Count_List").is_file():
                 raise Exception(
                     'Cumulative monthly comment counts could not be found')
             else:  # load the cumulative counts
                 timelist_original = []
-                with open(self.path + "/counts/RC_Count_List", "r") as f:
+                with open(self.model_path + "/counts/RC_Count_List", "r") as f:
                     for line in f:
                         if line.strip() != "":
                             timelist_original.append(int(line))
 
             # post meta-data
-            if (not Path(self.path + "/votes/votes").is_file()) and self.vote_counting:
+            if (not Path(self.model_path + "/votes/votes").is_file()) and self.vote_counting:
                 raise Exception('Votes counld not be found')
-            if (not Path(self.path + "/author/author").is_file()) and self.author:
+            if (not Path(self.model_path + "/author/author").is_file()) and self.author:
                 raise Exception('Author usernames could not be found')
             if self.sentiment:
-                if not Path(self.path + "/sentiments/sentiments").is_file():
+                if not Path(self.model_path + "/sentiments/sentiments").is_file():
                     raise Exception('Sentiment estimates could not be found')
-                if not Path(self.path + "/sentiments/v_sentiments").is_file():
+                if not Path(self.model_path + "/sentiments/v_sentiments").is_file():
                     raise Exception('Vader sentiment estimates could not be found')
-                if not Path(self.path + "/sentiments/t_sentiments").is_file():
+                if not Path(self.model_path + "/sentiments/t_sentiments").is_file():
                     raise Exception('TextBlob sentiment estimates could not be found')
-                if not Path(self.path + "/sentiments/c_sentiments").is_file():
+                if not Path(self.model_path + "/sentiments/c_sentiments").is_file():
                     raise Exception('CoreNLP sentiment estimates could not be found')
 
             # Initialize variables
@@ -1784,7 +1790,7 @@ class Parser(object):
             negative_labels = [] # list for negative labels
 
             for yr,mo in dates: # for each month
-                with open(path+"/original_comm/auto_labels-{}-{}".format(yr,mo),"r") as labels:
+                with open(model_path+"/auto_labels/auto_labels-{}-{}".format(yr,mo),"r") as labels:
                     for idx,line in enumerate(labels):
                         if line.strip() != "":
 
@@ -1814,7 +1820,7 @@ class Parser(object):
             # BUG: I'm not filtering bert_prep. It's okay as long as we don't use it
 
             # A list of dataset files needing to be updated based on parameters
-            filenames = ['/original_comm/original_comm','/original_indices/original_indices','/original_comm/auto_labels']
+            filenames = ['/original_comm/original_comm','/original_indices/original_indices','/auto_labels/auto_labels']
             if not self.NN:
                 filenames.append("/lda_prep/lda_prep")
             if self.vote_counting:
@@ -1829,17 +1835,17 @@ class Parser(object):
 
             for file in filenames: # for each file in the list above
 
-                with open(self.path + file,"r") as f: # read each line
+                with open(self.model_path + file,"r") as f: # read each line
                     lines = f.readlines()
-                with open(self.path + file, "w") as f: # write only the relevant posts
+                with open(self.model_path + file, "w") as f: # write only the relevant posts
                     for index, line in enumerate(lines):
                         if line.strip() != "" and index not in negative_labels:
                             f.write(line)
 
                 for yr,mo in self.dates:
-                    with open(self.path + file +"-{}-{}".format(yr,mo),"r") as monthly_file:
+                    with open(self.model_path + file +"-{}-{}".format(yr,mo),"r") as monthly_file:
                         lines = f.readlines()
-                    with open(self.path + file +"-{}-{}".format(yr,mo),"w") as monthly_file:
+                    with open(self.model_path + file +"-{}-{}".format(yr,mo),"w") as monthly_file:
                         for index, line in enumerate(monthly_file):
                             if line.strip() != "" and index not in negative_labels:
                                 monthly_file.write(line)
@@ -1853,7 +1859,7 @@ class Parser(object):
             # get the actual post count (might be different from the list above
             # because of out-of-bounds posts, for which an additional entry will
             # be appended to the count list)
-            with open(path+'/original_comm/original_comm','r') as f:
+            with open(model_path+'/original_comm/original_comm','r') as f:
                 total_count = 0
                 for line in f:
                     total_count += 1
@@ -1861,7 +1867,7 @@ class Parser(object):
                     timelist_original.append(total_count)
 
             # update the cumulative monthly counts
-            with open(self.path + "/counts/RC_Count_List", "w") as f:
+            with open(self.model_path + "/counts/RC_Count_List", "w") as f:
                 for interval in timelist_original:
                     print(str(int(interval)), end="\n", file=f)
 
@@ -1870,7 +1876,7 @@ class Parser(object):
             for yr,mo in dates:
                 file_counter = 0
                 interval_counter = 0
-                with open(self.path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"r") as f:
+                with open(self.model_path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"r") as f:
                     for line in f:
                         if line.strip() != "":
                             file_counter = int(line.strip())
@@ -1879,7 +1885,7 @@ class Parser(object):
                     if index >= total_counter and index < total_counter + file_counter:
                         interval_counter += 1
                 total_counter += int(line.strip())
-                with open(self.path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"w") as f:
+                with open(self.model_path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"w") as f:
                     new_count = file_counter - interval_counter
                     f.write(str(new_count))
 
@@ -1887,7 +1893,7 @@ class Parser(object):
             # are removed from the dataset
             count_auto_labels = 0
             sum_auto_labels = 0
-            with open(self.path + "/original_comm/auto_labels","r") as labels:
+            with open(self.model_path + "/auto_labels/auto_labels","r") as labels:
                 for line in labels:
                     if line.strip() != "":
                         count_auto_labels += 1
@@ -1898,20 +1904,20 @@ class Parser(object):
             end = time.time()
             hours, rem = divmod(end-start, 3600)
             minutes, seconds = divmod(rem, 60)
-            with open(self.path+"rel_clean_cert.txt","w") as cert:
+            with open(self.model_path+"rel_clean_cert.txt","w") as cert:
                 cert.write("Finished relevance-filtering in {:0>2}:{:0>2}:{:05.2f} (hours,minutes,seconds)".format(int(hours),int(minutes),seconds))
                 print("Finished relevance-filtering in {:0>2}:{:0>2}:{:05.2f} (hours,minutes,seconds)".format(int(hours),int(minutes),seconds))
 
     ## Evaluates accuracy, f1, precision and recall for the relevance classifier
     # based on the random sample from Neural_Relevance_Screen
-    def eval_relevance(self,data_path=path+"/original_comm/"):
+    def eval_relevance(self,sample_path=model_path+"/auto_labels/"):
 
         # check that the random sample is available
-        if not Path(data_path+"sample_auto_labeled.csv").is_file:
+        if not Path(sample_path+"sample_auto_labeled.csv").is_file:
             raise Exception("Random sample of classifier output not found.")
 
         else: # if it is
-            with open(data_path+"sample_auto_labeled.csv","r") as csvfile:
+            with open(sample_path+"sample_auto_labeled.csv","r") as csvfile:
                 reader = csv.reader(csvfile)
 
                 labels = [] # container for human labels
@@ -1973,7 +1979,7 @@ class Parser(object):
             fn = 0
 
         # Write evaluation measures if they are calculable to file
-        with open(data_path+"eval_results.txt","a+") as f:
+        with open(sample_path+"eval_results.txt","a+") as f:
 
             # Record the confusion matrix
             print("Confusion matrix: "+ str(label_measures) + "\n")
@@ -2006,16 +2012,16 @@ class Parser(object):
     # NOTE: Requires monthly relevant counts from parser or disk
 
     def Rel_Counter(self):
-        if not Path(self.path + "counts/RC_Count_List").is_file():
+        if not Path(self.model_path + "counts/RC_Count_List").is_file():
             raise Exception(
                 'Cumulative monthly comment counts could not be found')
-        if not Path(self.path + "total_count/total_count").is_file():
+        if not Path(self.model_path + "total_count/total_count").is_file():
             raise Exception(
                 'Total monthly counts could not be found')
 
         # load the total monthly counts into a list
         monthly_list = []
-        with open(self.path + "total_count/total_count", 'r') as f:
+        with open(self.model_path + "total_count/total_count", 'r') as f:
             for line in f:
                 line = line.replace("\n", "")
                 if line.strip() != "":
@@ -2033,7 +2039,7 @@ class Parser(object):
             else:
                 total_year[str(keys[0])] = d[keys]
 
-        relevant_year, _ = Get_Counts(self.path, frequency="yearly")
+        relevant_year, _ = Get_Counts(self.model_path, frequency="yearly")
 
         relevant = {}
         for idx, year in enumerate(relevant_year):
@@ -2041,7 +2047,7 @@ class Parser(object):
 
         # calculate the percentage of comments in each year that was relevant and write it to file
         perc_rel = {}
-        rel = open(self.path + "/perc_rel", 'a+')
+        rel = open(self.model_path + "/perc_rel", 'a+')
         for key in relevant:
             perc_rel[key] = float(relevant[key]) / float(total_year[key])
         print(sorted(perc_rel.items()), file=rel)
@@ -2049,13 +2055,13 @@ class Parser(object):
 
     ## Load, calculate or re-calculate the percentage of relevant comments/year
     def Perc_Rel_RC_Comment(self):
-        if Path(self.path + "/perc_rel").is_file():  # look for extant record
+        if Path(self.model_path + "/perc_rel").is_file():  # look for extant record
             # if it exists, ask if it should be overwritten
             Q = input(
                 "Yearly relevant percentages are already available. Do you wish to delete them and count again [Y/N]?")
 
             if Q == 'Y' or Q == 'y':  # if yes
-                os.remove(path + "/perc_rel")  # delete previous record
+                os.remove(model_path + "/perc_rel")  # delete previous record
                 self.Rel_Counter()  # calculate again
             else:  # if no
                 print("Operation aborted")  # pass
@@ -2065,7 +2071,7 @@ class Parser(object):
 
     # Helper functions for select_random_comments
     def get_comment_lengths(self):
-        fin = self.path + 'lda_prep/lda_prep'
+        fin = self.model_path + 'lda_prep/lda_prep'
         with open(fin, 'r') as fh:
             return [len(line.split()) for line in fh.read().split("\n")]
 
@@ -2090,9 +2096,9 @@ class Parser(object):
                                years_to_sample=years, min_n_comments=5000,
                                overwrite=OVERWRITE):
         fns = self.get_parser_fns()
-        fns["indices_random"] = "{}/random_indices".format(self.path)
-        fns["counts_random"] = "{}/Random_Count_List".format(self.path)
-        fns["timedict_random"] = "{}/Random_Count_Dict".format(self.path)
+        fns["indices_random"] = "{}/random_indices".format(self.model_path)
+        fns["counts_random"] = "{}/Random_Count_List".format(self.model_path)
+        fns["timedict_random"] = "{}/Random_Count_Dict".format(self.model_path)
         fout = fns["indices_random"]
 
         if (not overwrite and os.path.exists(fout)):
@@ -2100,9 +2106,9 @@ class Parser(object):
             return
 
         years_to_sample = sorted(years_to_sample)
-        ct_peryear, ct_cumyear = Get_Counts(path=self.path, frequency="yearly")
+        ct_peryear, ct_cumyear = Get_Counts(path=self.model_path, frequency="yearly")
         ct_permonth, ct_cummonth = Get_Counts(
-            path=self.path, frequency="monthly")
+            path=self.model_path, frequency="monthly")
         assert len(self.dates) == len(ct_permonth) == len(ct_cummonth)
         ct_lu_by_year = dict((y, i) for i, y in enumerate(years))
         ct_lu_by_month = dict(zip(self.dates, range(len(self.dates))))
