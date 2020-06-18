@@ -26,7 +26,7 @@ DOWNLOAD_RAW = True # If a raw data file is not available on disk, download it
 # https://files.pushshift.io/reddit/comments/ beyond 02-2019, as they would
 # not be reflected in the parser's code, which assumes the latest files have
 # .zst extensions
-CLEAN_RAW = True # After parsing, delete the raw data file from disk if it was
+CLEAN_RAW = False # After parsing, delete the raw data file from disk if it was
 # not downloaded during parsing
 vote_counting = True # Record the fuzzed number of upvotes when parsing
 WRITE_ORIGINAL = True # Write original comments to file when parsing
@@ -41,12 +41,11 @@ sentiment = True # Write sentence- and document-level sentiment of a post to
 ### Pre-processing hyperparameters
 try: # see if the run request is coming from the CCV cluster
     machine
-    CLEAN_RAW = True
+    CLEAN_RAW = False
+    batch_id = array
 except NameError: # if not, set the "machine" variable to "local"
     machine = "local"
 
-machine = "local" # for debug
-batch_id = 0 # for debug
 # NOTE: Matters for optimization of the parallelizations used in the functions.
 # NOTE: On Brown University's supercomputer, batches of 24 months were found to
 # be optimal
@@ -81,7 +80,7 @@ rel_sample_num = 200 # By default, a random sample of this size will be extracte
 # are more numerous in the dataset than about half this number.
 balanced_rel_sample = True # whether the random filtering sample should be
 # balanced across classification categories (relevant, irrelevant by default)
-eval_relevance = True # F1, recall, precision and accuracy for the sample derived
+eval_relevance = False # F1, recall, precision and accuracy for the sample derived
 # from Neural_Relevance_Filtering. Requires the sample to be complemented by
 # manual labels. The default location for the sample is
 # [repository path]/original_comm/sample_auto_labeled.csv
@@ -195,7 +194,8 @@ num_pop = 2000 # number of the most up- or down-voted comments sampled for model
 
 ## where the data is
 file_path = os.path.abspath(__file__)
-path = os.path.dirname(file_path)
+model_path = os.path.dirname(file_path)
+data_path = '/users/ssloman/data/Reddit_Dataset'
 # NOTE: if not fully available on file, set Download for Parser function to
 # True (source: http://files.pushshift.io/reddit/comments/)
 # NOTE: if not in the same directory as this file, change the path variable
@@ -204,11 +204,10 @@ path = os.path.dirname(file_path)
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
 months=range(1,13) # month range
-years=range(2008) # year range
+years=range(2008,2009) # year range
 for year in years:
     for month in months:
         dates.append((year,month))
-
 
 ## where the output will be stored
 
@@ -222,7 +221,7 @@ for year in years:
 # important to your iteration
 
 if NN: # If running a neural network analysis
-    output_path = path+"/"+"doi_"+str(special_doi)+"_pre_"+str(pretrained)+"_e_"+str(epochs)+"_"+"hd"+"_"+str(hiddenSz)
+    output_path = model_path+"/"+"doi_"+str(special_doi)+"_pre_"+str(pretrained)+"_e_"+str(epochs)+"_"+"hd"+"_"+str(hiddenSz)
     if not os.path.exists(output_path):
         print("Creating directory to store the output")
         os.makedirs(output_path)
@@ -231,7 +230,7 @@ if NN: # If running a neural network analysis
 
     # NOTE: Enter manually. Only matters if special_doi = True and pretrained = True
 
-    param_path = path+"/doi_False_pre_False_e_3_hd_512/"
+    param_path = model_path+"/doi_False_pre_False_e_3_hd_512/"
     if pretrained == True:
         if not os.path.exists(param_path):
             raise Exception("Could not find saved pre-trained parameter values.")
