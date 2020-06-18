@@ -7,7 +7,7 @@
 
 
 # email error reports
-#SBATCH --mail-user=nathaniel_goodman@brown.edu 
+#SBATCH --mail-user=babak_hemmatian@brown.edu 
 #SBATCH --mail-type=ALL
 
 # output file
@@ -20,14 +20,15 @@
 
 # Request runtime, memory, cores
 #SBATCH --time=48:00:00
-#SBATCH --mem=64G
-#SBATCH -c 32
+#SBATCH --mem=60G
+#SBATCH -c 8
 #SBATCH -N 1
-#SBATCH --array=0-100
-module load anaconda/3-5.2.0
-eval "$(conda shell.bash hook)"
-conda activate marijuana_study
+#SBATCH --array=0-3
 
 machine='ccv'
+
+eval "$(conda shell.bash hook)"
+conda deactivate
+conda activate marijuana_study
 
 python Parse.py --machine $machine 
