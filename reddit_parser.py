@@ -355,7 +355,7 @@ class Parser(object):
         total_core_nlp = 0
         total_textblob = 0
         original_without_quotes = original_body.replace("\"", "")
-
+        per_sentence = []
         try:
             annot_doc = self.nlp_wrapper.annotate(original_without_quotes, properties={
                 'annotators': 'sentiment',
@@ -363,8 +363,6 @@ class Parser(object):
                 'timeout': 1000000 })
             with open(fns["c_sentiments"],"a+") as c_sentiments:
 
-                if self.machine == "ccv":
-                    per_sentence = []
                 try:
                     for i in range(0, len(annot_doc['sentences'])):
                         total_core_nlp += int(annot_doc['sentences'][i]['sentimentValue'])
@@ -373,7 +371,7 @@ class Parser(object):
                         elif self.machine == "ccv":
                             per_sentence.append(str(annot_doc['sentences'][i]['sentimentValue']))
                 except:
-                    per_sentence == "None"
+                    per_sentence = "None"
                     if self.machine == "local":
                         c_sentiments.write("None"+"\n")
                     elif self.machine == "ccv":
@@ -390,43 +388,41 @@ class Parser(object):
             with open("CoreNLP_errors.txt","a+") as errors:
                 errors.write(str(month)+","+str(main_counter)+","+ " ".join(original_body.split()).replace("\n",""))
             # potential BUG: do we need to write None to the sentiment file? Or does the failed sentence just get ignored?
+        with open(fns["v_sentiments"],"a+") as v_sentiments, open(fns["t_sentiments"],"a+") as t_sentiments:
+            if self.machine == "local":
+                    for sentence in tokenized:
+                        # Vader score
+                        sid = SentimentIntensityAnalyzer()
+                        score_dict = sid.polarity_scores(sentence)
+                        total_vader += score_dict['compound']
+                        v_sentiments.write(str(score_dict['compound'])+",")
 
-        if self.machine == "local":
-            with open(fns["v_sentiments"],"a+") as v_sentiments, open(fns["t_sentiments"],"a+") as t_sentiments:
+                        # Get TextBlob sentiment
+                        blob = TextBlob(sentence)
+                        total_textblob += blob.sentiment[0]
+                        t_sentiments.write(str(blob.sentiment[0])+",")
+                    v_sentiments.write("\n")
+                    t_sentiments.write("\n")
+
+            elif self.machine == "ccv":
+                v_per_sentence = []
+                t_per_sentence = []
                 for sentence in tokenized:
                     # Vader score
                     sid = SentimentIntensityAnalyzer()
                     score_dict = sid.polarity_scores(sentence)
                     total_vader += score_dict['compound']
-                    v_sentiments.write(str(score_dict['compound'])+",")
+                    v_per_sentence.append(str(score_dict['compound']))
 
                     # Get TextBlob sentiment
                     blob = TextBlob(sentence)
                     total_textblob += blob.sentiment[0]
-                    t_sentiments.write(str(blob.sentiment[0])+",")
-                v_sentiments.write("\n")
-                t_sentiments.write("\n")
-
-        elif self.machine == "ccv":
-            v_per_sentence = []
-            t_per_sentence = []
-            for sentence in tokenized:
-                # Vader score
-                sid = SentimentIntensityAnalyzer()
-                score_dict = sid.polarity_scores(sentence)
-                total_vader += score_dict['compound']
-                v_per_sentence.append(str(score_dict['compound']))
-
-                # Get TextBlob sentiment
-                blob = TextBlob(sentence)
-                total_textblob += blob.sentiment[0]
-                t_per_sentence.append(str(blob.sentiment[0]))
-            v_sentiments.append(v_per_sentence)
-            t_sentiments.append(t_per_sentence)
+                    t_per_sentence.append(str(blob.sentiment[0]))
+                v_sentiments.append(v_per_sentence)
+                t_sentiments.append(t_per_sentence)
 
         avg_vader = total_vader / len(tokenized)
         avg_blob = total_textblob / len(tokenized)
-
         if per_sentence != "None":
             avg_core_nlp = total_core_nlp / len(annot_doc['sentences'])
             # Normalizing core nlp so it's between -1 and 1
@@ -626,20 +622,20 @@ class Parser(object):
                         # If calculating sentiment, write the average sentiment to
                         # file. Range is -1 to 1, with values below 0 meaning neg
                         # sentiment.
-                        # body = self._clean(original_body).lower()
-                        pass
+                        body = self._clean(original_body).lower()
+                        #pass
 
                     else:  # if doing LDA
 
-                        # clean the text for LDA
+                         # clean the text for LDA
                         body = self.LDA_clean(original_body)
 
-                    if body.strip() == "":  # if the comment is not empty after preprocessing
+                    if original_body.strip() == "":  # if the comment is not empty after preprocessing
                         pass
                     else:
                         # remove mid-comment lines
-                        body = body.replace("\n", "")
-                        body = " ".join(body.split())
+                        original_body = original_body.replace("\n", "")
+                        original_body = " ".join(original_body.split())
 
                         # If calculating sentiment, write the average sentiment.
                         # Range is -1 to 1, with values below 0 meaning neg
@@ -837,26 +833,32 @@ class Parser(object):
             try:
                 current_batch = batch_id * num_process
                 previous_batch = max(0,batch_id - 1 * num_process)
+                print("here1")
 
                 if current_batch > len(inputs):
                     if previous_batch >= len(inputs):
                         pass
                 else:
-
+                    print("here")
                     mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs))]
 
                     # NOTE: For best results, set the number of processes in the following
                     # line based on (number of physical cores)*(hyper-threading multiplier)
                     # -1 (for synchronization overhead)
+                    print("here2")
                     pool = multiprocessing.Pool(processes=num_process)
+                    print("here3")
 
                     pool.map(parse_one_month_wrapper, mpi_batch)
+                    print("here4")
 
                     mpi_batch = []
 
                     if current_batch + num_process >= len(inputs):
+                        print("here5")
                         self.pool_parsing_data()
                         self.lang_filtering() # filter non-English posts
+                        print("here6")
                         #break
 
             except:
@@ -1111,6 +1113,7 @@ class Parser(object):
 
             # get the file counts
             file_counts = []
+            fns = self.get_parser_fns()
             for yr,mo in self.dates:
                 with open(fns["counts"],"r") as f:
                     for line in f:

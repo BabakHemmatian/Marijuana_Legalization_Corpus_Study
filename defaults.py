@@ -45,7 +45,7 @@ try: # see if the run request is coming from the CCV cluster
 except NameError: # if not, set the "machine" variable to "local"
     machine = "local"
 
-machine = "ccv" # for debug
+machine = "local" # for debug
 batch_id = 0 # for debug
 # NOTE: Matters for optimization of the parallelizations used in the functions.
 # NOTE: On Brown University's supercomputer, batches of 24 months were found to
@@ -195,7 +195,7 @@ num_pop = 2000 # number of the most up- or down-voted comments sampled for model
 
 ## where the data is
 file_path = os.path.abspath(__file__)
-path = '/users/ssloman/data/Reddit_Dataset'
+path = os.path.dirname(file_path)
 # NOTE: if not fully available on file, set Download for Parser function to
 # True (source: http://files.pushshift.io/reddit/comments/)
 # NOTE: if not in the same directory as this file, change the path variable
@@ -205,8 +205,8 @@ path = '/users/ssloman/data/Reddit_Dataset'
 dates=[] # initialize a list to contain the year, month tuples
 # months=range(1,12) # month range
 # years=range(2008,2020) # year range
-months = [1,2,3]
-years = [2008, 2009, 2010]
+months = [1,2,3,4]
+years = [2008, 2009, 2010, 2011]
 for year in years:
     for month in months:
         dates.append((year,month))
