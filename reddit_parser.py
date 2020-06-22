@@ -363,8 +363,8 @@ class Parser(object):
         try:
             annot_doc = self.nlp_wrapper.annotate(original_without_quotes, properties={
                 'annotators': 'sentiment',
-                'outputFormat': 'json',
-                'timeout': 1000000 })
+                'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':3,
+                'timeout': 100000 })
         except:
             print("CoreNLP error")
             error_indicator = 1
@@ -1331,8 +1331,8 @@ class Parser(object):
                         # retrieve sentiment estimates from CoreNLP
                         annot_doc = nlp_wrapper.annotate(comment, properties={
                             'annotators': 'sentiment',
-                            'outputFormat': 'json',
-                            'timeout': 1000000, })
+                            'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':3,
+                            'timeout': 100000, })
 
                         # store the values for each sentence in a list
                         sent_values = []
