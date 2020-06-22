@@ -85,7 +85,7 @@ on_file = []
 for date in dates:
     mo, yr = date[0], date[1]
     proper_filename = get_rc_filename(mo, yr)
-    if Path(data_path + '/' + proper_filename).is_file():
+    if Path(data_path + proper_filename).is_file():
         on_file.append(proper_filename)
 
 ### Define the parser class
@@ -575,14 +575,14 @@ class Parser(object):
 
             # open the file as a text file, in utf8 encoding, based on encoding type
             if '.zst' in filename:
-                file = open(self.data_path + "/" + filename, 'rb')
+                file = open(self.data_path + filename, 'rb')
                 dctx = zstd.ZstdDecompressor()
                 stream_reader = dctx.stream_reader(file)
-                fin = io.TextIOWrapper(stream_reader, encoding='utf-8')
+                fin = io.TextIOWrapper(stream_reader,encoding='utf-8',errors='ignore')
             elif '.xz' in filename:
-                fin = lzma.open(self.data_path + "/" + filename, 'r')
+                fin = lzma.open(self.data_path + filename, 'r')
             elif '.bz2' in filename:
-                fin = bz2.BZ2File(self.data_path + '/' + filename, 'r')
+                fin = bz2.BZ2File(self.data_path + filename, 'r')
             else:
                 raise Exception('File format not recognized')
 
@@ -591,9 +591,8 @@ class Parser(object):
             for line in fin:  # for each comment
                 main_counter += 1  # update the general counter
 
-                # decode and parse the json, and turn it into regular text
-                if not '.zst' in filename:
-                    comment = line.decode()
+                if '.zst' not in filename:
+                    line = line.decode('utf-8','ignore')
                 else:
                     comment = line
                 comment = decoder.decode(comment)
@@ -796,8 +795,8 @@ class Parser(object):
         print("Finished parsing " + filename + " at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         # if the user wishes compressed data files to be removed after processing
-        if self.clean_raw and filename not in self.on_file and Path(self.data_path + "/"+ filename).is_file():
-            print("Cleaning up {}/{}.".format(self.data_path, filename))
+        if self.clean_raw and filename not in self.on_file and Path(self.data_path + filename).is_file():
+            print("Cleaning up {}{}.".format(self.data_path, filename))
             # delete the recently processed file
             os.system('cd {} && rm {}'.format(self.data_path, filename))
 
@@ -846,7 +845,7 @@ class Parser(object):
                     if (year,month) not in self.dates:
                         self.dates.append((year,month))
                     if Path(self.data_path+ get_rc_filename(year,month)).is_file:
-                        print("Corrupt download detected. Cleaning up {}/{}.".format(self.data_path, filename))
+                        print("Corrupt download detected. Cleaning up {}{}.".format(self.data_path, filename))
                         os.system('cd {} && rm {}'.format(self.data_path, filename))
             os.system('cd {} && rm {}'.format(self.data_path, "Download_Errors.txt"))
 
