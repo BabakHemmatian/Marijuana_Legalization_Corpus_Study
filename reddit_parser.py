@@ -571,6 +571,7 @@ class Parser(object):
             # create a file to store the relevant cummulative indices for each month
             ccount = open(fns["counts"], 'w')
 
+            warning_counter = 0
             main_counter = 0
 
             # open the file as a text file, in utf8 encoding, based on encoding type
@@ -593,8 +594,21 @@ class Parser(object):
 
                 if '.zst' not in filename:
                     line = line.decode('utf-8','ignore')
-                else:
-                    comment = line
+                    
+                try:
+                    comment = decoder.decode(line)
+                    original_body = html.unescape(comment["body"])  # original text
+                except:
+                    warning_counter += 1
+                    if warning_counter < 10:
+                        print("Warning! Invalid JSON sequence encountered. Ignoring this document.")
+                        continue
+                    elif warning_counter == 10:
+                        print("Too many errors. Warnings turned off.")
+                        continue
+                    else:
+                        continue
+                        
                 comment = decoder.decode(comment)
                 original_body = html.unescape(comment["body"])  # original text
 
@@ -717,6 +731,8 @@ class Parser(object):
                         timedict[created_at] += 1
                         per_file_counter += 1
 
+            print(str(warning_counter)+ "corrupted posts were ignored in the raw dataset")            
+                        
             # write the total number of posts from the month to disk to aid in
             # calculating proportion relevant if calculate_perc_rel = True
             if calculate_perc_rel:
