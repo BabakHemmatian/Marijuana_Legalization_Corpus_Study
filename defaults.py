@@ -39,12 +39,6 @@ sentiment = True # Write sentence- and document-level sentiment of a post to
 
 
 ### Pre-processing hyperparameters
-try: # see if the run request is coming from the CCV cluster
-    machine
-    CLEAN_RAW = False
-    batch_id = array
-except NameError: # if not, set the "machine" variable to "local"
-    machine = "local"
 
 # NOTE: Matters for optimization of the parallelizations used in the functions.
 # NOTE: On Brown University's supercomputer, batches of 24 months were found to
@@ -254,6 +248,7 @@ for word in set(nltk.corpus.stopwords.words('english')):
         stop.append(str(word))
 
 ### Define the regex filter used for finding relevant comments
+
 
 legality_reg_expressions = []
 with open("legality.txt",'r') as f:
