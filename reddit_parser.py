@@ -1,4 +1,5 @@
 import bz2
+import warnings
 import copy
 import errno
 import lzma
@@ -39,8 +40,8 @@ from keras.preprocessing.sequence import pad_sequences
 import hashlib
 import csv
 import shutil
-import ahocorasick
 
+warnings.filterwarnings()
 
 ### Wrapper for the multi-processing parser
 
@@ -106,10 +107,10 @@ class Parser(object):
     def __init__(self, nlp_wrapper=StanfordCoreNLP('http://localhost:9000'),bert_tokenizer=BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True), clean_raw=CLEAN_RAW, dates=dates,
                  download_raw=DOWNLOAD_RAW, hashsums=None, NN=NN, data_path=data_path,
                  model_path=model_path,legality=legality, marijuana=marijuana,
-                 stop=stop, write_original=WRITE_ORIGINAL,
+                 stop=stop, write_original=WRITE_ORIGINAL,array=None,
                  vote_counting=vote_counting,author=author, sentiment=sentiment,
-                 machine=machine,on_file=on_file,num_process=num_process,
-                 rel_sample_num=rel_sample_num,balanced_rel_sample=balanced_rel_sample,
+                 machine=None, on_file=on_file, num_process=num_process,
+                 rel_sample_num=rel_sample_num, balanced_rel_sample=balanced_rel_sample,
                  Neural_Relevance_Filtering=Neural_Relevance_Filtering):
         # check input arguments for valid type
         assert type(vote_counting) is bool
@@ -123,8 +124,6 @@ class Parser(object):
         assert type(model_path) is str
         # check the given path
         if not os.path.exists(data_path) or not os.path.exists(model_path):
-            print(data_path)
-            print(model_path)
             raise Exception('Invalid path')
         assert type(stop) is set or type(stop) is list
 
@@ -142,6 +141,7 @@ class Parser(object):
         self.vote_counting = vote_counting
         self.author = author
         self.sentiment = sentiment
+        self.array = array
         self.machine = machine
         self.on_file = on_file
         self.bert_tokenizer = bert_tokenizer
@@ -343,12 +343,12 @@ class Parser(object):
             fns["author"] = "{}/author/author{}".format(self.model_path, suffix)
         if self.sentiment:
             fns["sentiments"] = "{}/sentiments/sentiments{}".format(self.model_path, suffix)
-            fns["c_sentiments"] = "{}/sentiments/c_sentiments{}".format(self.model_path, suffix)
-            fns["t_sentiments"] = "{}/sentiments/t_sentiments{}".format(self.model_path, suffix)
-            fns["v_sentiments"] = "{}/sentiments/v_sentiments{}".format(self.model_path, suffix)
+            fns["c_sentiments"] = "{}/c_sentiments/c_sentiments{}".format(self.model_path, suffix)
+            fns["t_sentiments"] = "{}/t_sentiments/t_sentiments{}".format(self.model_path, suffix)
+            fns["v_sentiments"] = "{}/v_sentiments/v_sentiments{}".format(self.model_path, suffix)
         return fns
 
-    ## Receives as input one document and its index, as well as output address
+        ## Receives as input one document and its index, as well as output address
     # writes sentiment values derived from 3 packages separately to file, averages
     # them and stores the average as well
     def write_avg_sentiment(self, original_body, sentiments,month,main_counter,fns,v_sentiments=None,t_sentiments=None,c_sentiments=None):
@@ -366,7 +366,7 @@ class Parser(object):
         try:
             annot_doc = self.nlp_wrapper.annotate(original_without_quotes, properties={
                 'annotators': 'sentiment',
-                'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':3,
+                'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':16,
                 'timeout': 100000 })
         except:
             print("CoreNLP error")
@@ -478,7 +478,7 @@ class Parser(object):
             return False
         # the automaton_marijuana didn't find anything, so the comment is NOT relevant
         return False
-
+    
     ## The main parsing function
     # NOTE: Parses for LDA if NN = False
     # NOTE: Saves the text of the non-processed comment to file as well if write_original = True
@@ -505,7 +505,7 @@ class Parser(object):
 
         if len(missing_parsing_files) != 0:  # if the processed data is incpmplete
 
-            # this will be used for efficient word searching
+                        # this will be used for efficient word searching
             marijuana_keywords, legal_keywords = [], []
             with open("alt_marijuana.txt", 'r') as f:
                 for line in f:
@@ -526,9 +526,7 @@ class Parser(object):
 
             automaton_marijuana.make_automaton()
             automaton_legal.make_automaton()
-
-
-
+            
             print("The following needed processed file(s) were missing for "
                   + str(year) + ", month " + str(month) + ":")
             print(missing_parsing_files)
@@ -571,52 +569,52 @@ class Parser(object):
                 return
 
             # create a file to write the processed text to
-            if self.NN and machine == "local":  # if doing NN on a local computer
+            if self.NN and self.machine == "local":  # if doing NN on a local computer
                 fout = open(fns["bert_prep"], 'w')
-            elif self.NN and machine == "ccv": # on a cluster
+            elif self.NN and self.machine == "ccv": # on a cluster
                 fout = []
-            elif not self.NN and machine == "local":  # if doing LDA on a local computer
+            elif not self.NN and self.machine == "local":  # if doing LDA on a local computer
                 fout = open(fns["lda_prep"], 'w')
-            elif not self.NN and machine == "ccv":
+            elif not self.NN and self.machine == "ccv":
                 fout = []
             else:
                 raise Exception("Machine specification variable not found.")
 
             # create a file if we want to write the original comments and their indices to disk
-            if self.write_original and machine == "local":
+            if self.write_original and self.machine == "local":
                 foriginal = open(fns["original_comm"], 'w')
                 main_indices = open(fns["original_indices"], 'w')
-            elif self.write_original and machine == "ccv":
+            elif self.write_original and self.machine == "ccv":
                 foriginal = []
                 main_indices = []
             elif self.write_original:
                 raise Exception("Machine specification variable not found.")
 
             # if we want to record the votes
-            if self.vote_counting and machine == "local":
+            if self.vote_counting and self.machine == "local":
                 # create a file for storing whether a relevant comment has been upvoted or downvoted more often or neither
                 vote = open(fns["votes"], 'w')
-            elif self.vote_counting and machine == "ccv":
+            elif self.vote_counting and self.machine == "ccv":
                 vote = []
             elif self.vote_counting:
                 raise Exception("Machine specification variable not found.")
 
             # if we want to record the author
-            if self.author and machine == "local":
+            if self.author and self.machine == "local":
                 # create a file for storing whether a relevant comment has been upvoted or downvoted more often or neither
                 author = open(fns["author"], 'w')
-            elif self.author and machine == "ccv":
+            elif self.author and self.machine == "ccv":
                 author = []
             elif self.author:
                 raise Exception("Machine specification variable not found.")
 
-            if self.sentiment and machine == "local":
+            if self.sentiment and self.machine == "local":
                 # create a file for storing the average sentiment of a post
                 sentiments = open(fns["sentiments"], 'w')
                 v_sentiments = open(fns["v_sentiments"], 'w')
                 t_sentiments = open(fns["t_sentiments"], 'w')
                 c_sentiments = open(fns["c_sentiments"], 'w')
-            elif self.sentiment and machine == "ccv":
+            elif self.sentiment and self.machine == "ccv":
                 sentiments = []
                 v_sentiments = []
                 t_sentiments = []
@@ -712,17 +710,122 @@ class Parser(object):
                     if body.strip() == "":  # if the comment is not empty after preprocessing
                         pass
                     else:
-                        # remove mid-comment lines
-                        body = body.replace("\n", "")
-                        body = " ".join(body.split())
+                        if not self.NN:
+                            # remove mid-comment lines
+                            body = body.replace("\n", "")
+                            body = " ".join(body.split())
 
                         # If calculating sentiment, write the average sentiment.
                         # Range is -1 to 1, with values below 0 meaning neg
                         # BUG: sentiment fn should be adjusted for local/ccv
                         if self.sentiment:
-                            self.write_avg_sentiment(original_body, sentiments,month,main_counter,fns,v_sentiments,t_sentiments,c_sentiments)
 
-                        if machine == "local": # write comment-by-comment
+                            ## Receives as input one document and its index, as well as output address
+                            # writes sentiment values derived from 3 packages separately to file, averages
+                            # them and stores the average as well
+
+                            sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
+                            tokenized = sent_detector.tokenize(original_body)
+
+                            total_vader = 0
+                            total_core_nlp = 0
+                            total_textblob = 0
+                            original_without_quotes = original_body.replace("\"", "")
+
+                            if self.machine == "local":
+                                with open(fns["v_sentiments"],"a+") as v_sentiments, open(fns["t_sentiments"],"a+") as t_sentiments:
+                                    for sentence in tokenized:
+                                        # Vader score
+                                        sid = SentimentIntensityAnalyzer()
+                                        score_dict = sid.polarity_scores(sentence)
+                                        total_vader += score_dict['compound']
+                                        v_sentiments.write(str(score_dict['compound'])+",")
+
+                                        # Get TextBlob sentiment
+                                        blob = TextBlob(sentence)
+                                        total_textblob += blob.sentiment[0]
+                                        t_sentiments.write(str(blob.sentiment[0])+",")
+                                    v_sentiments.write("\n")
+                                    t_sentiments.write("\n")
+
+                            elif self.machine == "ccv":
+                                v_per_sentence = []
+                                t_per_sentence = []
+                                for sentence in tokenized:
+                                    # Vader score
+                                    sid = SentimentIntensityAnalyzer()
+                                    score_dict = sid.polarity_scores(sentence)
+                                    total_vader += score_dict['compound']
+                                    v_per_sentence.append(str(score_dict['compound']))
+
+                                    # Get TextBlob sentiment
+                                    blob = TextBlob(sentence)
+                                    total_textblob += blob.sentiment[0]
+                                    t_per_sentence.append(str(blob.sentiment[0]))
+                                v_sentiments.append(",".join(v_per_sentence))
+                                t_sentiments.append(",".join(t_per_sentence))
+                            else:
+                                raise Exception("Machine specification not found")
+
+                            avg_vader = total_vader / len(tokenized)
+                            avg_blob = total_textblob / len(tokenized)
+
+                            per_sentence = []
+                            error_indicator = 0
+
+                            try:
+                                annot_doc = self.nlp_wrapper.annotate(original_without_quotes, properties={
+                                    'annotators': 'sentiment',
+                                    'outputFormat': 'json',
+                                    'timeout': 100000,
+                                    'parse.maxlen': 100 })
+                            except:
+                                print("CoreNLP error")
+                                error_indicator = 1
+
+                                with open("CoreNLP_errors.txt","a+") as errors:
+                                    errors.write(str(month)+","+str(main_counter)+","+ " ".join(original_body.split()).replace("\n",""))
+                                if self.machine == "local":
+                                    with open(fns["c_sentiments"],"a+") as c_sentiments:
+                                        c_sentiments.write("None" + "\n")
+                                elif self.machine == "ccv":
+                                    c_sentiments.append("None")
+
+                            if error_indicator == 0:
+                                try:
+                                    for i in range(0, len(annot_doc['sentences'])):
+                                        total_core_nlp += int(annot_doc['sentences'][i]['sentimentValue'])
+                                        per_sentence.append(str(annot_doc['sentences'][i]['sentimentValue']))
+                                except:
+                                    per_sentence.append("None")
+
+                                if len(per_sentence) != 0 and "None" not in per_sentence:
+                                    if self.machine == "local":
+                                        with open(fns["c_sentiments"],"a+") as c_sentiments:
+                                            c_sentiments.write(",".join(per_sentence)+"\n")
+                                    elif self.machine == "ccv":
+                                        c_sentiments.append(",".join(per_sentence))
+                                else:
+                                    if self.machine == "local":
+                                        with open(fns["c_sentiments"],"a+") as c_sentiments:
+                                            c_sentiments.write("None")
+                                    elif self.machine == "ccv":
+                                        c_sentiments.append("None")
+
+                            if len(per_sentence) != 0 and "None" not in per_sentence:
+                                avg_core_nlp = total_core_nlp / len(annot_doc['sentences'])
+                                # Normalizing core nlp so it's between -1 and 1
+                                normalized_core_nlp = ((avg_core_nlp / 4) * 2) - 1
+                                avg_score = (avg_vader + avg_blob + normalized_core_nlp) / 3
+                            else:
+                                avg_score = (avg_vader + avg_blob) / 2
+
+                            if self.machine == "local":
+                                print(avg_score, file=sentiments)
+                            elif self.machine == "ccv":
+                                sentiments.append(avg_score)
+
+                        if self.machine == "local": # write comment-by-comment
                             # print the comment to file
                             print(body, sep=" ", end="\n", file=fout)
 
@@ -752,7 +855,7 @@ class Parser(object):
                                 print(comment["author"].strip(),
                                       end="\n", file=author)
 
-                        elif machine == "ccv":
+                        elif self.machine == "ccv":
 
                             if not self.NN:
                                 fout.append(body + "\n")
@@ -789,8 +892,6 @@ class Parser(object):
                         timedict[created_at] += 1
                         per_file_counter += 1
 
-            print(str(warning_counter)+ "corrupted posts were ignored in the raw dataset")            
-                        
             # write the total number of posts from the month to disk to aid in
             # calculating proportion relevant if calculate_perc_rel = True
             if calculate_perc_rel:
@@ -799,25 +900,25 @@ class Parser(object):
 
             # close the files to save the data
             fin.close()
-            if machine == "local":
+            if self.machine == "local":
                 fout.close()
-            elif machine == "ccv" and not self.NN:
+            elif self.machine == "ccv" and not self.NN:
                 with open(fns["lda_prep"], 'w') as f:
                     for element in fout:
                         f.write(str(element)+"\n")
-            #TODO: I'm ignoring the case where self.NN AND machine == "ccv". This is because currently we're not doing any preprocessing on the neural network input. Should add another condition if we do at some point
+            #TODO: I'm ignoring the case where self.NN AND self.machine == "ccv". This is because currently we're not doing any preprocessing on the neural network input. Should add another condition if we do at some point
 
-            if self.vote_counting and machine == "local":
+            if self.vote_counting and self.machine == "local":
                 vote.close()
             elif self.vote_counting:
                 with open(fns["votes"], 'w') as f:
                     for element in vote:
                         f.write(str(element)+"\n")
 
-            if self.write_original and machine == "local":
+            if self.write_original and self.machine == "local":
                 foriginal.close()
                 main_indices.close()
-            elif self.write_original and machine == "ccv":
+            elif self.write_original and self.machine == "ccv":
                 with open(fns["original_comm"], 'w') as f:
                     for element in foriginal:
                         f.write(str(element)+"\n")
@@ -825,37 +926,37 @@ class Parser(object):
                     for element in main_indices:
                         f.write(str(element)+"\n")
 
-            if self.author and machine == "local":
+            if self.author and self.machine == "local":
                 author.close()
-            elif self.author and machine == "ccv":
+            elif self.author and self.machine == "ccv":
                 with open(fns["author"],'w') as f:
                     for element in author:
                         f.write(str(element)+"\n")
 
-            if self.sentiment and machine == "local":
+            if self.sentiment and self.machine == "local":
                 sentiments.close()
                 v_sentiments.close()
                 c_sentiments.close()
                 t_sentiments.close()
-            elif self.sentiment and machine == "ccv":
+            elif self.sentiment and self.machine == "ccv":
 
-                assert len(sentiments) == main_counter
-                assert len(c_sentiments) == main_counter
-                assert len(v_sentiments) == main_counter
-                assert len(t_sentiments) == main_counter
+                assert len(sentiments) == per_file_counter
+                assert len(c_sentiments) == per_file_counter
+                assert len(v_sentiments) == per_file_counter
+                assert len(t_sentiments) == per_file_counter
 
                 with open(fns["sentiments"],'w') as f:
                     for element in sentiments:
                         f.write(str(element)+"\n")
-                with open(fns["v_sentiments"], 'w') as f:
+                with open(fns["v_sentiments"], 'w') as g:
                     for element in v_sentiments:
-                        f.write(str(element)+"\n")
-                with open(fns["t_sentiments"], 'w') as f:
+                        g.write(str(element)+"\n")
+                with open(fns["t_sentiments"], 'w') as h:
                     for element in t_sentiments:
-                        f.write(str(element)+"\n")
-                with open(fns["c_sentiments"], 'w') as f:
+                        h.write(str(element)+"\n")
+                with open(fns["c_sentiments"], 'w') as i:
                     for element in c_sentiments:
-                        f.write(str(element)+"\n")
+                        i.write(str(element)+"\n")
 
             ccount.write(str(per_file_counter)+"\n")
             ccount.close()
@@ -866,7 +967,7 @@ class Parser(object):
         missing_parsing_files = []
 
         # timer
-        print("Finished parsing " + filename + " at " + time.strftime('%l:%M%p, %m/%d/%Y'))
+        print("Finished parsing " + filename + " at  " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         # if the user wishes compressed data files to be removed after processing
         if self.clean_raw and filename not in self.on_file and Path(self.data_path + filename).is_file():
@@ -907,7 +1008,7 @@ class Parser(object):
             subprocess.call("cat " + " ".join(fns_) + "> " + fns[kind], shell=True)
 
     ## Calls the multiprocessing module to parse raw data in parallel
-    def parse(self,num_process=num_process,machine=machine):
+    def parse(self,num_process=num_process):
         # get the correct hashsums to check file integrity
         #   self.hashsums = self.Get_Hashsums()
 
@@ -926,11 +1027,13 @@ class Parser(object):
         # Parallelize parsing by month
         inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
 
-        if machine == "ccv":
+        if self.machine == "ccv":
 
             try:
-                current_batch = batch_id * num_process
-                previous_batch = max(0,batch_id - 1 * num_process)
+                current_batch = self.array * num_process
+                previous_batch = max(0,self.array - 1 * num_process)
+                print("CURRENT BATCH")
+                print(current_batch)
 
                 if current_batch > len(inputs):
                     if previous_batch >= len(inputs):
@@ -938,6 +1041,8 @@ class Parser(object):
                 else:
 
                     mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs))]
+                    print("MPI BATCH")
+                    print(mpi_batch)
 
                     # NOTE: For best results, set the number of processes in the following
                     # line based on (number of physical cores)*(hyper-threading multiplier)
@@ -956,7 +1061,7 @@ class Parser(object):
             except:
                 raise Exception("Error in receiving batch IDs from the cluster.")
 
-        elif machine == "local":
+        elif self.machine == "local":
 
             pool = multiprocessing.Pool(processes=num_process)
 
@@ -985,7 +1090,7 @@ class Parser(object):
     ## Function to call parser when needed and parse comments
     # TODO: Replace mentions of Vote in this file with mentions of sample_ratings
     # TODO: Add main counter and original comments and indices to this function
-    def Parse_Rel_RC_Comments(self,num_process=num_process,machine=machine):
+    def Parse_Rel_RC_Comments(self,num_process=num_process):
         # if preprocessed comments are available, ask if they should be rewritten
         if (self.NN and Path(self.model_path + "/bert_prep/bert_prep").is_file()) or (
                 not self.NN and Path(self.model_path + "/lda_prep/lda_prep").is_file()):
@@ -1014,7 +1119,7 @@ class Parser(object):
 
                 # timer
                 print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
-                self.parse(num_process,machine)
+                self.parse(num_process)
 
             else:  # if preprocessed comments are available and
                 # the user does not wish to overwrite them
@@ -1035,13 +1140,13 @@ class Parser(object):
                 if not Path(self.model_path + "sentiments/sentiments").is_file() and self.sentiment:
                     missing_files += 1
 
-                if not Path(self.model_path + "sentiments/v_sentiments").is_file() and self.sentiment:
+                if not Path(self.model_path + "v_sentiments/v_sentiments").is_file() and self.sentiment:
                     missing_files += 1
 
-                if not Path(self.model_path + "sentiments/c_sentiments").is_file() and self.sentiment:
+                if not Path(self.model_path + "c_sentiments/c_sentiments").is_file() and self.sentiment:
                     missing_files += 1
 
-                if not Path(self.model_path + "sentiments/t_sentiments").is_file() and self.sentiment:
+                if not Path(self.model_path + "t_sentiments/t_sentiments").is_file() and self.sentiment:
                     missing_files += 1
 
                 # if there are missing files, delete any partial record and parse again
@@ -1071,7 +1176,7 @@ class Parser(object):
 
                     # timer
                     print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
-                    self.parse(num_process,machine)
+                    self.parse(num_process)
 
         else:
             if Path(self.model_path + "counts/RC_Count_List").is_file():
@@ -1089,7 +1194,7 @@ class Parser(object):
 
             # timer
             print("Started parsing at " + time.strftime('%l:%M%p, %m/%d/%Y'))
-            self.parse(num_process,machine)
+            self.parse(num_process)
 
     ## Function for removing non-English posts picked up by the regex filter
     def lang_filtering(self,dates=dates):
@@ -1132,11 +1237,11 @@ class Parser(object):
             if self.sentiment:
                 if not Path(self.model_path + "/sentiments/sentiments").is_file():
                     raise Exception('Sentiment estimates could not be found')
-                if not Path(self.model_path + "/sentiments/v_sentiments").is_file():
+                if not Path(self.model_path + "/v_sentiments/v_sentiments").is_file():
                     raise Exception('Vader sentiment estimates could not be found')
-                if not Path(self.model_path + "/sentiments/t_sentiments").is_file():
+                if not Path(self.model_path + "/t_sentiments/t_sentiments").is_file():
                     raise Exception('TextBlob sentiment estimates could not be found')
-                if not Path(self.model_path + "/sentiments/c_sentiments").is_file():
+                if not Path(self.model_path + "/c_sentiments/c_sentiments").is_file():
                     raise Exception('CoreNLP sentiment estimates could not be found')
 
             # Initialize variables
@@ -1186,7 +1291,7 @@ class Parser(object):
                         # update document counts for each time interval in the dataset
                         running_tot_count = 0
                         for interval, count in enumerate(timelist_original):
-                            running_tot_count += int_non_rel[interval]
+                            running_tot_count += int_non_en[interval]
                             timelist_original[interval] = timelist_original[interval] - running_tot_count
 
             # A list of dataset files needing to be updated based on parameters
@@ -1199,9 +1304,9 @@ class Parser(object):
                 filenames.append("/author/author")
             if self.sentiment:
                 filenames.append("/sentiments/sentiments")
-                filenames.append("/sentiments/v_sentiments")
-                filenames.append("/sentiments/c_sentiments")
-                filenames.append("/sentiments/t_sentiments")
+                filenames.append("/v_sentiments/v_sentiments")
+                filenames.append("/c_sentiments/c_sentiments")
+                filenames.append("/t_sentiments/t_sentiments")
 
             # get the file counts
             file_counts = []
@@ -1404,7 +1509,7 @@ class Parser(object):
                         # retrieve sentiment estimates from CoreNLP
                         annot_doc = nlp_wrapper.annotate(comment, properties={
                             'annotators': 'sentiment',
-                            'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':3,
+                            'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':16,
                             'timeout': 100000, })
 
                         # store the values for each sentence in a list
@@ -1542,11 +1647,11 @@ class Parser(object):
 
             inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
 
-            if machine == "ccv":
+            if self.machine == "ccv":
 
                 try:
-                    current_batch = batch_id * num_process
-                    previous_batch = max(0,batch_id - 1 * num_process)
+                    current_batch = self.array * num_process
+                    previous_batch = max(0,self.array - 1 * num_process)
 
                     if current_batch > len(inputs):
                         if previous_batch >= len(inputs):
@@ -1689,7 +1794,7 @@ class Parser(object):
                 except:
                     raise Exception("Error in receiving batch IDs from the cluster.")
 
-            elif machine == "local":
+            elif self.machine == "local":
 
                 pool = multiprocessing.Pool(processes=num_process)
 
@@ -1851,11 +1956,11 @@ class Parser(object):
             if self.sentiment:
                 if not Path(self.model_path + "/sentiments/sentiments").is_file():
                     raise Exception('Sentiment estimates could not be found')
-                if not Path(self.model_path + "/sentiments/v_sentiments").is_file():
+                if not Path(self.model_path + "/v_sentiments/v_sentiments").is_file():
                     raise Exception('Vader sentiment estimates could not be found')
-                if not Path(self.model_path + "/sentiments/t_sentiments").is_file():
+                if not Path(self.model_path + "/t_sentiments/t_sentiments").is_file():
                     raise Exception('TextBlob sentiment estimates could not be found')
-                if not Path(self.model_path + "/sentiments/c_sentiments").is_file():
+                if not Path(self.model_path + "/c_sentiments/c_sentiments").is_file():
                     raise Exception('CoreNLP sentiment estimates could not be found')
 
             # Initialize variables
@@ -1919,9 +2024,9 @@ class Parser(object):
                 filenames.append("/author/author")
             if self.sentiment:
                 filenames.append("/sentiments/sentiments")
-                filenames.append("/sentiments/v_sentiments")
-                filenames.append("/sentiments/c_sentiments")
-                filenames.append("/sentiments/t_sentiments")
+                filenames.append("/v_sentiments/v_sentiments")
+                filenames.append("/c_sentiments/c_sentiments")
+                filenames.append("/t_sentiments/t_sentiments")
 
             for file in filenames: # for each file in the list above
 
