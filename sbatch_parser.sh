@@ -31,4 +31,5 @@ eval "$(conda shell.bash hook)"
 conda deactivate
 conda activate marijuana_study
 
-python Parse.py --machine $machine 
+export PYTHONUNBUFFERED=FALSE
+python Parse.py --machine $machine --array $SLURM_ARRAY_TASK_ID
