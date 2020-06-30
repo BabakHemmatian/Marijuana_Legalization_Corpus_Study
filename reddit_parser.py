@@ -39,6 +39,7 @@ from keras.preprocessing.sequence import pad_sequences
 import hashlib
 import csv
 import shutil
+import ahocorasick
 
 ### Wrapper for the multi-processing parser
 
