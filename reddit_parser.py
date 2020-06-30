@@ -662,8 +662,7 @@ class Parser(object):
                         continue
                     else:
                         continue
-
-                comment = decoder.decode(comment)
+                        
                 original_body = html.unescape(comment["body"])  # original text
 
 
