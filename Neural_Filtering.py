@@ -4,6 +4,10 @@
 # The batch IDs should be determined as
 # follows: 0 for (2008,1), then +1 for each month after.
 
+# BUG: Because of a hacky solution within Neural_Relevance_Clean(), the function
+# would only work properly for fully consecutive set of months within self.dates
+# TODO: make it more general
+
 ### import the required modules and functions
 
 import subprocess
