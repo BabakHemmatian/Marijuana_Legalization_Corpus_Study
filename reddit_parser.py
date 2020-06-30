@@ -1,5 +1,4 @@
 import bz2
-import warnings
 import copy
 import errno
 import lzma
@@ -40,8 +39,6 @@ from keras.preprocessing.sequence import pad_sequences
 import hashlib
 import csv
 import shutil
-
-warnings.filterwarnings()
 
 ### Wrapper for the multi-processing parser
 
