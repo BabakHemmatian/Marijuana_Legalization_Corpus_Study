@@ -17,7 +17,7 @@ stanford-corenlp-4.0.0
 votes
 *.DS_Store
 test.csv
-time_dict
+timedict
 total_count
 train.csv
 t_sentiments
