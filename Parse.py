@@ -9,6 +9,7 @@ from pycorenlp import StanfordCoreNLP
 from reddit_parser import Parser
 import argparse
 import numpy
+from defaults import *
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
