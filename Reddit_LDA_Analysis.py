@@ -64,8 +64,8 @@ theparser.lang_filtering()
 # NOTE: Make sure that Stanford CoreNLP's Python package is unzipped to the
 # same directory as this file and CoreNLP_server.py is also available before
 # running this function.
-if add_sentiment:
-    theparser.add_sentiment()
+# if add_sentiment:
+#     theparser.add_sentiment()
 
 ## call the function for calculating the percentage of relevant comments
 if calculate_perc_rel:

@@ -39,12 +39,6 @@ sentiment = True # Write sentence- and document-level sentiment of a post to
 
 
 ### Pre-processing hyperparameters
-try: # see if the run request is coming from the CCV cluster
-    machine
-    CLEAN_RAW = False
-    batch_id = array
-except NameError: # if not, set the "machine" variable to "local"
-    machine = "local"
 
 # NOTE: Matters for optimization of the parallelizations used in the functions.
 # NOTE: On Brown University's supercomputer, batches of 24 months were found to
@@ -209,7 +203,7 @@ if machine == 'local':
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
 months=range(1,13) # month range
-years=[2008] # year range
+years=range(2008,2020) # year range
 for year in years:
     for month in months:
         dates.append((year,month))
@@ -260,15 +254,19 @@ for word in set(nltk.corpus.stopwords.words('english')):
 
 ### Define the regex filter used for finding relevant comments
 
-# get the list of words relevant to legality from disk
-# (requires legality.txt to be located in the same directory)
-legality = []
+
+legality_reg_expressions = []
 with open("legality.txt",'r') as f:
     for line in f:
-        legality.append(re.compile(line.lower().strip()))
+        legality_reg_expressions.append(line.lower().strip())
+
+legality = [re.compile("|".join(legality_reg_expressions))]
+
 # get the list of words relevant to marijuana from disk
 # (requires marijuana.txt be located in the same directory)
-marijuana = []
+marijuana_reg_expressions = []
 with open("marijuana.txt",'r') as f:
     for line in f:
-        marijuana.append(re.compile(line.lower().strip()))
+        marijuana_reg_expressions.append(line.lower().strip())
+
+marijuana = [re.compile("|".join(marijuana_reg_expressions))]

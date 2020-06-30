@@ -18,7 +18,7 @@ dependencies:
   - cpuonly=1.0=0
  # - cryptography=2.8=py37ha12b0ac_0
   #- cudatoolkit=9.0=h41a26b3_0
-  - cudnn=6.0=0
+  - cudnn
   - gast=0.2.2=py37_0
   #- gensim=3.8.0=py37h6440ff4_0
   - google-pasta=0.2.0=py_0
@@ -108,6 +108,7 @@ dependencies:
     - pandas==1.0.3
     - pathlib2==2.3.3
     - pillow==7.1.2
+    - pyahocorasick
     - plac==0.9.6
     - ply==3.11
     - preshed==2.0.1
@@ -147,7 +148,6 @@ dependencies:
     - urllib3==1.25.3
     - wasabi==0.2.2
     - zstandard==0.11.1
-
 
 
 
