@@ -2,6 +2,10 @@
 # num_process in mind (e.g. if num_process=3, array=0 would process the first
 # 3 months in the dates array)
 
+# BUG: Because of a hacky solution within lang_filtering(), the language filtering
+# would only work properly for fully consecutive set of months within self.dates
+# TODO: make it more general
+
 import subprocess
 import time
 import sys
