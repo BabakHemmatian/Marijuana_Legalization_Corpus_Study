@@ -95,7 +95,7 @@ class Shared_Counter(object):
 
 class ModelEstimator(object):
     def __init__(self, all_=ENTIRE_CORPUS, MaxVocab=MaxVocab,
-                 output_path=output_path, path=path, dates=dates,
+                 output_path=output_path, path=model_path, dates=dates,
                  special_doi=special_doi, training_fraction=training_fraction,
                  V=OrderedDict({})):
         ## ensure the arguments have the correct types and values
@@ -1381,7 +1381,7 @@ class NNModel(ModelEstimator):
             self.accuracy[set_key] = np.empty(epochs)
 
         self.fns = self.get_fns()
-        
+
     def train_bert_model(self, train_data):
         if self.use_simple_bert:
             self.bert_model = ClassificationModel('roberta', 'roberta-base',
