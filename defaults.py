@@ -64,7 +64,7 @@ NN_training_fraction = 0.80 # fraction of the data that is used for training
 # divided randomly and equally into evaluation and test sets
 calculate_perc_rel = True # whether the percentage of relevant comments from
 # each year should be calculated and written to file
-num_process = 3 # the number of parallel processes to be executed for parsing
+num_process = 2 # the number of parallel processes to be executed for parsing
 # NOTE: Uses Python's multiprocessing package
 Neural_Relevance_Filtering = True # The dataset will be cleaned from posts
 # irrelevant to the topic using a pre-trained neural network model.
@@ -83,6 +83,7 @@ balanced_rel_sample = True # whether the random filtering sample should be
 eval_relevance = False # F1, recall, precision and accuracy for the sample derived
 # from Neural_Relevance_Filtering. Requires the sample to be complemented by
 # manual labels. The default location for the sample is
+
 # [repository path]/original_comm/sample_auto_labeled.csv
 
 
@@ -195,7 +196,11 @@ num_pop = 2000 # number of the most up- or down-voted comments sampled for model
 ## where the data is
 file_path = os.path.abspath(__file__)
 model_path = os.path.dirname(file_path)
+# For the neural filtering
+rel_model_path = model_path+"/Human_Ratings/1_1/full_1005/"
 data_path = '/users/ssloman/data/Reddit_Dataset/'
+if machine == 'local':
+    data_path = os.getcwd() + '/'
 # NOTE: if not fully available on file, set Download for Parser function to
 # True (source: http://files.pushshift.io/reddit/comments/)
 # NOTE: if not in the same directory as this file, change the path variable
@@ -204,7 +209,7 @@ data_path = '/users/ssloman/data/Reddit_Dataset/'
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
 months=range(1,13) # month range
-years=range(2008,2009) # year range
+years=[2008] # year range
 for year in years:
     for month in months:
         dates.append((year,month))

@@ -11,10 +11,18 @@ import time
 import sys
 from Utils import Write_Performance
 from config import *
-from ModelEstimation import NNModel
+#from ModelEstimation import NNModel
 from transformers import BertTokenizer
 from NN_Utils import *
 from reddit_parser import Parser # Does the parser object need to be adjusted?
+
+# CoreNLP
+# create a connection to the CoreNLP server to retrieve sentiment
+# (requires CoreNLP_server.py in the same directory)
+subprocess.Popen(
+    ['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -threads ' + str(num_process) + ' --quite'],
+    shell=True, cwd="./stanford-corenlp-4.0.0")
+time.sleep(5)  # wait for connection to the server to be established
 
 # QUESTION: Does the ID need to show up here in the functions too?
 theparser=Parser()
