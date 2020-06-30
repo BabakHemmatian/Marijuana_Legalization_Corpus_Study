@@ -19,4 +19,11 @@ runs
 *.pyc
 sentiment_pretraining/*.txt
 sentiment_pretraining/*.csv
-
+timedict
+author
+auto_labels
+total_count
+v_sentiments
+counts
+c_sentiments
+t_sentiments
