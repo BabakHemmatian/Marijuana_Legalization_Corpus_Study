@@ -32,11 +32,16 @@ vote_counting = True # Record the fuzzed number of upvotes when parsing
 WRITE_ORIGINAL = True # Write original comments to file when parsing
 author = True # Write the username of each post's author to a separate file
 sentiment = True # Write sentence- and document-level sentiment of a post to
-# file (based on TextBlob, Vader and CoreNLP packages)
+# file (based on TextBlob and Vader)
+add_sentiment = True # Add CoreNLP sentiment values as a post-parsing step
 # NOTE: Make sure that Stanford CoreNLP's Python package is unzipped to the
 # same directory as this file and CoreNLP_server.py is also available before
 # running this function.
-
+# NOTE: Because of incompatibility with batching and hyperthreading used in
+# parsing, this function should be run sequentially from NN_Book_Keeping.py
+num_cores = 4 # Number of threads for sentence-by-sentence parallelization of
+# CoreNLP sentiment values. Only matters if add_sentiment == True
+# NOTE: Massive slow-down if the number is not slightly lower than number of cores
 
 ### Pre-processing hyperparameters
 
@@ -58,7 +63,7 @@ NN_training_fraction = 0.80 # fraction of the data that is used for training
 # divided randomly and equally into evaluation and test sets
 calculate_perc_rel = True # whether the percentage of relevant comments from
 # each year should be calculated and written to file
-num_process = 2 # the number of parallel processes to be executed for parsing
+num_process = 3 # the number of parallel processes to be executed for parsing
 # NOTE: Uses Python's multiprocessing package
 Neural_Relevance_Filtering = True # The dataset will be cleaned from posts
 # irrelevant to the topic using a pre-trained neural network model.
@@ -143,6 +148,7 @@ authorship = True # whether the neural networks take as part of their input
 # posting
 # NOTE: The functions assume that "author" files from pre-processing are
 # available in the same folder as the one containing this file
+use_simple_bert = True
 
 ## Training hyperparameters
 epochs = 3 # number of epochs
@@ -193,8 +199,6 @@ model_path = os.path.dirname(file_path)
 # For the neural filtering
 rel_model_path = model_path+"/Human_Ratings/1_1/full_1005/"
 data_path = '/users/ssloman/data/Reddit_Dataset/'
-# if machine == 'local':
-#     data_path = os.getcwd() + '/'
 # NOTE: if not fully available on file, set Download for Parser function to
 # True (source: http://files.pushshift.io/reddit/comments/)
 # NOTE: if not in the same directory as this file, change the path variable
