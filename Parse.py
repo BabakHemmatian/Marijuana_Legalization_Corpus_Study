@@ -7,6 +7,14 @@ import time
 import sys
 from pycorenlp import StanfordCoreNLP
 from reddit_parser import Parser
+import argparse
+import numpy
+
+if __name__ == "__main__":
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('--array', type = int)
+    argparser.add_argument('--machine', type = str)
+    args = argparser.parse_args()
 
 ### call the parsing function
 

@@ -1,5 +1,4 @@
 import bz2
-import warnings
 import copy
 import errno
 import lzma
@@ -41,8 +40,6 @@ import hashlib
 import csv
 import shutil
 import ahocorasick
-
-warnings.filterwarnings()
 
 ### Wrapper for the multi-processing parser
 
@@ -368,9 +365,7 @@ class Parser(object):
         try:
             annot_doc = self.nlp_wrapper.annotate(original_without_quotes, properties={
                 'annotators': 'sentiment',
-                'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':16,
-                # TODO: Make nthreads configurable
-                'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':16,
+                'outputFormat': 'json','parse.maxlen':100,'parse.nthreads':3,
                 'timeout': 100000 })
         except:
             print("CoreNLP error")
