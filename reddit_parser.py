@@ -903,17 +903,20 @@ class Parser(object):
             try:
                 current_batch = self.array * num_process
                 previous_batch = max(0,self.array - 1 * num_process)
-                print("CURRENT BATCH")
-                print(current_batch)
+                
+                if current_batch > len(inputs)-1 and previous_batch >= len(inputs)-1:
+                    pass
+                elif current_batch >= len(inputs)-1 and previous_batch < len(inputes)-1:
 
-                if current_batch > len(inputs):
-                    if previous_batch >= len(inputs):
-                        pass
+                    mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs)-1)]
+                    for input in mpi_batch:
+                        self.parse_one_month(input[0],input[1])
+                    self.pool_parsing_data()
+                    self.lang_filtering() # filter non-English posts
+                
                 else:
 
-                    mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs))]
-                    print("MPI BATCH")
-                    print(mpi_batch)
+                    mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs)-1)]
 
                     # NOTE: For best results, set the number of processes in the following
                     # line based on (number of physical cores)*(hyper-threading multiplier)
