@@ -837,7 +837,7 @@ class Parser(object):
         missing_parsing_files = []
 
         # timer
-        print("Finished parsing " + filename + " at  " + time.strftime('%l:%M%p, %m/%d/%Y'))
+        print("Finished parsing " + filename + "at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         # if the user wishes compressed data files to be removed after processing
         if self.clean_raw and filename not in self.on_file and Path(self.data_path + filename).is_file():
@@ -1286,9 +1286,12 @@ class Parser(object):
 
             # update document counts for each time interval in the dataset
             running_tot_count = 0
-            for interval, count in enumerate(timelist_original):
-                running_tot_count += int_non_en[interval]
-                timelist_original[interval] = timelist_original[interval] - running_tot_count
+            for interval,count in enumerate(int_non_en):
+                running_tot_count += count
+                if interval != len(timelist_original):
+                    timelist_original[interval] = timelist_original[interval] - running_tot_count
+                else:
+                    timelist_original[interval-1] = timelist_original[interval-1] - count
 
             #BUG: bert_prep is not being updated. Okay for now, but bad if we'll be using it
 
@@ -1390,6 +1393,21 @@ class Parser(object):
 
         else:  # if screening results not found
 
+            # TODO: Adjust the following to only get the months in dates.
+            # Same for other parsing functions
+
+            # Load cumulative number of relevant posts for each month, from disk
+
+            if not Path(self.model_path + "/counts/RC_Count_List").is_file():
+                raise Exception(
+                    'Cumulative monthly comment counts could not be found')
+            else:
+                timelist_original = []
+                with open(self.model_path + "/counts/RC_Count_List", "r") as f:
+                    for line in f:
+                        if line.strip() != "":
+                            timelist_original.append(int(line))
+
             # check for a complete record of labels
             if Path(self.model_path + "/auto_labels/auto_labels").is_file():
                 print("Found full dataset labels. Loading.")
@@ -1398,24 +1416,6 @@ class Parser(object):
                     for line in f:
                         if line.strip() != "":
                             total_count += 1
-
-            else:  # if no previous record is found
-
-                # TODO: Adjust the following to only get the months in dates.
-                # Same for other parsing functions
-
-                # Load cumulative number of relevant posts for each month, from disk
-
-                if not Path(self.model_path + "/counts/RC_Count_List").is_file():
-                    raise Exception(
-                        'Cumulative monthly comment counts could not be found')
-                else:
-                    timelist_original = []
-                    with open(self.model_path + "/counts/RC_Count_List", "r") as f:
-                        for line in f:
-                            if line.strip() != "":
-                                timelist_original.append(int(line))
-                                total_count += int(line)
 
             # Parallelize parsing by month
 
@@ -1502,25 +1502,25 @@ class Parser(object):
                             print("Sampling " + str(len(set(random_sample))) + " documents")
 
                             sampled_docs = []
-                            int_counter = 0
 
                             with open(self.model_path + "/original_comm/original_comm", "r") as sampling:
-                                sampled_idxes = []
+
                                 for idx, sampler in enumerate(sampling):
+                                    int_counter = 0
                                     try:
-                                        if idx > timelist_original[int_counter]:
+                                        while idx > timelist_original[int_counter]:
                                             int_counter += 1
                                         if idx in random_sample:
                                             # writing year, month, text to sample file
                                             sampled_docs.append(
                                                 [str(dates[int_counter][0]), str(dates[int_counter][1]), sampler])
+
                                     except:  # if the date associated with the post is beyond
                                         # the pre-specified time intervals, associate the post with
                                         # the next month. May happen with a few documents at the edges
                                         # of data files
 
                                         if idx in random_sample:
-
                                             # determine the relevant next month and year
                                             yr = dates[int_counter - 1][0]
                                             mo = dates[int_counter - 1][1]
@@ -1543,10 +1543,8 @@ class Parser(object):
 
                             # shuffle the docs and check number and length
                             np.random.shuffle(sampled_docs)
-                            try:
-                                assert len(sampled_docs) == rel_sample_num
-                            except:
-                                assert len(sampled_docs) == len(irrel_idxes)
+                            assert (len(sampled_docs) == rel_sample_num) or (len(sampled_docs) == len(irrel_idxes))
+
                             for element in sampled_docs:
                                 assert len(element) == 4
 
@@ -1557,8 +1555,6 @@ class Parser(object):
                                 for document in sampled_docs:
                                     writer.writerow(document)
 
-                        # break
-
                 except:
                     raise Exception("Error in receiving batch IDs from the cluster.")
 
@@ -1568,15 +1564,9 @@ class Parser(object):
                     self.Screen_One_Month(yr, month)
 
                 # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
-                random_sample = list(np.random.choice(range(0, total_count), size=rel_sample_num, replace=False))
+                random_sample = list(
+                    np.random.choice(range(0, total_count), size=rel_sample_num, replace=False))
                 labels_array = np.ones(total_count)  # initiate array for labels
-
-                with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
-                    for yr, mo, _, _ in inputs:
-                        with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo), "r") as monthly:
-                            for line in monthly:
-                                if line.strip() != "":
-                                    general_labels.write(line.strip() + "\n")
 
                 # read labels from disk and identify indices of irrelevant posts
                 irrel_idxes = []
@@ -1635,24 +1625,25 @@ class Parser(object):
                 print("Sampling " + str(len(set(random_sample))) + " documents")
 
                 sampled_docs = []
-                int_counter = 0
 
                 with open(self.model_path + "/original_comm/original_comm", "r") as sampling:
-                    sampled_idxes = []
+
                     for idx, sampler in enumerate(sampling):
+                        int_counter = 0
                         try:
-                            if idx > timelist_original[int_counter]:
+                            while idx > timelist_original[int_counter]:
                                 int_counter += 1
                             if idx in random_sample:
                                 # writing year, month, text to sample file
-                                sampled_docs.append([str(dates[int_counter][0]), str(dates[int_counter][1]), sampler])
+                                sampled_docs.append(
+                                    [str(dates[int_counter][0]), str(dates[int_counter][1]), sampler])
+
                         except:  # if the date associated with the post is beyond
                             # the pre-specified time intervals, associate the post with
                             # the next month. May happen with a few documents at the edges
                             # of data files
 
                             if idx in random_sample:
-
                                 # determine the relevant next month and year
                                 yr = dates[int_counter - 1][0]
                                 mo = dates[int_counter - 1][1]
@@ -1675,7 +1666,8 @@ class Parser(object):
 
                 # shuffle the docs and check number and length
                 np.random.shuffle(sampled_docs)
-                assert len(sampled_docs) == rel_sample_num
+                assert (len(sampled_docs) == rel_sample_num) or (len(sampled_docs) == len(irrel_idxes))
+
                 for element in sampled_docs:
                     assert len(element) == 4
 
