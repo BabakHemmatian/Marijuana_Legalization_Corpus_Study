@@ -7,7 +7,7 @@
 
 
 # email error reports
-#SBATCH --mail-user=babak_hemmatian@brown.edu 
+#SBATCH --mail-user=babak_hemmatian@brown.edu
 #SBATCH --mail-type=ALL
 
 # output file
@@ -21,10 +21,9 @@
 # Request runtime, memory, cores
 #SBATCH --time=6:00:00
 #SBATCH --mem=15G
-#SBATCH -c 2
+#SBATCH -c 4
 #SBATCH -N 1
-#SBATCH -p gpu --gres=gpu:1
-#SBATCH --array=0-15
+#SBATCH --array=0-7
 
 machine='ccv'
 
