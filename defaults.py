@@ -75,8 +75,6 @@ Neural_Relevance_Filtering = True # The dataset will be cleaned from posts
 # NOTE: This task takes a long time to complete.
 rel_sample_num = 200 # By default, a random sample of this size will be extracted
 # from the dataset to evaluate the classification model.
-# NOTE: Make sure that your minority category (probably the irrelevant docs)
-# are more numerous in the dataset than about half this number.
 balanced_rel_sample = True # whether the random filtering sample should be
 # balanced across classification categories (relevant, irrelevant by default)
 eval_relevance = False # F1, recall, precision and accuracy for the sample derived
