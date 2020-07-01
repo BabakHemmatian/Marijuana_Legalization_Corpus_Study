@@ -50,7 +50,6 @@ def parse_one_month_wrapper(args):
     year, month, on_file, kwargs = args
     Parser(**kwargs).parse_one_month(year, month)
 
-
 ### Create global helper function for formatting names of data files
 
 ## Format dates to be consistent with pushshift file names
@@ -899,11 +898,9 @@ class Parser(object):
         inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
 
         if self.machine == "ccv":
-
             try:
                 current_batch = self.array * num_process
                 previous_batch = max(0,self.array - 1 * num_process)
-                
                 if current_batch > len(inputs)-1 and previous_batch >= len(inputs)-1:
                     pass
                 elif current_batch >= len(inputs)-1 and previous_batch < len(inputes)-1:
@@ -913,7 +910,7 @@ class Parser(object):
                         self.parse_one_month(input[0],input[1])
                     self.pool_parsing_data()
                     self.lang_filtering() # filter non-English posts
-                
+
                 else:
 
                     mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs)-1)]
@@ -926,11 +923,6 @@ class Parser(object):
                     pool.map(parse_one_month_wrapper, mpi_batch)
 
                     mpi_batch = []
-
-                    if current_batch + num_process >= len(inputs):
-                        self.pool_parsing_data()
-                        self.lang_filtering() # filter non-English posts
-                        #break
 
             except:
                 raise Exception("Error in receiving batch IDs from the cluster.")
@@ -1251,8 +1243,9 @@ class Parser(object):
 
             # get the file counts
             file_counts = []
-            for yr,mo in self.dates():
-                with open(self.model_path + "counts/RC_Count_List-{}-{}".format(yr,mo),"r") as file_count:
+            for element in self.dates:
+                yr,mo = element[0],element[1]
+                with open(self.model_path + "/counts/RC_Count_List-{}-{}".format(yr,mo),"r") as file_count:
                     for line in file_count:
                         if line.strip() != "":
                             file_counts.append(int(line.strip()))
@@ -1389,7 +1382,6 @@ class Parser(object):
                                 rel_sample_num=rel_sample_num, balanced_rel_sample=balanced_rel_sample):
 
         # BUG: Add pooling function to the end
-        # BUG: General labels should be a list, or better yet a pre-det np array
         total_count = 0
 
         # check for previous screening results
@@ -1434,26 +1426,13 @@ class Parser(object):
             if self.machine == "ccv":
 
                 try:
-                    current_batch = self.array * num_process
-                    previous_batch = max(0,self.array - 1 * num_process)
-
-                    if current_batch > len(inputs):
-                        if previous_batch >= len(inputs):
-                            pass
+                    current_batch = self.array
+                    if current_batch > len(inputs)-1:
+                        pass
                     else:
+                        self.Screen_One_Month(current_batch[0],current_batch[1])
 
-                        mpi_batch = inputs[current_batch:min(current_batch + num_process, len(inputs))]
-
-                        # NOTE: For best results, set the number of processes in the following
-                        # line based on (number of physical cores)*(hyper-threading multiplier)
-                        # -1 (for synchronization overhead)
-                        pool = multiprocessing.Pool(processes=num_process)
-
-                        pool.map(Screen_One_Month_Wrapper, mpi_batch)
-
-                        mpi_batch = []
-
-                        if current_batch + num_process >= len(inputs):
+                        if current_batch == len(inputs)-1:
 
                             with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
                                 for yr, mo,_,_ in inputs:
@@ -1566,7 +1545,10 @@ class Parser(object):
 
                             # shuffle the docs and check number and length
                             np.random.shuffle(sampled_docs)
-                            assert len(sampled_docs) == rel_sample_num
+                            try:
+                                assert len(sampled_docs) == rel_sample_num
+                            except:
+                                assert len(sampled_docs) == len(irrel_idxes)
                             for element in sampled_docs:
                                 assert len(element) == 4
 
@@ -1584,9 +1566,6 @@ class Parser(object):
 
             elif self.machine == "local":
 
-                # pool = multiprocessing.Pool(processes=num_process)
-                #
-                # pool.map(Screen_One_Month_Wrapper, inputs)
                 for yr, month, _, _ in inputs:
                     self.Screen_One_Month(yr, month)
 
@@ -1600,8 +1579,6 @@ class Parser(object):
                             for line in monthly:
                                 if line.strip() != "":
                                     general_labels.write(line.strip() + "\n")
-
-
 
                 # read labels from disk and identify indices of irrelevant posts
                 irrel_idxes = []
