@@ -487,7 +487,7 @@ class Parser(object):
             print("The following needed processed file(s) were missing for "
                   + str(year) + ", month " + str(month) + ":")
             print(missing_parsing_files)
-            print("Initiating preprocessing of " + filename + " at: "
+            print("Initiating preprocessing of " + filename + " at "
                   + time.strftime('%l:%M%p, %m/%d/%Y'))
 
             # preprocess raw data
@@ -901,6 +901,7 @@ class Parser(object):
             try:
                 current_batch = self.array * num_process
                 previous_batch = max(0,self.array - 1 * num_process)
+
                 if current_batch > len(inputs)-1 and previous_batch >= len(inputs)-1:
                     pass
                 elif current_batch >= len(inputs)-1 and previous_batch < len(inputes)-1:
@@ -1167,6 +1168,16 @@ class Parser(object):
                         if line.strip() != "":
                             timelist_original.append(int(float(line.strip())))
 
+            # get the file counts
+            file_counts = []
+            for element in self.dates:
+                yr,mo = element[0],element[1]
+                with open(self.model_path + "/counts/RC_Count_List-{}-{}".format(yr,mo),"r") as file_count:
+                    for line in file_count:
+                        if line.strip() != "":
+                            file_counts.append(int(line.strip()))
+            assert len(file_counts) == len(self.dates)
+
             # post meta-data
             if (not Path(self.model_path + "/votes/votes").is_file()) and self.vote_counting:
                 raise Exception('Votes counld not be found')
@@ -1194,10 +1205,12 @@ class Parser(object):
 
             # counters for the number of non-English posts from each time period
             int_non_en = np.zeros(len(timelist_original)+1)
+            file_non_en = np.zeros(len(timelist_original)+1)
 
             non_en_idx = []  # list for indices of non-English posts
 
             int_counter = 0  # counter for the time period an index belongs to
+            file_counter = 0
 
             # Filter the posts
 
@@ -1205,12 +1218,16 @@ class Parser(object):
                 total_count = 0
                 with open(self.model_path + "/original_comm/original_comm", "r") as raw_dataset:
                     for index, post in enumerate(raw_dataset):
-                        total_count += 1
                         try:
-                            if index > timelist_original[int_counter]:
+                            if index == timelist_original[int_counter]:
                                 int_counter += 1  # update time interval counter
                         except:
                             int_counter += 1
+                        try:
+                            if index == sum(file_counts[:file_counter+1]):
+                                file_counter += 1
+                        except:
+                            file_counter += 1
                         try:  # if post is too short to reliably analyze or
                             # highly likely to be in English
                             if detect(post) == 'en' or len(post.split()) <= 20:
@@ -1218,14 +1235,17 @@ class Parser(object):
                             else:  # if post is likely not to be in English
                                 non_en_idx.append(index)  # record the index
                                 int_non_en[int_counter] += 1  # update
+                                file_non_en[file_counter] += 1
                                 # non-English post counter
                                 print(index, end="\n", file=non_en)  # save index
                         except:  # if language identification failed, add the
                             # post to the list of posts to be removed from dataset
                             non_en_idx.append(index)  # record the index
                             int_non_en[int_counter] += 1  # update non-English
+                            file_non_en[file_counter] += 1
                             # post counter
                             print(index, end="\n", file=non_en)  # save index
+                        total_count += 1
 
             # A list of dataset files needing to be updated based on parameters
             filenames = ['/original_comm/original_comm','/original_indices/original_indices']
@@ -1240,16 +1260,6 @@ class Parser(object):
                 filenames.append("/t_sentiments/t_sentiments")
                 if not self.add_sentiment:
                     filenames.append("/sentiments/sentiments")
-
-            # get the file counts
-            file_counts = []
-            for element in self.dates:
-                yr,mo = element[0],element[1]
-                with open(self.model_path + "/counts/RC_Count_List-{}-{}".format(yr,mo),"r") as file_count:
-                    for line in file_count:
-                        if line.strip() != "":
-                            file_counts.append(int(line.strip()))
-            assert len(file_counts) == len(self.dates)
 
             for file in filenames: # for each file in the list above
 
@@ -1268,10 +1278,11 @@ class Parser(object):
                     with open(self.model_path + file +"-{}-{}".format(yr,mo),"r") as monthly_file:
                         lines = monthly_file.readlines()
                     with open(self.model_path + file +"-{}-{}".format(yr,mo),"w") as monthly_file:
-                        for index, line in enumerate(lines):
-                            if line.strip() != "" and index not in non_en_idx:
-                                monthly_file.write(line)
-                            total_counter += 1
+                        for line in lines:
+                            if line.strip() != "":
+                                if total_counter not in non_en_idx:
+                                    monthly_file.write(line)
+                                total_counter += 1
 
             # update document counts for each time interval in the dataset
             running_tot_count = 0
@@ -1285,24 +1296,11 @@ class Parser(object):
                 for interval in timelist_original:
                     print(int(interval), end="\n", file=f)
 
-            # TODO: use the following to update everything monthly
-            total_counter = 0
-
-            for yr,mo in self.dates:
-                file_counter = 0
-                interval_counter = 0
-                with open(self.model_path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"r") as f:
-                    for line in f:
-                        if line.strip() != "":
-                            file_counter = int(line.strip())
-
-                for index in non_en_idx:
-                    if index >= total_counter and index < total_counter + file_counter:
-                        interval_counter += 1
-                total_counter += int(line.strip())
+            for idx,element in enumerate(self.dates):
+                yr,mo = element[0],element[1]
                 with open(self.model_path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"w") as f:
-                    new_count = file_counter - interval_counter
-                    f.write(str(new_count))
+                    new_count = file_counts[idx] - file_non_en[idx]
+                    f.write(str(int(new_count)))
 
             # timer
             print("Finished filtering out non-English posts at "
