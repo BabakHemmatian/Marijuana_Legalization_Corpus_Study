@@ -2,6 +2,9 @@
 # num_process in mind (e.g. if num_process=3, array=0 would process the first
 # 3 months in the dates array)
 
+# NOTE: The very last batch should be run individually, so as not to mess up
+# the aggregation across all of the months
+
 # BUG: Because of a hacky solution within lang_filtering(), the language filtering
 # would only work properly for fully consecutive set of months within self.dates
 # TODO: make it more general
@@ -22,14 +25,6 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
 ### call the parsing function
-
-# CoreNLP
-# create a connection to the CoreNLP server to retrieve sentiment
-# (requires CoreNLP_server.py in the same directory)
-subprocess.Popen(
-    ['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -threads ' + str(num_process) + ' --quite'],
-    shell=True, cwd="./stanford-corenlp-4.0.0")
-time.sleep(5)  # wait for connection to the server to be established
 
 theparser=Parser(array=args.array,machine=args.machine)
 
