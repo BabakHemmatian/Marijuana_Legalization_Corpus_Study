@@ -37,6 +37,15 @@ if eval_relevance:
 Write_Performance()
 
 if add_sentiment:
+    
+    # CoreNLP
+    # create a connection to the CoreNLP server to retrieve sentiment
+    # (requires CoreNLP_server.py in the same directory)
+    subprocess.Popen(
+        ['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -threads ' + str(num_process) + ' --quite'],
+        shell=True, cwd="./stanford-corenlp-4.0.0")
+    time.sleep(5)  # wait for connection to the server to be established
+    
     theparser.add_sentiment()
 
 ### call the function for calculating the percentage of relevant comments
