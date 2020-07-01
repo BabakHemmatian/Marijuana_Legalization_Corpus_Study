@@ -1251,10 +1251,11 @@ class Parser(object):
 
             # get the file counts
             file_counts = []
-            with open(fns["counts"],"r") as f:
-                for line in f:
-                    if line.strip() != 0:
-                        file_counts.append(int(line.strip()))
+            for yr,mo in self.dates():
+                with open(self.model_path + "counts/RC_Count_List-{}-{}".format(yr,mo),"r") as file_count:
+                    for line in file_count:
+                        if line.strip() != "":
+                            file_counts.append(int(line.strip()))
             assert len(file_counts) == len(self.dates)
 
             for file in filenames: # for each file in the list above
