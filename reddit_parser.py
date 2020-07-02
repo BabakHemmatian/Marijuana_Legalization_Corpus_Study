@@ -528,6 +528,8 @@ class Parser(object):
             if self.NN and self.machine == "local":  # if doing NN on a local computer
                 fout = open(fns["bert_prep"], 'w')
             elif self.NN and self.machine == "ccv": # on a cluster
+                with open(fns["bert_prep"], 'w') as f: # TODO: dummy file to prevent downstream errors. Fix later
+                    pass
                 fout = []
             elif not self.NN and self.machine == "local":  # if doing LDA on a local computer
                 fout = open(fns["lda_prep"], 'w')
@@ -1138,9 +1140,36 @@ class Parser(object):
     ## Function for removing non-English posts picked up by the regex filter
     def lang_filtering(self):
 
+        # cumulative post counts
+        if not Path(self.model_path + "/counts/RC_Count_List").is_file():
+            raise Exception(
+                'Cumulative monthly comment counts could not be found')
+        else:  # load the cumulative counts
+            timelist_original = []
+            with open(self.model_path + "/counts/RC_Count_List", "r") as f:
+                for line in f:
+                    if line.strip() != "":
+                        timelist_original.append(int(float(line.strip())))
+
         if Path(self.model_path + "/non_en").is_file():  # if corpus is already filtered
             print("Found language filtering results on file. Moving on.")
-            pass
+
+            # TODO: debug this
+            non_en_indices = []
+            with open(self.model_path + "/non_en","r") as non_en:
+                for line in non_en:
+                    if line.strip() != "":
+                        non_en_indices.append(int(line))
+
+            for element in non_en_indices:
+                int_counter = 0
+                while element >= timelist_original[int_counter]:
+                    int_counter+=1
+                timelist_original[int_counter] = timelist_original[int_counter] - 1
+            with open(self.model_path + "/counts/RC_Count_List", "w") as f:
+                for element in timelist_original:
+                    print(int(element),file=f)
+
         else:  # otherwise
 
             # check for missing files per parameter configs
@@ -1156,17 +1185,6 @@ class Parser(object):
                 raise Exception('Preprocessed dataset could not be found')
             elif (not Path(self.model_path + "/bert_prep/bert_prep.json").is_file()) and self.NN == True:
                 raise Exception('Preprocessed dataset could not be found')
-
-            # cumulative post counts
-            if not Path(self.model_path + "/counts/RC_Count_List").is_file():
-                raise Exception(
-                    'Cumulative monthly comment counts could not be found')
-            else:  # load the cumulative counts
-                timelist_original = []
-                with open(self.model_path + "/counts/RC_Count_List", "r") as f:
-                    for line in f:
-                        if line.strip() != "":
-                            timelist_original.append(int(float(line.strip())))
 
             # get the file counts
             file_counts = []
@@ -1407,15 +1425,7 @@ class Parser(object):
                     for line in f:
                         if line.strip() != "":
                             timelist_original.append(int(line))
-
-            # check for a complete record of labels
-            if Path(self.model_path + "/auto_labels/auto_labels").is_file():
-                print("Found full dataset labels. Loading.")
-
-                with open(self.model_path + "/auto_labels/auto_labels", "r") as f:
-                    for line in f:
-                        if line.strip() != "":
-                            total_count += 1
+            total_count = timelist_original[-1]
 
             # Parallelize parsing by month
 
@@ -1570,6 +1580,13 @@ class Parser(object):
 
                 # read labels from disk and identify indices of irrelevant posts
                 irrel_idxes = []
+                if not Path(self.model_path + "/auto_labels/auto_labels").is_file():
+                    for yr, mo in self.dates:
+                        with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr,mo),"r") as f, open(self.model_path + "/auto_labels/auto_labels","a+") as g:
+                            for line in f:
+                                if line.strip() != "":
+                                    g.write(line.strip() + "\n")
+
                 with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
                     for idx, line in enumerate(labels):
                         if line.strip() == '0' or line.strip() == 'None':
