@@ -906,7 +906,7 @@ class Parser(object):
 
                 if current_batch > len(inputs)-1 and previous_batch >= len(inputs)-1:
                     pass
-                elif current_batch >= len(inputs)-1 and previous_batch < len(inputes)-1:
+                elif current_batch >= len(inputs)-1 and previous_batch < len(inputs)-1:
 
                     mpi_batch = inputs[current_batch:min(current_batch+num_process,len(inputs)-1)]
                     for input in mpi_batch:
@@ -1161,11 +1161,13 @@ class Parser(object):
                     if line.strip() != "":
                         non_en_indices.append(int(line))
 
+            running_tot_count = 0
             for element in non_en_indices:
                 int_counter = 0
                 while element >= timelist_original[int_counter]:
                     int_counter+=1
-                timelist_original[int_counter] = timelist_original[int_counter] - 1
+                running_tot_count += 1
+                timelist_original[int_counter] = timelist_original[int_counter] - running_tot_count
             with open(self.model_path + "/counts/RC_Count_List", "w") as f:
                 for element in timelist_original:
                     print(int(element),file=f)
@@ -1823,9 +1825,9 @@ class Parser(object):
 
                 for yr, mo in self.dates:
                     with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file:
-                        lines = f.readlines()
+                        lines = monthly_file.readlines()
                     with open(self.model_path + file + "-{}-{}".format(yr, mo), "w") as monthly_file:
-                        for index, line in enumerate(monthly_file):
+                        for index, line in enumerate(lines):
                             if line.strip() != "" and index not in negative_labels:
                                 monthly_file.write(line)
 
@@ -1990,13 +1992,15 @@ class Parser(object):
     # NOTE: Parsing should be finished for the months in dates before running
     # this function
 
-    def add_sentiment(self):
+    def add_c_sentiment(self):
 
         if not os.path.exists(self.model_path + "/c_sentiments/"):
             print("Creating directories to store the additional sentiment output")
             os.makedirs(self.model_path + "/c_sentiments")
         if not os.path.exists(self.model_path + "/sentiments/"):
             os.makedirs(self.model_path + "/sentiments")
+
+        fns = self.get_parser_fns()
 
         fns["c_sentiments"] = "{}/c_sentiments/c_sentiments".format(self.model_path)
         fns["sentiments"] = "{}/sentiments/sentiments".format(self.model_path)
