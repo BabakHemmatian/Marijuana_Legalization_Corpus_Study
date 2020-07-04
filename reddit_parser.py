@@ -632,7 +632,6 @@ class Parser(object):
                 if is_relevant:
 
                     # preprocess the comments
-                    ## TODO is this for one comment or for all of the comments in a month?
                     if self.NN:
                         # Tokenize the sentences
                         # body = sent_detector.tokenize(
@@ -683,7 +682,6 @@ class Parser(object):
 
                         # If calculating sentiment, write the average sentiment.
                         # Range is -1 to 1, with values below 0 meaning neg
-                        # BUG: sentiment fn should be adjusted for local/ccv
                         if self.sentiment and not self.add_sentiment:
                             self.write_avg_sentiment(original_body,month,
                                                     main_counter, fns,
@@ -839,7 +837,7 @@ class Parser(object):
         missing_parsing_files = []
 
         # timer
-        print("Finished parsing " + filename + "at " + time.strftime('%l:%M%p, %m/%d/%Y'))
+        print("Finished parsing " + filename + " at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
         # if the user wishes compressed data files to be removed after processing
         if self.clean_raw and filename not in self.on_file and Path(self.data_path + filename).is_file():
@@ -957,8 +955,6 @@ class Parser(object):
                     raise
 
     ## Function to call parser when needed and parse comments
-    # TODO: Replace mentions of Vote in this file with mentions of sample_ratings
-    # TODO: Add main counter and original comments and indices to this function
     def Parse_Rel_RC_Comments(self,num_process=num_process):
         # if preprocessed comments are available, ask if they should be rewritten
         if (self.NN and Path(self.model_path + "/bert_prep/bert_prep").is_file()) or (
@@ -1154,23 +1150,31 @@ class Parser(object):
         if Path(self.model_path + "/non_en").is_file():  # if corpus is already filtered
             print("Found language filtering results on file. Moving on.")
 
-            # TODO: debug this
-            non_en_indices = []
-            with open(self.model_path + "/non_en","r") as non_en:
-                for line in non_en:
-                    if line.strip() != "":
-                        non_en_indices.append(int(line))
-
-            running_tot_count = 0
-            for element in non_en_indices:
-                int_counter = 0
-                while element >= timelist_original[int_counter]:
-                    int_counter+=1
-                running_tot_count += 1
-                timelist_original[int_counter] = timelist_original[int_counter] - running_tot_count
-            with open(self.model_path + "/counts/RC_Count_List", "w") as f:
-                for element in timelist_original:
-                    print(int(element),file=f)
+            # non_en_indices = []
+            # with open(self.model_path + "/non_en","r") as non_en:
+            #     for line in non_en:
+            #         if line.strip() != "":
+            #             non_en_indices.append(int(line))
+            #
+            # int_non_en = np.zeros(len(timelist_original)+1)
+            # running_tot_count = 0
+            # for element in non_en_indices:
+            #     int_counter = 0
+            #     while element >= timelist_original[int_counter]:
+            #         int_counter+=1
+            #     int_non_en[int_counter] += 1
+            #
+            # running_tot_count = 0
+            # for interval,count in enumerate(int_non_en):
+            #     running_tot_count += count
+            #     if interval != len(timelist_original):
+            #         timelist_original[interval] = timelist_original[interval] - running_tot_count
+            #     else:
+            #         timelist_original[interval-1] = timelist_original[interval-1] - count
+            #
+            # with open(self.model_path + "/counts/RC_Count_List", "w") as f:
+            #     for element in timelist_original:
+            #         print(int(element),file=f)
 
         else:  # otherwise
 
@@ -1232,8 +1236,7 @@ class Parser(object):
             int_counter = 0  # counter for the time period an index belongs to
             file_counter = 0
 
-            # Filter the posts
-
+            # Find non-English posts
             with open(self.model_path + "/non_en", "w") as non_en:
                 total_count = 0
                 with open(self.model_path + "/original_comm/original_comm", "r") as raw_dataset:
@@ -1241,12 +1244,12 @@ class Parser(object):
                         try:
                             if index == timelist_original[int_counter]:
                                 int_counter += 1  # update time interval counter
-                        except:
+                        except: # if the timestamp is outside of dates' boundaries
                             int_counter += 1
                         try:
                             if index == sum(file_counts[:file_counter+1]):
-                                file_counter += 1
-                        except:
+                                file_counter += 1 # update the monthly file counter
+                        except: # if the timestamp is outside of dates' boundaries
                             file_counter += 1
                         try:  # if post is too short to reliably analyze or
                             # highly likely to be in English
@@ -1280,6 +1283,8 @@ class Parser(object):
                 filenames.append("/t_sentiments/t_sentiments")
                 if not self.add_sentiment:
                     filenames.append("/sentiments/sentiments")
+            if Path(self.model_path + "/subreddit/subreddit").is_file():
+                filenames.append("/subreddit/subreddit")
 
             for file in filenames: # for each file in the list above
 
@@ -1315,10 +1320,12 @@ class Parser(object):
 
             #BUG: bert_prep is not being updated. Okay for now, but bad if we'll be using it
 
+            # Update cumulative file counts
             with open(self.model_path + "/counts/RC_Count_List", "w") as f:
                 for interval in timelist_original:
                     print(int(interval), end="\n", file=f)
 
+            # Update monthly file counts
             for idx,element in enumerate(self.dates):
                 yr,mo = element[0],element[1]
                 with open(self.model_path+"/counts/RC_Count_List-{}-{}".format(yr,mo),"w") as f:
@@ -1329,7 +1336,8 @@ class Parser(object):
             print("Finished filtering out non-English posts at "
                   + time.strftime('%l:%M%p, %m/%d/%Y'))
 
-    # TODO: add information
+    ### Uses a pre-trained neural network to identify irrelevant posts in the
+    # dataset from a particular month
     def Screen_One_Month(self, year, month):
 
         # set up neural network runtime configurations
@@ -1398,11 +1406,11 @@ class Parser(object):
         print("Processed month {} of year {} in {:0>2}:{:0>2}:{:05.2f}".format(month, year, int(hours), int(minutes),
                                                                                seconds))
 
-    ## Uses a pre-trained neural network to prune dataset from irrelevant posts
+    ### Runs Screen_One_Month either sequentially or in batches for all months
+    # in dates, and aggregates the output
     def Neural_Relevance_Screen(self, rel_model_path=rel_model_path, dates=dates,
                                 rel_sample_num=rel_sample_num, balanced_rel_sample=balanced_rel_sample):
 
-        # BUG: Add pooling function to the end
         total_count = 0
 
         # check for previous screening results
@@ -1412,9 +1420,6 @@ class Parser(object):
                 "A sample of auto-labeled posts was found, suggesting neural relevance screening was previously performed. Moving on.")
 
         else:  # if screening results not found
-
-            # TODO: Adjust the following to only get the months in dates.
-            # Same for other parsing functions
 
             # Load cumulative number of relevant posts for each month, from disk
 
@@ -1813,6 +1818,8 @@ class Parser(object):
                 filenames.append("/t_sentiments/t_sentiments")
                 if not self.add_sentiment:
                     filenames.append("/sentiments/sentiments")
+            if Path(self.model_path + "/subreddit/subreddit").is_file():
+                filenames.append("/subreddit/subreddit")
 
             for file in filenames:  # for each file in the list above
 
@@ -1885,7 +1892,7 @@ class Parser(object):
             end = time.time()
             hours, rem = divmod(end - start, 3600)
             minutes, seconds = divmod(rem, 60)
-            with open(self.model_path+"rel_clean_cert.txt","w") as cert:
+            with open(self.model_path+"/rel_clean_cert.txt","w") as cert:
                 cert.write("Finished relevance-filtering in {:0>2}:{:0>2}:{:05.2f} (hours,minutes,seconds)".format(int(hours),int(minutes),seconds))
                 print("Finished relevance-filtering in {:0>2}:{:0>2}:{:05.2f} (hours,minutes,seconds)".format(int(hours),int(minutes),seconds))
 
