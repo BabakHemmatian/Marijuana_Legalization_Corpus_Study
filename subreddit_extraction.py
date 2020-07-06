@@ -11,6 +11,7 @@ import html
 import time
 from pathlib2 import Path
 import argparse
+import io
 
 # grab the machine argument from slurm if running on the cluster.
 # NOTE: If running locally, comment out the following chuck and set machine to
