@@ -18,7 +18,7 @@ dependencies:
   - cpuonly=1.0=0
  # - cryptography=2.8=py37ha12b0ac_0
   #- cudatoolkit=9.0=h41a26b3_0
-  - cudnn
+#  - cudnn
   - gast=0.2.2=py37_0
   #- gensim=3.8.0=py37h6440ff4_0
   - google-pasta=0.2.0=py_0
