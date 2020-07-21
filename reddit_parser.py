@@ -60,7 +60,6 @@ def format_date(yr, mo):
     assert len(str(mo)) == 2
     return "{}-{}".format(yr, mo)
 
-
 ## Raw Reddit data filename format. The compression types for dates handcoded
 # based on https://files.pushshift.io/reddit/comments/
 
@@ -76,7 +75,6 @@ def get_rc_filename(yr, mo):
         return 'RC_{}.zst'.format(date)
     else:
         return 'RC_{}.bz2'.format(date)
-
 
 ## based on provided dates, gather a list of months for which data is already
 # available
@@ -104,7 +102,7 @@ class Parser(object):
     def __init__(self, nlp_wrapper=StanfordCoreNLP('http://localhost:9000'),bert_tokenizer=BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True), clean_raw=CLEAN_RAW, dates=dates,
                  download_raw=DOWNLOAD_RAW, hashsums=None, NN=NN, data_path=data_path,
                  model_path=model_path,legality=legality, marijuana=marijuana,
-                 stop=stop, write_original=WRITE_ORIGINAL,array=None,
+                 stop=stop, write_original=WRITE_ORIGINAL,array=None,calculate_perc_rel=calculate_perc_rel,
                  vote_counting=vote_counting,author=author, sentiment=sentiment,
                  add_sentiment=add_sentiment,balanced_rel_sample=balanced_rel_sample,
                  machine=None, on_file=on_file, num_process=num_process,
@@ -138,6 +136,7 @@ class Parser(object):
         self.marijuana = marijuana
         self.stop = stop
         self.write_original = write_original
+        self.calculate_perc_rel = calculate_perc_rel
         self.vote_counting = vote_counting
         self.author = author
         self.sentiment = sentiment
@@ -154,6 +153,55 @@ class Parser(object):
         self.rel_sample_num = rel_sample_num
         self.balanced_rel_sample = balanced_rel_sample
         self.Neural_Relevance_Filtering = Neural_Relevance_Filtering
+
+    ### calculate the yearly relevant comment counts
+    def Get_Counts(self,model_path=model_path, random=False, frequency="monthly"):
+        assert frequency in ("monthly", "yearly")
+
+        fns=self.get_parser_fns()
+        fn=fns["counts"] if not random else fns["counts_random"]
+
+        # check for monthly relevant comment counts
+        if not Path(fn).is_file():
+            raise Exception('The cummulative monthly counts could not be found')
+
+        # load monthly relevant comment counts
+        with open(fn,'r') as f:
+            timelist = []
+            for line in f:
+                if line.strip() != "":
+                    timelist.append(int(line))
+
+        # intialize lists and counters
+        cumulative = [] # cummulative number of comments per interval
+        per = [] # number of comments per interval
+
+        month_counter = 0
+
+        # iterate through monthly counts
+        for index,number in enumerate(timelist): # for each month
+            month_counter += 1 # update counter
+            if frequency=="monthly":
+                cumulative.append(number) # add the cummulative count
+                if index == 0: # for the first month
+                    per.append(number) # append the cummulative value to number of comments per year
+                else: # for the other months, subtract the last two cummulative values to find the number of relevant comments in that year
+                    per.append(number - cumulative[-2])
+
+            else:
+                if (month_counter % 12) == 0 or index == len(timelist) - 1: # if at the end of the year or the corpus
+                    cumulative.append(number) # add the cummulative count
+
+                    if index + 1 == 12: # for the first year
+                        per.append(number) # append the cummulative value to number of comments per year
+                    else: # for the other years, subtract the last two cummulative values to find the number of relevant comments in that year
+                        per.append(number - cumulative[-2])
+                        month_counter = 0 # reset the counter at the end of the year
+
+        assert sum(per) == cumulative[-1], "Monthly counts do not add up to the total count"
+        assert cumulative[-1] == timelist[-1], "Total count does not add up to the number of posts on file"
+
+        return per,cumulative
 
     ## Download Reddit comment data
     def download(self, year=None, month=None, filename=None):
@@ -330,14 +378,15 @@ class Parser(object):
         fns = dict((("original_comm", "{}/original_comm/original_comm{}".format(self.model_path, suffix)),
                     ("original_indices", "{}/original_indices/original_indices{}".format(self.model_path, suffix)),
                     ("counts", "{}/counts/RC_Count_List{}".format(self.model_path, suffix)),
-                    ("timedict", "{}/timedict/RC_Count_Dict{}".format(self.model_path, suffix)),
-                    ("total_count", "{}/total_count/total_count{}".format(self.model_path, suffix))
+                    ("timedict", "{}/timedict/RC_Count_Dict{}".format(self.model_path, suffix))
                     ))
         if self.NN:
             # fns["nn_prep"] = "{}/nn_prep/nn_prep{}".format(self.model_path, suffix)
             fns["bert_prep"] = "{}/bert_prep/bert_prep{}.json".format(self.model_path, suffix)
         else:
             fns["lda_prep"] = "{}/lda_prep/lda_prep{}".format(self.model_path, suffix)
+        if self.calculate_perc_rel:
+            fns["total_count"] = "{}/total_count/total_count{}".format(self.model_path, suffix)
         if self.vote_counting:
             fns["votes"] = "{}/votes/votes{}".format(self.model_path, suffix)
         if self.author:
@@ -1338,7 +1387,7 @@ class Parser(object):
 
     ### Uses a pre-trained neural network to identify irrelevant posts in the
     # dataset from a particular month
-    def Screen_One_Month(self, year, month):
+    def Screen_One_Month(self, year, month, batch_size=None):
 
         # set up neural network runtime configurations
         logging.basicConfig(level=logging.INFO)
@@ -1391,7 +1440,7 @@ class Parser(object):
                     batch.append(line)
                     counter += 1
 
-                    if counter % 100 == 0 or counter == file_counter:
+                    if counter % batch_size == 0 or counter == file_counter:
 
                         prediction, raw_output = model.predict(batch)
                         for element in prediction:
@@ -1409,7 +1458,7 @@ class Parser(object):
     ### Runs Screen_One_Month either sequentially or in batches for all months
     # in dates, and aggregates the output
     def Neural_Relevance_Screen(self, rel_model_path=rel_model_path, dates=dates,
-                                rel_sample_num=rel_sample_num, balanced_rel_sample=balanced_rel_sample):
+                                rel_sample_num=rel_sample_num, batch_size=None):
 
         total_count = 0
 
@@ -1445,132 +1494,7 @@ class Parser(object):
                     if current_batch > len(inputs)-1:
                         pass
                     else:
-                        self.Screen_One_Month(current_batch[0],current_batch[1])
-
-                        if current_batch == len(inputs)-1:
-
-                            with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
-                                for yr, mo,_,_ in inputs:
-                                    with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo),
-                                              "r") as monthly:
-                                        for line in monthly:
-                                            if line.strip() != "":
-                                                general_labels.write(line.strip() + "\n")
-
-                            # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
-                            random_sample = list(
-                                np.random.choice(range(0, total_count), size=rel_sample_num, replace=False))
-                            labels_array = np.ones(total_count)  # initiate array for labels
-
-                            # read labels from disk and identify indices of irrelevant posts
-                            irrel_idxes = []
-                            with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
-                                for idx, line in enumerate(labels):
-                                    if line.strip() == '0' or line.strip() == 'None':
-                                        labels_array[idx] = 0
-                                        irrel_idxes.append(idx)
-
-                            # TODO: Add the ability to deal with posts for which the classifier
-                            # has failed to provide a prediction but rather an error (None classes).
-
-                            # if obtaining a sample of labels balanced across output categories:
-                            if balanced_rel_sample:
-                                sampled_cats = {0: 0, 1: 0}
-                                goal = {0: floor(float(rel_sample_num) / 2), 1: ceil(float(rel_sample_num) / 2)}
-
-                                for value in random_sample:
-                                    sampled_cats[int(labels_array[value])] += 1
-
-                                print("Random sample composition: ")
-                                print(sampled_cats)
-
-                                for category, _ in sampled_cats.items():  # upsample and downsample
-                                    # to have a balance of posts marked positive or negative
-
-                                    while sampled_cats[category] < goal[category]:
-
-                                        if category == 0:
-                                            relevant_subset = [i for i in irrel_idxes if i not in random_sample]
-                                        elif category == 1:
-                                            relevant_subset = [i for i in range(0, total_count) if
-                                                               i not in irrel_idxes and i not in random_sample]
-
-                                        new_proposed = np.random.choice(relevant_subset)
-
-                                        random_sample.append(new_proposed)
-                                        sampled_cats[category] += 1
-                                        relevant_subset.remove(new_proposed)
-
-                                    while sampled_cats[category] > goal[category]:
-
-                                        if category == 0:
-                                            relevant_subset = [i for i in random_sample if i in irrel_idxes]
-                                        elif category == 1:
-                                            relevant_subset = [i for i in random_sample if i not in irrel_idxes]
-
-                                        new_proposed = np.random.choice(relevant_subset)
-                                        random_sample.remove(new_proposed)
-                                        sampled_cats[category] -= 1
-
-                                print("Balanced random sample counts: ")
-                                print(sampled_cats)
-
-                            # Sample the documents using the chosen indices
-                            print("Sampling " + str(len(set(random_sample))) + " documents")
-
-                            sampled_docs = []
-
-                            with open(self.model_path + "/original_comm/original_comm", "r") as sampling:
-
-                                for idx, sampler in enumerate(sampling):
-                                    int_counter = 0
-                                    try:
-                                        while idx > timelist_original[int_counter]:
-                                            int_counter += 1
-                                        if idx in random_sample:
-                                            # writing year, month, text to sample file
-                                            sampled_docs.append(
-                                                [str(dates[int_counter][0]), str(dates[int_counter][1]), sampler])
-
-                                    except:  # if the date associated with the post is beyond
-                                        # the pre-specified time intervals, associate the post with
-                                        # the next month. May happen with a few documents at the edges
-                                        # of data files
-
-                                        if idx in random_sample:
-                                            # determine the relevant next month and year
-                                            yr = dates[int_counter - 1][0]
-                                            mo = dates[int_counter - 1][1]
-                                            if mo == 12:
-                                                yr += 1
-                                                mo = 1
-                                            else:
-                                                mo += 1
-
-                                            sampled_docs.append([str(yr), str(mo), sampler])
-
-                            # load labels for the sampled documents
-                            general_counter = 0
-                            sample_counter = 0
-                            with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
-                                for idx, line in enumerate(labels):
-                                    if idx in random_sample:
-                                        sampled_docs[sample_counter].append(line)
-                                        sample_counter += 1
-
-                            # shuffle the docs and check number and length
-                            np.random.shuffle(sampled_docs)
-                            assert (len(sampled_docs) == rel_sample_num) or (len(sampled_docs) == len(irrel_idxes))
-
-                            for element in sampled_docs:
-                                assert len(element) == 4
-
-                            # write the sampled files to a csvfile
-                            with open(self.model_path + "/auto_labels/sample_auto_labeled.csv", 'a+') as csvfile:
-                                writer = csv.writer(csvfile)
-                                writer.writerow(['year', 'month', 'text', 'auto label', 'accuracy'])
-                                for document in sampled_docs:
-                                    writer.writerow(document)
+                        self.Screen_One_Month(current_batch[0],current_batch[1],batch_size=batch_size)
 
                 except:
                     raise Exception("Error in receiving batch IDs from the cluster.")
@@ -1580,127 +1504,161 @@ class Parser(object):
                 for yr, month, _, _ in inputs:
                     self.Screen_One_Month(yr, month)
 
-                # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
-                random_sample = list(
-                    np.random.choice(range(0, total_count), size=rel_sample_num, replace=False))
-                labels_array = np.ones(total_count)  # initiate array for labels
+            else:
+                raise Exception("Machine specification not found.")
 
-                # read labels from disk and identify indices of irrelevant posts
-                irrel_idxes = []
-                if not Path(self.model_path + "/auto_labels/auto_labels").is_file():
-                    for yr, mo in self.dates:
-                        with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr,mo),"r") as f, open(self.model_path + "/auto_labels/auto_labels","a+") as g:
-                            for line in f:
-                                if line.strip() != "":
-                                    g.write(line.strip() + "\n")
+    def Rel_sample(self,rel_sample_num=rel_sample_num,
+                    balanced_rel_sample=balanced_rel_sample):
 
-                with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
-                    for idx, line in enumerate(labels):
-                        if line.strip() == '0' or line.strip() == 'None':
-                            labels_array[idx] = 0
-                            irrel_idxes.append(idx)
+        # check for previous screening results
+        if Path(self.model_path + "/auto_labels/sample_auto_labeled.csv").is_file():
 
-                # TODO: Add the ability to deal with posts for which the classifier
-                # has failed to provide a prediction but rather an error (None classes).
+            print(
+                "A sample of auto-labeled posts was found, suggesting neural relevance screening was previously performed. Moving on.")
 
-                # if obtaining a sample of labels balanced across output categories:
-                if balanced_rel_sample:
-                    sampled_cats = {0: 0, 1: 0}
-                    goal = {0: floor(float(rel_sample_num) / 2), 1: ceil(float(rel_sample_num) / 2)}
+        else:  # if screening results not found
 
-                    for value in random_sample:
-                        sampled_cats[int(labels_array[value])] += 1
+            if not Path(self.model_path + "/counts/RC_Count_List").is_file():
+                raise Exception(
+                    'Cumulative monthly comment counts could not be found')
+            else:
+                timelist_original = []
+                with open(self.model_path + "/counts/RC_Count_List", "r") as f:
+                    for line in f:
+                        if line.strip() != "":
+                            timelist_original.append(int(line))
+            total_count = timelist_original[-1]
+            print(total_count)
 
-                    print("Random sample composition: ")
-                    print(sampled_cats)
+            inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
 
-                    for category, _ in sampled_cats.items():  # upsample and downsample
-                        # to have a balance of posts marked positive or negative
+            with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
+                for yr, mo,_,_ in inputs:
+                    with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo),
+                              "r") as monthly:
+                        for line in monthly:
+                            if line.strip() != "":
+                                general_labels.write(line.strip() + "\n")
 
-                        while sampled_cats[category] < goal[category]:
+            # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
+            random_sample = list(
+                np.random.choice(range(0, total_count), size=rel_sample_num, replace=False))
+            print(random_sample)
 
-                            if category == 0:
-                                relevant_subset = [i for i in irrel_idxes if i not in random_sample]
-                            elif category == 1:
-                                relevant_subset = [i for i in range(0, total_count) if
-                                                   i not in irrel_idxes and i not in random_sample]
+            labels_array = np.ones(total_count)  # initiate array for labels
 
-                            new_proposed = np.random.choice(relevant_subset)
+            # read labels from disk and identify indices of irrelevant posts
+            irrel_idxes = []
+            with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
+                for idx, line in enumerate(labels):
+                    if line.strip() == '0' or line.strip() == 'None':
+                        labels_array[idx] = 0
+                        irrel_idxes.append(idx)
 
-                            random_sample.append(new_proposed)
-                            sampled_cats[category] += 1
-                            relevant_subset.remove(new_proposed)
+            # TODO: Add the ability to deal with posts for which the classifier
+            # has failed to provide a prediction but rather an error (None classes).
 
-                        while sampled_cats[category] > goal[category]:
+            # if obtaining a sample of labels balanced across output categories:
+            if balanced_rel_sample:
+                sampled_cats = {0: 0, 1: 0}
+                goal = {0: floor(float(rel_sample_num) / 2), 1: ceil(float(rel_sample_num) / 2)}
 
-                            if category == 0:
-                                relevant_subset = [i for i in random_sample if i in irrel_idxes]
-                            elif category == 1:
-                                relevant_subset = [i for i in random_sample if i not in irrel_idxes]
+                for value in random_sample:
+                    sampled_cats[int(labels_array[value])] += 1
 
-                            new_proposed = np.random.choice(relevant_subset)
-                            random_sample.remove(new_proposed)
-                            sampled_cats[category] -= 1
+                print("Random sample composition: ")
+                print(sampled_cats)
 
-                    print("Balanced random sample counts: ")
-                    print(sampled_cats)
+                for category, _ in sampled_cats.items():  # upsample and downsample
+                    # to have a balance of posts marked positive or negative
 
-                # Sample the documents using the chosen indices
-                print("Sampling " + str(len(set(random_sample))) + " documents")
+                    while sampled_cats[category] < goal[category]:
 
-                sampled_docs = []
+                        if category == 0:
+                            relevant_subset = [i for i in irrel_idxes if i not in random_sample]
+                        elif category == 1:
+                            relevant_subset = [i for i in range(0, total_count) if
+                                               i not in irrel_idxes and i not in random_sample]
 
-                with open(self.model_path + "/original_comm/original_comm", "r") as sampling:
+                        new_proposed = np.random.choice(relevant_subset)
 
-                    for idx, sampler in enumerate(sampling):
-                        int_counter = 0
-                        try:
-                            while idx > timelist_original[int_counter]:
-                                int_counter += 1
-                            if idx in random_sample:
-                                # writing year, month, text to sample file
-                                sampled_docs.append(
-                                    [str(dates[int_counter][0]), str(dates[int_counter][1]), sampler])
+                        random_sample.append(new_proposed)
+                        sampled_cats[category] += 1
+                        relevant_subset.remove(new_proposed)
 
-                        except:  # if the date associated with the post is beyond
-                            # the pre-specified time intervals, associate the post with
-                            # the next month. May happen with a few documents at the edges
-                            # of data files
+                    while sampled_cats[category] > goal[category]:
 
-                            if idx in random_sample:
-                                # determine the relevant next month and year
-                                yr = dates[int_counter - 1][0]
-                                mo = dates[int_counter - 1][1]
-                                if mo == 12:
-                                    yr += 1
-                                    mo = 1
-                                else:
-                                    mo += 1
+                        if category == 0:
+                            relevant_subset = [i for i in random_sample if i in irrel_idxes]
+                        elif category == 1:
+                            relevant_subset = [i for i in random_sample if i not in irrel_idxes]
 
-                                sampled_docs.append([str(yr), str(mo), sampler])
+                        new_proposed = np.random.choice(relevant_subset)
+                        random_sample.remove(new_proposed)
+                        sampled_cats[category] -= 1
 
-                # load labels for the sampled documents
-                general_counter = 0
-                sample_counter = 0
-                with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
-                    for idx, line in enumerate(labels):
+                print("Balanced random sample counts: ")
+                print(sampled_cats)
+
+            # Sample the documents using the chosen indices
+            print("Sampling " + str(len(set(random_sample))) + " documents")
+
+            sampled_docs = []
+
+            with open(self.model_path + "/original_comm/original_comm", "r") as sampling:
+
+                for idx, sampler in enumerate(sampling):
+                    int_counter = 0
+                    try:
+                        while idx > timelist_original[int_counter]:
+                            int_counter += 1
                         if idx in random_sample:
-                            sampled_docs[sample_counter].append(line)
-                            sample_counter += 1
+                            # writing year, month, text to sample file
+                            sampled_docs.append(
+                                [str(dates[int_counter][0]), str(dates[int_counter][1]), sampler])
 
-                # shuffle the docs and check number and length
-                np.random.shuffle(sampled_docs)
-                assert (len(sampled_docs) == rel_sample_num) or (len(sampled_docs) == len(irrel_idxes))
+                    except:  # if the date associated with the post is beyond
+                        # the pre-specified time intervals, associate the post with
+                        # the next month. May happen with a few documents at the edges
+                        # of data files
 
-                for element in sampled_docs:
-                    assert len(element) == 4
+                        if idx in random_sample:
+                            # determine the relevant next month and year
+                            yr = dates[int_counter - 1][0]
+                            mo = dates[int_counter - 1][1]
+                            if mo == 12:
+                                yr += 1
+                                mo = 1
+                            else:
+                                mo += 1
 
-                # write the sampled files to a csvfile
-                with open(self.model_path + "/auto_labels/sample_auto_labeled.csv", 'a+') as csvfile:
-                    writer = csv.writer(csvfile)
-                    writer.writerow(['year', 'month', 'text', 'auto label', 'accuracy'])
-                    for document in sampled_docs:
-                        writer.writerow(document)
+                            print("Warning: Mismatched timestamp detected.")
+                            sampled_docs.append([str(yr), str(mo), sampler])
+
+            # load labels for the sampled documents
+            general_counter = 0
+            sample_counter = 0
+            with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
+                for idx, line in enumerate(labels):
+                    if idx in random_sample:
+                        sampled_docs[sample_counter].append(line)
+                        sample_counter += 1
+
+            # shuffle the docs and check number and length
+            np.random.shuffle(sampled_docs)
+            print(len(sampled_docs))
+            print(len(irrel_idxes))
+            assert (len(sampled_docs) == rel_sample_num) or (len(sampled_docs) == len(irrel_idxes))
+
+            for element in sampled_docs:
+                assert len(element) == 4
+
+            # write the sampled files to a csvfile
+            with open(self.model_path + "/auto_labels/sample_auto_labeled.csv", 'a+') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(['year', 'month', 'text', 'auto label', 'accuracy'])
+                for document in sampled_docs:
+                    writer.writerow(document)
 
     ## Function that uses the results of Neural_Relevance_Screen to remove posts
     # likely to be irrelevant from the dataset.
@@ -2246,16 +2204,16 @@ class Parser(object):
     # NOTE: Requires monthly relevant counts from parser or disk
 
     def Rel_Counter(self):
-        if not Path(self.model_path + "counts/RC_Count_List").is_file():
+        if not Path(self.model_path + "/counts/RC_Count_List").is_file():
             raise Exception(
                 'Cumulative monthly comment counts could not be found')
-        if not Path(self.model_path + "total_count/total_count").is_file():
+        if not Path(self.model_path + "/total_count/total_count").is_file():
             raise Exception(
                 'Total monthly counts could not be found')
 
         # load the total monthly counts into a list
         monthly_list = []
-        with open(self.model_path + "total_count/total_count", 'r') as f:
+        with open(self.model_path + "/total_count/total_count", 'r') as f:
             for line in f:
                 line = line.replace("\n", "")
                 if line.strip() != "":
@@ -2273,7 +2231,7 @@ class Parser(object):
             else:
                 total_year[str(keys[0])] = d[keys]
 
-        relevant_year, _ = Get_Counts(self.model_path, frequency="yearly")
+        relevant_year, _ = self.Get_Counts(self.model_path, frequency="yearly")
 
         relevant = {}
         for idx, year in enumerate(relevant_year):
@@ -2305,7 +2263,7 @@ class Parser(object):
 
     # Helper functions for select_random_comments
     def get_comment_lengths(self):
-        fin = self.model_path + 'lda_prep/lda_prep'
+        fin = self.model_path + '/lda_prep/lda_prep'
         with open(fin, 'r') as fh:
             return [len(line.split()) for line in fh.read().split("\n")]
 
@@ -2340,8 +2298,8 @@ class Parser(object):
             return
 
         years_to_sample = sorted(years_to_sample)
-        ct_peryear, ct_cumyear = Get_Counts(path=self.model_path, frequency="yearly")
-        ct_permonth, ct_cummonth = Get_Counts(
+        ct_peryear, ct_cumyear = self.Get_Counts(path=self.model_path, frequency="yearly")
+        ct_permonth, ct_cummonth = self.Get_Counts(
             path=self.model_path, frequency="monthly")
         assert len(self.dates) == len(ct_permonth) == len(ct_cummonth)
         ct_lu_by_year = dict((y, i) for i, y in enumerate(years))
