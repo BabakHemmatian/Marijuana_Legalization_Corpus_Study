@@ -112,8 +112,6 @@ for yr,mo in dates: # for each month
                 if machine == "local":
                     with open(model_path + "/subreddit/subreddit-{}-{}".format(yr,mo),"a+") as monthly_file:
                         monthly_file.write(subreddit + "\n")
-                    with open(model_path + "/subreddit/subreddit".format(yr,mo),"a+") as general_file:
-                        general_file.write(subreddit + "\n")
                 else: # if running on the cluster, add to a list to dump to disk
                 # at the end of the month
                     per_file_container.append(subreddit)
@@ -126,30 +124,5 @@ for yr,mo in dates: # for each month
                     if element.strip() != "":
                         monthly_file.write(element.strip() + "\n")
 
-            # aggregate file
-            with open(model_path + "/subreddit/subreddit","a+") as general_file:
-                for element in per_file_container:
-                    if element.strip() != "":
-                        general_file.write(element.strip() + "\n")
-
-    print("Finished processing of " + filename + " at "
-          + time.strftime('%l:%M%p, %m/%d/%Y')) # timer
-
-# Gather subreddit counts
-subreddit_counts = {}
-counter = 0
-with open(model_path + "/subreddit/subreddit","r") as general_file:
-    for line in general_file:
-        if line.strip() != "":
-            counter += 1
-        if line.strip() in subreddit_counts.keys():
-            subreddit_counts[line.strip()] += 1
-        else:
-            subreddit_counts[line.strip()] = 1
-
-# print counts
-k = Counter(subreddit_counts)
-# Finding 5 highest values
-high = k.most_common(5)
-print(counter)
-print(high)
+        print("Finished processing of " + filename + " at "
+              + time.strftime('%l:%M%p, %m/%d/%Y')) # timer
