@@ -1986,16 +1986,16 @@ class Parser(object):
                         timelist_original.append(int(float(line.strip())))
 
         ## Record CoreNLP estimates, while accounting for its numerous errors
-        total_core_nlp = []
-        count_core_nlp = []
-        sent_detector = nltk.data.load('tokenizers/punkt/english.pickle')
 
         for yr,mo in self.dates:
+
+            total_core_nlp = []
+            count_core_nlp = []
 
             start = time.time()  # measure processing time
 
             if Path(self.model_path+"/c_sentiments/c_sentiments-{}-{}".format(yr,mo)).is_file() and Path(self.model_path+"/sentiments/sentiments-{}-{}".format(yr,mo)).is_file():
-                print("Found records for month {} of year {}. Moving on.".format(yr,mo))
+                print("Found records for month {} of year {}. Moving on.".format(mo,yr))
                 pass
             else:
 
