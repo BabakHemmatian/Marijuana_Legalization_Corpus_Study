@@ -2134,8 +2134,6 @@ class Parser(object):
                         if line.strip() != "":
                             sentiments.write(line.strip()+"\n")
 
-        assert total_counter == timelist_original[len(self.dates)-1]
-
 
     ## Determines what percentage of the posts in each year was relevant based
     # on content filters
