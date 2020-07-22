@@ -16,7 +16,7 @@ from transformers import BertTokenizer
 from NN_Utils import *
 from reddit_parser import Parser # Does the parser object need to be adjusted?
 
-theparser=Parser()
+theparser=Parser(machine="local")
 
 # parse the documents
 theparser.Parse_Rel_RC_Comments()
@@ -44,7 +44,7 @@ if add_sentiment:
     # create a connection to the CoreNLP server to retrieve sentiment
     # (requires CoreNLP_server.py in the same directory)
     subprocess.Popen(
-        ['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -threads ' + str(num_process) + ' --quite'],
+        ['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer'],
         shell=True, cwd="./stanford-corenlp-4.0.0")
     time.sleep(5)  # wait for connection to the server to be established
 
