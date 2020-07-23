@@ -2071,14 +2071,14 @@ class Parser(object):
                 count_vader = []
                 with open(self.model_path+"/v_sentiments/v_sentiments-{}-{}".format(yr,mo), "r") as v_sentiments:
                     for line in v_sentiments:
-                        values = [float(i) for i in line.strip(",").split(",")]
+                        values = [float(i) for i in line.strip().strip(",").split(",")]
                         count_vader.append(len(values))
                         total_vader.append(int(np.sum(values)))
                 total_textblob = []
                 count_textblob = []
                 with open(self.model_path+"/t_sentiments/t_sentiments-{}-{}".format(yr,mo), "r") as t_sentiments:
                     for line in t_sentiments:
-                        values = [float(i) for i in line.strip(",").split(",")]
+                        values = [float(i) for i in line.strip().strip(",").split(",")]
                         count_textblob.append(len(values))
                         total_textblob.append(int(np.sum(values)))
 
