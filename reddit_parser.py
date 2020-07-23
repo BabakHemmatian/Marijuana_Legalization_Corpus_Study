@@ -2051,7 +2051,7 @@ class Parser(object):
                                 if self.machine == "local":
                                     c_sentiments.write(",".join(per_sentence) + "\n")
                                 elif self.machine == "ccv":
-                                    c_sentiment.append(",".join(per_sentence))
+                                    c_sentiments.append(",".join(per_sentence))
                             else:
                                 if self.machine == "local":
                                     c_sentiments.write("None" + "\n")
