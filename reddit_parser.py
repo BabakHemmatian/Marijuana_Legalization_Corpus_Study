@@ -2044,6 +2044,7 @@ class Parser(object):
                                 count_core_nlp.append(len(annot_doc['sentences']))
                             except:
                                 total_core_nlp.append("None")
+                                count_core_nlp.append("None")
                                 per_sentence.append("None")
 
                             if len(per_sentence) != 0 and "None" not in per_sentence:
@@ -2053,7 +2054,7 @@ class Parser(object):
                                     c_sentiment.append(",".join(per_sentence))
                             else:
                                 if self.machine == "local":
-                                    c_sentiments.write("None")
+                                    c_sentiments.write("None" + "\n")
                                 elif self.machine == "ccv":
                                     c_sentiments.append("None")
 
