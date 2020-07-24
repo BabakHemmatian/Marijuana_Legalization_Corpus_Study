@@ -2111,7 +2111,7 @@ class Parser(object):
                 if self.machine == "local":
                     sentiments.close()
                 elif self.machine == "ccv":
-                    with open(fns["sentiments"], "w") as avg_sentiment:
+                    with open(self.model_path+"/sentiments/sentiments-{}-{}".format(yr,mo), "w") as avg_sentiment:
                         for sentiment in sentiments:
                             avg_sentiment.write(sentiment)
 
