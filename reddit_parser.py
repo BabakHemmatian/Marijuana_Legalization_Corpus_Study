@@ -108,7 +108,7 @@ class Parser(object):
                  stop=stop, write_original=WRITE_ORIGINAL,array=None,calculate_perc_rel=calculate_perc_rel,
                  vote_counting=vote_counting,author=author, sentiment=sentiment,
                  add_sentiment=add_sentiment,balanced_rel_sample=balanced_rel_sample,
-                 machine=None, on_file=on_file, num_process=num_process, overlap=overlap,
+                 machine=None, on_file=on_file, num_process=num_process,
                  rel_sample_num=rel_sample_num, num_cores=num_cores,num_annot=num_annot,
                  Neural_Relevance_Filtering=Neural_Relevance_Filtering):
         # check input arguments for valid type
@@ -146,7 +146,6 @@ class Parser(object):
         self.add_sentiment = add_sentiment
         self.num_cores = num_cores
         self.num_annot = num_annot
-        self.overlap = overlap
         self.array = array
         self.machine = machine
         self.on_file = on_file
@@ -1516,7 +1515,7 @@ class Parser(object):
                     balanced_rel_sample=balanced_rel_sample):
 
         # check for previous screening results
-        if Path(self.model_path + "/auto_labels/sample_auto_labeled.csv").is_file():
+        if Path(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample)).is_file():
 
             print(
                 "A sample of auto-labeled posts was found, suggesting neural relevance screening was previously performed. Moving on.")
@@ -1537,18 +1536,18 @@ class Parser(object):
 
             inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
 
-            with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
-                for yr, mo,_,_ in inputs:
-                    with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo),
-                              "r") as monthly:
-                        for line in monthly:
-                            if line.strip() != "":
-                                general_labels.write(line.strip() + "\n")
+            if not Path(self.model_path + "/auto_labels/auto_labels").is_file():
+                with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
+                    for yr, mo,_,_ in inputs:
+                        with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo),
+                                  "r") as monthly:
+                            for line in monthly:
+                                if line.strip() != "":
+                                    general_labels.write(line.strip() + "\n")
 
             # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
             random_sample = list(
                 np.random.choice(range(0, total_count), size=rel_sample_num, replace=False))
-            print(random_sample)
 
             labels_array = np.ones(total_count)  # initiate array for labels
 
@@ -1651,8 +1650,6 @@ class Parser(object):
 
             # shuffle the docs and check number and length
             np.random.shuffle(sampled_docs)
-            print(len(sampled_docs))
-            print(len(irrel_idxes))
             assert (len(sampled_docs) == rel_sample_num) or (len(sampled_docs) == len(irrel_idxes))
 
             for element in sampled_docs:
@@ -1861,7 +1858,7 @@ class Parser(object):
 
     ## Evaluates accuracy, f1, precision and recall for the relevance classifier
     # based on the random sample from Neural_Relevance_Screen
-    def eval_relevance(self, num_annot=num_annot, overlap=overlap, sample_path=model_path + "/auto_labels/"):
+    def eval_relevance(self, num_annot=num_annot, sample_path=model_path + "/auto_labels/"):
 
         # check that the random sample is available
         sublabels = glob.glob(sample_path+"rel_sample_ratings*")
