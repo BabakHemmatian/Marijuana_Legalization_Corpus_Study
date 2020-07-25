@@ -1,7 +1,8 @@
 import csv
 import sys
-import numpy
+import random
 from config import *
+import numpy
 
 per_participant = int(rel_sample_num / num_annot) # number of posts to assign to each annotator
 unique_participant = int(per_participant - (per_participant * overlap))
@@ -9,16 +10,16 @@ unique_participant = int(per_participant - (per_participant * overlap))
 # load the random sample of documents
 resampled = []
 rand_id = []
-with open(model_path + "/auto_labels/sample_auto_labeled.csv",'r+') as csvfile:
+with open(model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample),'r+') as csvfile:
     reader = csv.reader(csvfile)
     # read human data for sampled comments one by one
     for idx,row in enumerate(reader):
         if idx != 0:
             if len(row) != 0:
                 resampled.append(row)
-                random_id = numpy.random.sample(range(10000000,99999999))
+                random_id = random.randint(10000000,99999999)
                 while random_id in rand_id:
-                    random_id = numpy.random.sample(range(10000000,99999999))
+                    random_id = random.randint(10000000,99999999)
                 rand_id.append(random_id)
                 resampled[-1].append(random_id)
 
@@ -51,18 +52,18 @@ for idx,element in enumerate(sets):
 # create two files for each participant, one including the 8-digit IDs followed
 # by posts, the other a spreadsheet for recording attitude and evidence-responsiveness
 for i in range(num_annot):
-    with open(model_path+"/auto_labels/rel_sample_info-"+str(i)+".csv","w+") as subset:
+    with open(model_path+"/auto_labels/rel_sample_info-{}-{}-{}.csv".format(per_participant,balanced_rel_sample,i),"w+") as subset:
         writer_R = csv.writer(subset) # initialize the CSV writer
         writer_R.writerow(['year', 'month', 'text', 'auto label','index','accuracy','attitude','argumentation']) # write headers to the CSV file
-    with open(model_path+"/auto_labels/rel_sample_info-"+str(i)+".csv","a+") as subset:
+    with open(model_path+"/auto_labels/rel_sample_info-{}-{}-{}.csv".format(per_participant,balanced_rel_sample,i),"a+") as subset:
         writer_R = csv.writer(subset) # initialize the CSV writer
         for element in resampled:
             if element[-1] in participant_sets[i]:
                 writer_R.writerow(element)
-    with open(model_path+"/auto_labels/rel_sample_ratings-"+str(i)+".csv","w+") as ratings:
+    with open(model_path+"/auto_labels/rel_sample_ratings-{}-{}-{}.csv".format(per_participant,balanced_rel_sample,i),"w+") as ratings:
         writer_R = csv.writer(ratings)
         writer_R.writerow(['index','text','relevance','attitude','argumentation'])
-    with open(model_path+"/auto_labels/rel_sample_ratings-"+str(i)+".csv","a+") as ratings:
+    with open(model_path+"/auto_labels/rel_sample_ratings-{}-{}-{}.csv".format(per_participant,balanced_rel_sample,i),"a+") as ratings:
         writer_R = csv.writer(ratings)
         for element in resampled:
             if element[-1] in participant_sets[i]:
