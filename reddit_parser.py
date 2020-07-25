@@ -7,6 +7,9 @@ from langdetect import DetectorFactory
 from langdetect import detect
 from collections import defaultdict, OrderedDict
 import datetime
+import itertools
+import scipy
+import glob
 import hashlib
 import html
 import json
@@ -33,7 +36,7 @@ from simpletransformers.classification import ClassificationModel
 import pandas as pd
 import logging
 import fnmatch
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score,cohen_kappa_score
 from sklearn.model_selection import KFold
 from keras.preprocessing.sequence import pad_sequences
 import hashlib
@@ -105,8 +108,8 @@ class Parser(object):
                  stop=stop, write_original=WRITE_ORIGINAL,array=None,calculate_perc_rel=calculate_perc_rel,
                  vote_counting=vote_counting,author=author, sentiment=sentiment,
                  add_sentiment=add_sentiment,balanced_rel_sample=balanced_rel_sample,
-                 machine=None, on_file=on_file, num_process=num_process,
-                 rel_sample_num=rel_sample_num, num_cores=num_cores,
+                 machine=None, on_file=on_file, num_process=num_process, overlap=overlap,
+                 rel_sample_num=rel_sample_num, num_cores=num_cores,num_annot=num_annot,
                  Neural_Relevance_Filtering=Neural_Relevance_Filtering):
         # check input arguments for valid type
         assert type(vote_counting) is bool
@@ -142,6 +145,8 @@ class Parser(object):
         self.sentiment = sentiment
         self.add_sentiment = add_sentiment
         self.num_cores = num_cores
+        self.num_annot = num_annot
+        self.overlap = overlap
         self.array = array
         self.machine = machine
         self.on_file = on_file
@@ -1856,58 +1861,121 @@ class Parser(object):
 
     ## Evaluates accuracy, f1, precision and recall for the relevance classifier
     # based on the random sample from Neural_Relevance_Screen
-    def eval_relevance(self, sample_path=model_path + "/auto_labels/"):
+    def eval_relevance(self, num_annot=num_annot, overlap=overlap, sample_path=model_path + "/auto_labels/"):
 
         # check that the random sample is available
-        if not Path(sample_path + "sample_auto_labeled.csv").is_file:
-            raise Exception("Random sample of classifier output not found.")
-
+        sublabels = glob.glob(sample_path+"rel_sample_ratings*")
+        labels = {i:{} for i in range(num_annot)}  # container for model predictions
+        if len(sublabels) == 0:
+            raise Exception("Relevance subsample ratings not found.")
         else:  # if it is
-            with open(sample_path + "sample_auto_labeled.csv", "r") as csvfile:
-                reader = csv.reader(csvfile)
+            for file in sublabels:
+                annotator = int(re.sub('[^0-9]','', file))
+                with open(file, "r") as csvfile:
+                    reader = csv.reader(csvfile)
 
-                labels = []  # container for human labels
-                preds = []  # container for model predictions
-                for idx, row in enumerate(reader):
-                    if idx != 0:
-                        if row[4].strip() == "":  # check for human labels
-                            raise Exception("Random sample is not fully hand-annotated")
-                        else:
-                            preds.append(int(row[3].strip()))
-                            labels.append(int(row[4].strip()))
+                    for idx, row in enumerate(reader):
+                        if idx != 0:
+                            if row[2].strip() == "":  # check for human labels
+                                pass
+                            else:
+                                labels[annotator][int(row[0].strip())] = int(row[2].strip())
 
-        label_measures = dict()  # dictionary for confusion matrix
+        subpreds = glob.glob(sample_path+"rel_sample_info-*")
+        preds = {i:{} for i in range(num_annot)}  # container for human labels
+        if len(subpreds) == 0:
+            raise Exception("Relevance subsample labels not found.")
+        else:
+            for file in subpreds:
+                annotator = int(re.sub('[^0-9]','', file))
+                with open(file, "r") as csvfile:
+                    reader = csv.reader(csvfile)
+
+                    for idx, row in enumerate(reader):
+                        if idx != 0:
+                            if row[3].strip() == "":
+                                pass
+                            else:
+                                preds[annotator][int(row[4].strip())] = int(row[3].strip())
+
+        label_measures = {}
 
         accuracy = 0  # counter for accuracy
 
-        # populate the confusion matrix
-        for index, ind_label in enumerate(labels):
-            if labels[index] == 1 and preds[index] == 1:
-                if 'tp' in label_measures:
-                    label_measures['tp'] += 1
-                else:
-                    label_measures['tp'] = 1
-                accuracy += 1
-            elif labels[index] == 1:
-                if 'fn' in label_measures:
-                    label_measures['fn'] += 1
-                else:
-                    label_measures['fn'] = 1
-            elif labels[index] == 0 and preds[index] == 0:
-                if 'tn' in label_measures:
-                    label_measures['tn'] += 1
-                else:
-                    label_measures['tn'] = 1
-                accuracy += 1
-            elif labels[index] == 0:
-                if 'fp' in label_measures:
-                    label_measures['fp'] += 1
-                else:
-                    label_measures['fp'] = 1
+        combinations = list(itertools.combinations(list(range(num_annot)),2))
+        shared_set = {}
+        for element in combinations:
+            shared_set[element] = []
 
-        # print out the confusion matrix
-        print("Confusion matrix: ")
-        print(label_measures)
+        # populate the confusion matrix
+        for annotator in labels.keys():
+            other_annot = [i for i in range(num_annot) if i != annotator]
+            for index in labels[annotator].keys():
+                for other_annotator in other_annot:
+                    if index in labels[other_annotator].keys():
+                        if (annotator,other_annotator) in shared_set.keys():
+                            if index not in shared_set[(annotator,other_annotator)]:
+                                shared_set[(annotator,other_annotator)].append(index)
+                        elif (other_annotator,annotator) in shared_set.keys():
+                            if index not in shared_set[(other_annotator,annotator)]:
+                                shared_set[(other_annotator,annotator)].append(index)
+                        else:
+                            raise Exception("Rater combinations not exhaustive.")
+
+        Kappas = np.zeros(int(scipy.misc.comb(num_annot, 2)))
+        for idx,pair in enumerate(shared_set):
+            rater_1 = []
+            for index in shared_set[pair]:
+                rater_1.append(labels[pair[0]][index])
+            rater_2 = []
+            for index in shared_set[pair]:
+                rater_2.append(labels[pair[1]][index])
+
+            Kappas[idx] = cohen_kappa_score(rater_1,rater_2)
+
+        shared_label = {}
+        for idx,pair in enumerate(shared_set):
+            for index in shared_set[pair]:
+                if labels[pair[0]] == 1 or labels[pair[1]] == 1:
+                    shared_label[index] = 1
+                else:
+                    shared_label[index] = 0
+
+        already_examined = []
+        # populate the confusion matrix
+        for annotator in labels.keys():
+            for index in labels[annotator]:
+                if index in already_examined:
+                    pass
+                else:
+                    if index in shared_label.keys():
+                        label = shared_label[index]
+                    else:
+                        label = labels[annotator][index]
+
+                    if label == 1 and preds[annotator][index] == 1:
+                        if 'tp' in label_measures:
+                            label_measures['tp'] += 1
+                        else:
+                            label_measures['tp'] = 1
+                        accuracy += 1
+                    elif label == 1:
+                        if 'fn' in label_measures:
+                            label_measures['fn'] += 1
+                        else:
+                            label_measures['fn'] = 1
+                    elif label == 0 and preds[annotator][index] == 0:
+                        if 'tn' in label_measures:
+                            label_measures['tn'] += 1
+                        else:
+                            label_measures['tn'] = 1
+                        accuracy += 1
+                    elif label == 0:
+                        if 'fp' in label_measures:
+                            label_measures['fp'] += 1
+                        else:
+                            label_measures['fp'] = 1
+                    already_examined.append(index)
 
         # Check that values are assigned to measures needed for f1, precision
         # and recall
@@ -1928,10 +1996,14 @@ class Parser(object):
         with open(sample_path + "eval_results.txt", "a+") as f:
 
             # Record the confusion matrix
-            print("Confusion matrix: " + str(label_measures) + "\n")
+            print("Confusion matrix: " + str(label_measures))
+            print("Confusion matrix: " + str(label_measures),file=f)
 
             # Record the accuracy
-            accuracy = float(accuracy) / float(len(labels))
+            num_ratings = 0
+            for annotator in labels.keys():
+                num_ratings += len(labels[annotator])
+            accuracy = float(accuracy) / float(num_ratings)
             print("accuracy: " + str(accuracy))
             f.write("accuracy: " + str(accuracy) + "\n")
 
@@ -1943,12 +2015,17 @@ class Parser(object):
             if tp != 0 or fn != 0:  # record the recall
                 recall = float(tp) / (float(tp) + float(fn))
                 print("recall: " + str(recall))
-                f.write("recalls: " + str(recall) + "\n")
+                f.write("recall: " + str(recall) + "\n")
 
             if tp != 0 or (fn != 0 and fp != 0):  # record the f1 score
                 f1 = 2 * (precision * recall) / (precision + recall)
                 print("f1: " + str(f1))
-                f.write("f1s: " + str(f1) + "\n")
+                f.write("f1: " + str(f1) + "\n")
+
+            print("Kappas: ")
+            for idx,pair in enumerate(shared_set):
+                print("{}: {}".format(pair, Kappas[idx]))
+                f.write("{}: {}".format(pair, Kappas[idx]) + "\n")
 
     ### Records CoreNLP sentiment estimates, parallelized via threading, and
     # writes to disk the average standardized sentiment of each post in the dataset
