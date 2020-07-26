@@ -80,6 +80,14 @@ balanced_rel_sample = True # whether the random filtering sample should be
 eval_relevance = False # F1, recall, precision and accuracy for the sample derived
 # from Neural_Relevance_Filtering. Requires the sample to be complemented by
 # manual labels. The default location for the sample is
+# [repository path]/auto_labels/sample_auto_labeled.csv
+# NOTE: Set to false if you intend to extract the relevance sample, since the produced
+# files will be empty of human judgments and eval_relevance results nonsensical
+num_annot = 3 # number of relevance annotators. Used to divide [rel_sample_num]
+# documents evenly between the annotators with specified overlap
+# NOTE: [rel_sample_num] should be divisible by this number
+overlap = 0.2 # degree of overlap between annotators. Multiplying [rel_sample_num]
+# by this should result in an integer
 
 # [repository path]/original_comm/sample_auto_labeled.csv
 
