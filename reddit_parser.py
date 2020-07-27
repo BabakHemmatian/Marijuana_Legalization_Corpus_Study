@@ -1861,13 +1861,13 @@ class Parser(object):
     def eval_relevance(self, num_annot=num_annot, sample_path=model_path + "/auto_labels/"):
 
         # check that the random sample is available
-        sublabels = glob.glob(sample_path+"rel_sample_ratings*")
+        sublabels = glob.glob(sample_path+"rel_sample_ratings-{}-{}-*".format(int(self.rel_sample_num / num_annot),balanced_rel_sample))
         labels = {i:{} for i in range(num_annot)}  # container for model predictions
         if len(sublabels) == 0:
             raise Exception("Relevance subsample ratings not found.")
         else:  # if it is
             for file in sublabels:
-                annotator = int(re.sub('[^0-9]','', file))
+                annotator = int(file.split("-")[3].strip(".csv"))
                 with open(file, "r") as csvfile:
                     reader = csv.reader(csvfile)
 
@@ -1878,13 +1878,13 @@ class Parser(object):
                             else:
                                 labels[annotator][int(row[0].strip())] = int(row[2].strip())
 
-        subpreds = glob.glob(sample_path+"rel_sample_info-*")
+        subpreds = glob.glob(sample_path+"rel_sample_info-{}-{}-*".format(int(self.rel_sample_num / num_annot),balanced_rel_sample))
         preds = {i:{} for i in range(num_annot)}  # container for human labels
         if len(subpreds) == 0:
             raise Exception("Relevance subsample labels not found.")
         else:
             for file in subpreds:
-                annotator = int(re.sub('[^0-9]','', file))
+                annotator = int(file.split("-")[3].strip(".csv"))
                 with open(file, "r") as csvfile:
                     reader = csv.reader(csvfile)
 
@@ -1937,6 +1937,8 @@ class Parser(object):
                     shared_label[index] = 1
                 else:
                     shared_label[index] = 0
+
+        print(shared_set)
 
         already_examined = []
         # populate the confusion matrix
@@ -1993,6 +1995,12 @@ class Parser(object):
         with open(sample_path + "eval_results.txt", "a+") as f:
 
             # Record the confusion matrix
+            print("***",file=f)
+            print("Number of ratings across annotators: " + str(rel_sample_num))
+            print("Number of ratings across annotators: " + str(rel_sample_num),file=f)
+            print("Balanced sample: " + str(balanced_rel_sample))
+            print("Balanced sample: " + str(balanced_rel_sample),file=f)
+
             print("Confusion matrix: " + str(label_measures))
             print("Confusion matrix: " + str(label_measures),file=f)
 
@@ -2138,7 +2146,7 @@ class Parser(object):
                 elif self.machine == "ccv":
                     with open(self.model_path+"/c_sentiments/c_sentiments-{}-{}".format(yr,mo), "w") as c_sentiment:
                         for sentiment in c_sentiments:
-                            c_sentiment.write(sentiment)
+                            c_sentiment.write(str(sentiment) + "\n")
 
                 ## read sentiment values for each post from the two other packages
                 total_vader = []
@@ -2187,7 +2195,7 @@ class Parser(object):
                 elif self.machine == "ccv":
                     with open(self.model_path+"/sentiments/sentiments-{}-{}".format(yr,mo), "w") as avg_sentiment:
                         for sentiment in sentiments:
-                            avg_sentiment.write(sentiment)
+                            avg_sentiment.write(str(sentiment) + "\n")
 
                 # calculate and report processing time
                 end = time.time()
