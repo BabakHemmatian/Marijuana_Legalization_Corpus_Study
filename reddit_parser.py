@@ -489,6 +489,43 @@ class Parser(object):
         # the automaton_marijuana didn't find anything, so the comment is NOT relevant
         return False
 
+    def LDA_Prep(self):
+
+        if not Path(self.model_path + "/original_comm/original_comm").is_file():
+            raise Exception('Original comments could not be found')
+        for yr,mo in self.dates:
+            if not Path(self.model_path + "/original_comm/original_comm-{}-{}".format(yr,mo)).is_file():
+                raise Exception('Monthly original comments could not be found.')
+        if not os.path.exists(self.model_path + "/lda_prep/"):
+            print("Creating directories to store the additional sentiment output")
+            os.makedirs(self.model_path + "/lda_prep")
+
+        empty_counter = 0
+        for yr,mo in self.dates:
+            with open(self.model_path + "/original_comm/original_comm-{}-{}".format(yr,mo),"r") as fin, open(self.model_path + "/lda_prep/lda_prep-{}-{}".format(yr,mo),"w") as fout, open(self.model_path + "/lda_prep/lda_prep","a+") as general:
+                for line in fin:  # for each comment
+                    original_body = line.strip()
+                    # clean the text for LDA
+                    body = self.LDA_clean(original_body)
+
+                    if body.strip() == "":  # if the comment is not empty after preprocessing
+                        empty_counter += 1
+                        print("",end="\n", file = general)
+                        print("",end="\n", file = fout)
+                    else:
+                        # remove mid-comment lines
+                        body = body.replace("\n", "")
+                        body = " ".join(body.split())
+
+                        # print the comment to file
+                        print(body, sep=" ", end="\n", file=general)
+                        print(body, sep=" ", end="\n", file=fout)
+
+                # timer
+                print("Finished parsing month {} of year {}".format(mo,yr)+ "at " + time.strftime('%l:%M%p, %m/%d/%Y'))
+
+        print("Warning! {} documents became empty after preprocessing.".format(empty_counter))
+
     ## The main parsing function
     # NOTE: Parses for LDA if NN = False
     # NOTE: Saves the text of the non-processed comment to file as well if write_original = True
@@ -1517,8 +1554,7 @@ class Parser(object):
         # check for previous screening results
         if Path(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample)).is_file():
 
-            print(
-                "A sample of auto-labeled posts was found, suggesting neural relevance screening was previously performed. Moving on.")
+            print("Relevance sample found on file. Moving on.")
 
         else:  # if screening results not found
 
@@ -1532,7 +1568,6 @@ class Parser(object):
                         if line.strip() != "":
                             timelist_original.append(int(line))
             total_count = timelist_original[-1]
-            print(total_count)
 
             inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
 
@@ -1656,7 +1691,7 @@ class Parser(object):
                 assert len(element) == 4
 
             # write the sampled files to a csvfile
-            with open(self.model_path + "/auto_labels/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample), 'a+') as csvfile:
+            with open(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample), 'a+') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow(['year', 'month', 'text', 'auto label'])
                 for document in sampled_docs:
@@ -1721,53 +1756,28 @@ class Parser(object):
             start = time.time()  # start a clock for processing time
 
             # load negative or unknown labels for the dataset from disk
-
-            int_counter = 0  # counter for the time period an index belongs to
-
-            # counters for the number of irrelevant posts from each time period
-            int_non_rel = np.zeros(len(timelist_original) + 1)
-
-            # counters for the number of irrelevant posts from each file
-            file_non_rel = np.zeros_like(timelist_original)
-
             general_counter = 0  # counter for all comments
-            file_counter = 0  # counter for comments in a monthly file
             negative_labels = []  # list for negative labels
 
             for yr, mo in dates:  # for each month
                 with open(model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo), "r") as labels:
                     for idx, line in enumerate(labels):
                         if line.strip() != "":
-
-                            try:
-                                if general_counter > timelist_original[int_counter]:
-                                    int_counter += 1  # try to update month counter as needed
-                                # if label was 0 or there was an error in labeling, remove
-                                if line.strip() == "None" or line.strip() == "0":
-                                    negative_labels.append(general_counter)  # add index
-                                    int_non_rel[int_counter] += 1  # update counter
-                                    file_non_rel[file_counter] += 1  # update counter
-
-                            except:  # if the date of the post is out of bounds for the file,
-                                # ignored the requirement to update the monthly counter
-                                # if label was 0 or there was an error in labeling, remove
-                                if line.strip() == "None" or line.strip() == "0":
-                                    negative_labels.append(general_counter)  # add index
-                                    int_non_rel[int_counter + 1] += 1  # update counter
-                                    file_non_rel[file_counter] += 1  # update counter
+                            # if label was 0 or there was an error in labeling, remove
+                            if line.strip() == "None" or line.strip() == "0":
+                                negative_labels.append(general_counter)  # add index
 
                             general_counter += 1  # update
-
-                file_counter += 1  # update
 
             # Filter the posts
 
             # BUG: I'm not filtering bert_prep. It's okay as long as we don't use it
+            # BUG: Hacky solution that only works for consecutive months/years
 
             # A list of dataset files needing to be updated based on parameters
             filenames = ['/original_comm/original_comm', '/original_indices/original_indices',
                          '/auto_labels/auto_labels']
-            if not self.NN:
+            if not self.NN or Path(self.model_path + "/lda_prep/lda_prep").is_file():
                 filenames.append("/lda_prep/lda_prep")
             if self.vote_counting:
                 filenames.append("/votes/votes")
@@ -1781,61 +1791,46 @@ class Parser(object):
             if Path(self.model_path + "/subreddit/subreddit").is_file():
                 filenames.append("/subreddit/subreddit")
 
-            for file in filenames:  # for each file in the list above
-
-                with open(self.model_path + file, "r") as f:  # read each line
-                    lines = f.readlines()
-                with open(self.model_path + file, "w") as f:  # write only the relevant posts
-                    for index, line in enumerate(lines):
-                        if line.strip() != "" and index not in negative_labels:
-                            f.write(line)
-
+            for idx,file in enumerate(filenames):  # for each file in the list above
+                monthly_counter = []
+                counter = 0
                 for yr, mo in self.dates:
+                    monthly_count = 0
                     with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file:
                         lines = monthly_file.readlines()
                     with open(self.model_path + file + "-{}-{}".format(yr, mo), "w") as monthly_file:
-                        for index, line in enumerate(lines):
-                            if line.strip() != "" and index not in negative_labels:
-                                monthly_file.write(line)
+                        for line in lines:
+                            if counter not in negative_labels:
+                                print(line.strip(),end="\n",file=monthly_file)
+                                monthly_count += 1
+                            counter += 1
+                    if idx == 0:
+                        monthly_counter.append(monthly_count)
 
-            # update document counts for each time interval in the dataset
-            running_tot_count = 0
-            for interval, count in enumerate(timelist_original):
-                running_tot_count += int_non_rel[interval]
-                timelist_original[interval] = timelist_original[interval] - running_tot_count
+                for yr, mo in self.dates:
+                    with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "w") as f:  # write only the relevant posts
+                        for line in monthly_file:
+                            print(line.strip(),end="\n",file=f)
 
-            # get the actual post count (might be different from the list above
-            # because of out-of-bounds posts, for which an additional entry will
-            # be appended to the count list)
-            with open(model_path + '/original_comm/original_comm', 'r') as f:
-                total_count = 0
-                for line in f:
-                    total_count += 1
-                if not timelist_original[-1] == total_count:
-                    timelist_original.append(total_count)
+                print("Successfully finished cleaning {} and the relevant monthly files at {}.".format(file,time.strftime('%l:%M%p, %m/%d/%Y')))
 
             # update the cumulative monthly counts
+            cumul_count = 0
             with open(self.model_path + "/counts/RC_Count_List", "w") as f:
-                for interval in timelist_original:
-                    print(str(int(interval)), end="\n", file=f)
+                for month in monthly_counter:
+                    cumul_count += month
+                    print(str(cumul_count), end="\n", file=f)
 
             # fix monthly file counts
             total_counter = 0
-            for yr, mo in dates:
+            for idx,date in enumerate(dates):
+                yr = date[0]
+                mo = date[1]
+
                 file_counter = 0
                 interval_counter = 0
-                with open(self.model_path + "/counts/RC_Count_List-{}-{}".format(yr, mo), "r") as f:
-                    for line in f:
-                        if line.strip() != "":
-                            file_counter = int(line.strip())
-
-                for index in negative_labels:
-                    if index >= total_counter and index < total_counter + file_counter:
-                        interval_counter += 1
-                total_counter += int(line.strip())
                 with open(self.model_path + "/counts/RC_Count_List-{}-{}".format(yr, mo), "w") as f:
-                    new_count = file_counter - interval_counter
-                    f.write(str(new_count))
+                    f.write(monthly_count[idx])
 
             # update the auto-labels file and check that all negative comments
             # are removed from the dataset
@@ -1847,6 +1842,16 @@ class Parser(object):
                         count_auto_labels += 1
                         sum_auto_labels += int(line.strip())
             assert count_auto_labels == sum_auto_labels
+
+            for yr,mo in dates:
+                count_auto_labels = 0
+                sum_auto_labels = 0
+                with open(model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo), "r") as labels:
+                    for line in labels:
+                        if line.strip() != "":
+                            count_auto_labels += 1
+                            sum_auto_labels += int(line.strip())
+                assert count_auto_labels == sum_auto_labels
 
             # Measure, report and record filtering time for the entire dataset
             end = time.time()
