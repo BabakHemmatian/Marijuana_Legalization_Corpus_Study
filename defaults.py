@@ -204,7 +204,8 @@ file_path = os.path.abspath(__file__)
 model_path = os.path.dirname(file_path)
 # For the neural filtering
 rel_model_path = model_path+"/Human_Ratings/1_1/full_1005/"
-data_path = '/users/ssloman/data/Reddit_Dataset/'
+data_path = os.getcwd()
+annotator_data_path = os.getcwd() + "/Annotation_CSVs"
 # NOTE: if not fully available on file, set Download for Parser function to
 # True (source: http://files.pushshift.io/reddit/comments/)
 # NOTE: if not in the same directory as this file, change the path variable
@@ -213,7 +214,7 @@ data_path = '/users/ssloman/data/Reddit_Dataset/'
 ## Year/month combinations to get Reddit data for
 dates=[] # initialize a list to contain the year, month tuples
 months=range(1,13) # month range
-years=range(2008,2020) # year range
+years=range(2011,2015) # year range
 for year in years:
     for month in months:
         dates.append((year,month))

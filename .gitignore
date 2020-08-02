@@ -27,7 +27,7 @@ c_sentiments
 cache_dir
 outputs
 runs
-*/__pycache__/*
+/__pycache__/
 *.pyc
 sentiment_pretraining/*.txt
 sentiment_pretraining/*.csv
@@ -38,3 +38,6 @@ total_count
 counts
 Human_Ratings
 __pycache__
+avg_textblob_vader
+*.csv
+subreddit

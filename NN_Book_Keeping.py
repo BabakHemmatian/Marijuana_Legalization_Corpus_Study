@@ -19,24 +19,24 @@ from reddit_parser import Parser # Does the parser object need to be adjusted?
 theparser=Parser(machine="local")
 
 # parse the documents
-theparser.Parse_Rel_RC_Comments()
-
-# NOTE: Requires a Neural_Relevance_Screen random sample hand-annotated for accuracy
-if eval_relevance:
-    theparser.eval_relevance()
-
-if Neural_Relevance_Filtering:
-    # Needs results from Neural_Relevance_Screen via Neural_Filtering.py
-    theparser.Neural_Relevance_Clean()
-    # TODO: Clean and eval_relevance should be just run locally. Just do those
-    # if the batch is len(inputs)
-
-# NOTE: Don't forget to set NN=True in defaults.py before running this file
-
-### Write hyperparameters to file. Performance measures will be written to the
-# same file after analyses are performed
-
-Write_Performance()
+# theparser.Parse_Rel_RC_Comments()
+#
+# # NOTE: Requires a Neural_Relevance_Screen random sample hand-annotated for accuracy
+# if eval_relevance:
+#     theparser.eval_relevance()
+#
+# if Neural_Relevance_Filtering:
+#     # Needs results from Neural_Relevance_Screen via Neural_Filtering.py
+#     theparser.Neural_Relevance_Clean()
+#     # TODO: Clean and eval_relevance should be just run locally. Just do those
+#     # if the batch is len(inputs)
+#
+# # NOTE: Don't forget to set NN=True in defaults.py before running this file
+#
+# ### Write hyperparameters to file. Performance measures will be written to the
+# # same file after analyses are performed
+#
+# Write_Performance()
 
 if add_sentiment:
 
@@ -52,5 +52,5 @@ if add_sentiment:
 
 ### call the function for calculating the percentage of relevant comments
 # NOTE: May work only for full-year sets of dates
-if calculate_perc_rel:
-    theparser.Perc_Rel_RC_Comment()
+# if calculate_perc_rel:
+#     theparser.Perc_Rel_RC_Comment()
