@@ -1554,7 +1554,7 @@ class Parser(object):
         # check for previous screening results
         if Path(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample)).is_file():
 
-            print("Relevance sample found on file. Moving on.")
+            print("Relevance sampled found on file. Moving on.")
 
         else:  # if screening results not found
 
@@ -1808,7 +1808,7 @@ class Parser(object):
                         monthly_counter.append(monthly_count)
 
                 for yr, mo in self.dates:
-                    with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "w") as f:  # write only the relevant posts
+                    with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "a+") as f:  # write only the relevant posts
                         for line in monthly_file:
                             print(line.strip(),end="\n",file=f)
 
