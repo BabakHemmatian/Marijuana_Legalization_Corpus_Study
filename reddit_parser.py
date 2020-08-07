@@ -1822,15 +1822,11 @@ class Parser(object):
                     print(str(cumul_count), end="\n", file=f)
 
             # fix monthly file counts
-            total_counter = 0
             for idx,date in enumerate(dates):
                 yr = date[0]
                 mo = date[1]
-
-                file_counter = 0
-                interval_counter = 0
                 with open(self.model_path + "/counts/RC_Count_List-{}-{}".format(yr, mo), "w") as f:
-                    f.write(monthly_count[idx])
+                    print(str(monthly_count[idx]),end="\n",file=f)
 
             # update the auto-labels file and check that all negative comments
             # are removed from the dataset
