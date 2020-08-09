@@ -1859,10 +1859,15 @@ class Parser(object):
 
     ## Evaluates accuracy, f1, precision and recall for the relevance classifier
     # based on the random sample from Neural_Relevance_Screen
-    def eval_relevance(self, num_annot=num_annot, sample_path=model_path + "/auto_labels/"):
+    def eval_relevance(self, num_annot=num_annot, sample_path=model_path + "/auto_labels/", trial=None):
 
-        # check that the random sample is available
-        sublabels = glob.glob(sample_path+"rel_sample_ratings-{}-{}-*".format(int(self.rel_sample_num / num_annot),balanced_rel_sample))
+        # check that the relevant random sample is available
+        if trial is None:
+            name = sample_path+"rel_sample_ratings-{}-{}-*".format(int(self.rel_sample_num / num_annot),balanced_rel_sample)
+        else:
+            name = sample_path+"rel_sample_ratings-{}-{}-*-{}*".format(int(self.rel_sample_num / num_annot),balanced_rel_sample,trial)
+        sublabels = glob.glob(name)
+
         labels = {i:{} for i in range(num_annot)}  # container for model predictions
         if len(sublabels) == 0:
             raise Exception("Relevance subsample ratings not found.")
@@ -1879,7 +1884,12 @@ class Parser(object):
                             else:
                                 labels[annotator][int(row[0].strip())] = int(row[2].strip())
 
-        subpreds = glob.glob(sample_path+"rel_sample_info-{}-{}-*".format(int(self.rel_sample_num / num_annot),balanced_rel_sample))
+        if trial is None:
+            name = sample_path+"rel_sample_info-{}-{}-*".format(int(self.rel_sample_num / num_annot),balanced_rel_sample)
+        else:
+            name = sample_path+"rel_sample_info-{}-{}-*-{}*".format(int(self.rel_sample_num / num_annot),balanced_rel_sample,trial)
+        subpreds = glob.glob(name)
+
         preds = {i:{} for i in range(num_annot)}  # container for human labels
         if len(subpreds) == 0:
             raise Exception("Relevance subsample labels not found.")
@@ -1920,7 +1930,7 @@ class Parser(object):
                         else:
                             raise Exception("Rater combinations not exhaustive.")
 
-        Kappas = np.zeros(int(scipy.misc.comb(num_annot, 2)))
+        Kappas = np.zeros(int(scipy.special.comb(num_annot, 2)))
         for idx,pair in enumerate(shared_set):
             rater_1 = []
             for index in shared_set[pair]:
@@ -1934,14 +1944,17 @@ class Parser(object):
         shared_label = {}
         for idx,pair in enumerate(shared_set):
             for index in shared_set[pair]:
-                if labels[pair[0]] == 1 or labels[pair[1]] == 1:
+                if labels[pair[0]][index] == 1 or labels[pair[1]][index] == 1:
                     shared_label[index] = 1
                 else:
                     shared_label[index] = 0
 
+        print("Indices of documents shared between annotators: ")
         print(shared_set)
 
         already_examined = []
+        relevant_counter = 0
+        irrelevant_counter = 0
         # populate the confusion matrix
         for annotator in labels.keys():
             for index in labels[annotator]:
@@ -1950,27 +1963,35 @@ class Parser(object):
                 else:
                     if index in shared_label.keys():
                         label = shared_label[index]
-                    else:
+                        if shared_label[index] == 1:
+                            relevant_counter += 1
+                        elif shared_label[index] == 0:
+                            irrelevant_counter += 1
+                    else: # might be BUGGY
                         label = labels[annotator][index]
 
                     if label == 1 and preds[annotator][index] == 1:
+                        relevant_counter += 1
                         if 'tp' in label_measures:
                             label_measures['tp'] += 1
                         else:
                             label_measures['tp'] = 1
                         accuracy += 1
                     elif label == 1:
+                        relevant_counter += 1
                         if 'fn' in label_measures:
                             label_measures['fn'] += 1
                         else:
                             label_measures['fn'] = 1
                     elif label == 0 and preds[annotator][index] == 0:
+                        irrelevant_counter += 1
                         if 'tn' in label_measures:
                             label_measures['tn'] += 1
                         else:
                             label_measures['tn'] = 1
                         accuracy += 1
                     elif label == 0:
+                        irrelevant_counter += 1
                         if 'fp' in label_measures:
                             label_measures['fp'] += 1
                         else:
@@ -2001,7 +2022,12 @@ class Parser(object):
             print("Number of ratings across annotators: " + str(rel_sample_num),file=f)
             print("Balanced sample: " + str(balanced_rel_sample))
             print("Balanced sample: " + str(balanced_rel_sample),file=f)
+            if not trial is None:
+                print("Trial number: " + str(trial))
+                print("Trial number: " + str(trial),file=f)
 
+            print("Proportion relevant: " + str(relevant_counter / (relevant_counter + irrelevant_counter)))
+            print("Proportion relevant: " + str(relevant_counter / (relevant_counter + irrelevant_counter)),file=f)
             print("Confusion matrix: " + str(label_measures))
             print("Confusion matrix: " + str(label_measures),file=f)
 
