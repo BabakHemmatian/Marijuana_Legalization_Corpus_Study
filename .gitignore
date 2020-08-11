@@ -23,6 +23,7 @@ train.csv
 t_sentiments
 v_sentiments
 c_sentiments
+subreddit
 
 cache_dir
 outputs
