@@ -14,7 +14,7 @@ import numpy as np
 
 ### Data management hyperparameters
 
-NN = True # Set to False for LDA, to true for neural network classification
+NN = False # Set to False for LDA, to true for neural network classification
 ENTIRE_CORPUS = True # Are we using a random subset of comments, or the whole
 # dataset? The names of model files and output directories will include the
 # value of this variable (e.g. the default LDA output directory label is
@@ -33,7 +33,7 @@ WRITE_ORIGINAL = True # Write original comments to file when parsing
 author = True # Write the username of each post's author to a separate file
 sentiment = True # Write sentence- and document-level sentiment of a post to
 # file (based on TextBlob and Vader)
-add_sentiment = True # Add CoreNLP sentiment values as a post-parsing step
+add_sentiment = False # Add CoreNLP sentiment values as a post-parsing step
 # NOTE: Make sure that Stanford CoreNLP's Python package is unzipped to the
 # same directory as this file and CoreNLP_server.py is also available before
 # running this function.
@@ -41,14 +41,14 @@ add_sentiment = True # Add CoreNLP sentiment values as a post-parsing step
 # parsing, this function should be run sequentially from NN_Book_Keeping.py
 num_cores = 4 # Number of threads for sentence-by-sentence parallelization of
 # CoreNLP sentiment values. Only matters if add_sentiment == True
-# NOTE: Massive slow-down if the number is not slightly lower than number of cores
+# NOTE: Slow-down if the number is not slightly lower than the number of cores
 
 ### Pre-processing hyperparameters
 
 # NOTE: Matters for optimization of the parallelizations used in the functions.
 # NOTE: On Brown University's supercomputer, batches of 24 months were found to
 # be optimal
-MaxVocab = 2000000 # maximum size of the vocabulary
+MaxVocab = 200000 # maximum size of the vocabulary
 FrequencyFilter = 1 # tokens with a frequency equal or less than this number
 # will be filtered out of the corpus (when NN=True)
 no_below = 5 # tokens that appear in less than this number of documents in
@@ -65,7 +65,7 @@ calculate_perc_rel = True # whether the percentage of relevant comments from
 # each year should be calculated and written to file
 num_process = 3 # the number of parallel processes to be executed for parsing
 # NOTE: Uses Python's multiprocessing package
-Neural_Relevance_Filtering = True # The dataset will be cleaned from posts
+Neural_Relevance_Filtering = False # The dataset will be cleaned from posts
 # irrelevant to the topic using a pre-trained neural network model.
 # NOTE: Needs results of parsing for the same dates with WRITE_ORIGINAL==True
 # NOTE: Requires a pre-trained simpletransformers model. One such model trained
@@ -73,9 +73,9 @@ Neural_Relevance_Filtering = True # The dataset will be cleaned from posts
 # NOTE: Default model_path is [repository path]/Human_Ratings/1_1/full_1005/
 # See ROBERTA_Classifier.py for training, learning and evaluation details.
 # NOTE: This task takes a long time to complete.
-rel_sample_num = 200 # By default, a random sample of this size will be extracted
-# from the dataset to evaluate the classification model.
-balanced_rel_sample = True # whether the random filtering sample should be
+rel_sample_num = 300 # A random sample of this size (if available) will be
+# extracted from the dataset to evaluate the classification model.
+balanced_rel_sample = False # whether the random filtering sample should be
 # balanced across classification categories (relevant, irrelevant by default)
 eval_relevance = False # F1, recall, precision and accuracy for the sample derived
 # from Neural_Relevance_Filtering. Requires the sample to be complemented by
@@ -89,8 +89,6 @@ num_annot = 3 # number of relevance annotators. Used to divide [rel_sample_num]
 overlap = 0.2 # degree of overlap between annotators. Multiplying [rel_sample_num]
 # by this should result in an integer
 
-# [repository path]/original_comm/sample_auto_labeled.csv
-
 
 ### LDA hyperparameters
 # NOTE: Number of processes for parallelization are currently set manually. See
@@ -99,8 +97,8 @@ n_random_comments = 1500 # number of comments to sample from each year for
 # training. Only matters if ENTIRE_CORPUS = False.
 iterations = 1000 # number of times LDA posterior distributions will be sampled
 num_threads = 5 # number of threads used for parallelized processing of comments
-# Only matters if using _Threaded functions
-num_topics = 100 # number of topics to be generated in each LDA sampling
+# Only matters if using _Threaded functions (OBSOLETE)
+num_topics = 50 # number of topics to be generated in each LDA sampling
 alpha = 'auto' # determines how many high probability topics will be assigned to a
 # document in general (not to be confused with NN l2regularization constant)
 minimum_probability = 0.01 # minimum acceptable probability for an output topic
@@ -124,8 +122,8 @@ topic_idf_thresh = 0.1 # what proportion of contributions in a post would add to
 # estimated contribution to the discourse. Only matters if topic_idf = True.
 # Must be greater than zero and less than one.
 # TODO: add support for a range of idf values to be tested automatically
-calculate_perplexity = False # whether perplexity is calculated for the model
-calculate_coherence = False # whether umass coherence is calculated for the model
+calculate_perplexity = True # whether perplexity is calculated for the model
+calculate_coherence = True # whether umass coherence is calculated for the model
 
 ### Neural Network Hyperparameters
 # TODO: create a function for sampling a hundred posts at random and compare
@@ -154,7 +152,7 @@ authorship = True # whether the neural networks take as part of their input
 # posting
 # NOTE: The functions assume that "author" files from pre-processing are
 # available in the same folder as the one containing this file
-use_simple_bert = True
+use_simple_bert = True # (OBSOLETE)
 
 ## Training hyperparameters
 epochs = 3 # number of epochs
@@ -182,11 +180,11 @@ sample_topics = 0.2 # proportion of topics that will be selected for reporting
 # NOTE: Must be a valid proportion (not None) if topic_idf = True
 top_topic_thresh = None # threshold for proportion contribution to the corpus
 # determining topics to report. Only matters if topic_idf = False
-topn = 80 # the number of high-probability words for each topic to be exported
+topn = 40 # the number of high-probability words for each topic to be exported
 # NOTE: Many of the words will inevitably be high probability general
 # non-content and non-framing words. So topn should be set to significantly
 # higher than the number of relevant words you wish to see
-sample_comments = 25 # number of comments that will be sampled from top topics
+sample_comments = 5 # number of comments that will be sampled from top topics
 min_comm_length = 20 # the minimum acceptable number of words in a sampled
 # comment. Set to None for no length filtering
 # Determines how topic contributions are calculated. When set to True, the
@@ -199,7 +197,9 @@ num_pop = 2000 # number of the most up- or down-voted comments sampled for model
 
 ### Paths
 
-## where the data is
+# NOTE: Remember to adjust the paths between local and cluster runs
+
+# where the model is stored. Defaults to the working directory
 file_path = os.path.abspath(__file__)
 model_path = os.path.dirname(file_path)
 # For the neural filtering
@@ -248,7 +248,7 @@ else: # if doing topic modeling
 
     # Force this import so output_path is correctly set
     from lda_config import ENTIRE_CORPUS
-    output_path = path + "/LDA_"+str(ENTIRE_CORPUS)+"_"+str(num_topics)
+    output_path = model_path + "/LDA_"+str(ENTIRE_CORPUS)+"_"+str(num_topics)
 
 ### Preprocessing ###
 
@@ -263,7 +263,6 @@ for word in set(nltk.corpus.stopwords.words('english')):
         stop.append(str(word))
 
 ### Define the regex filter used for finding relevant comments
-
 
 legality_reg_expressions = []
 with open("legality.txt",'r') as f:
