@@ -123,7 +123,6 @@ class ModelEstimator(object):
             if not self.special_doi:  # if not doing classification on
                 # human-rated comments over a DOI
                 num_comm = list(indices)[-1]  # retrieve the total number of comments
-                print(num_comm)
                 indices = range(num_comm)  # define sets over all comments
 
             else:  # if doing classification on sampled comments based on a DOI
