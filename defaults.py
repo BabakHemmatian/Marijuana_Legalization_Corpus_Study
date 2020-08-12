@@ -99,11 +99,11 @@ iterations = 1000 # number of times LDA posterior distributions will be sampled
 num_threads = 5 # number of threads used for parallelized processing of comments
 # Only matters if using _Threaded functions (OBSOLETE)
 num_topics = 50 # number of topics to be generated in each LDA sampling
-alpha = 'auto' # determines how many high probability topics will be assigned to a
+alpha = 0.1 # determines how many high probability topics will be assigned to a
 # document in general (not to be confused with NN l2regularization constant)
 minimum_probability = 0.01 # minimum acceptable probability for an output topic
 # across corpus
-eta = 'auto' # determines how many high probability words will be assigned to a
+eta = 0.1 # determines how many high probability words will be assigned to a
 # topic in general
 minimum_phi_value = 0.01 # determines the lower bound on per-term topic
 # probability. Only matters if per_word_topics = True.
