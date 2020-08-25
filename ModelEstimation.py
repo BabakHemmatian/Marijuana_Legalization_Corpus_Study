@@ -123,7 +123,6 @@ class ModelEstimator(object):
             if not self.special_doi:  # if not doing classification on
                 # human-rated comments over a DOI
                 num_comm = list(indices)[-1]  # retrieve the total number of comments
-                print(num_comm)
                 indices = range(num_comm)  # define sets over all comments
 
             else:  # if doing classification on sampled comments based on a DOI
@@ -426,6 +425,55 @@ class LDAModel(ModelEstimator):
             fns[k] = v
         return fns
 
+    ### calculate the yearly relevant comment counts
+    def Get_Counts(self,model_path=model_path, random=False, frequency="monthly"):
+        assert frequency in ("monthly", "yearly")
+
+        fns=self.get_fns()
+        fn=fns["counts"] if not random else fns["counts_random"]
+
+        # check for monthly relevant comment counts
+        if not Path(fn).is_file():
+            raise Exception('The cummulative monthly counts could not be found')
+
+        # load monthly relevant comment counts
+        with open(fn,'r') as f:
+            timelist = []
+            for line in f:
+                if line.strip() != "":
+                    timelist.append(int(line))
+
+        # intialize lists and counters
+        cumulative = [] # cummulative number of comments per interval
+        per = [] # number of comments per interval
+
+        month_counter = 0
+
+        # iterate through monthly counts
+        for index,number in enumerate(timelist): # for each month
+            month_counter += 1 # update counter
+            if frequency=="monthly":
+                cumulative.append(number) # add the cummulative count
+                if index == 0: # for the first month
+                    per.append(number) # append the cummulative value to number of comments per year
+                else: # for the other months, subtract the last two cummulative values to find the number of relevant comments in that year
+                    per.append(number - cumulative[-2])
+
+            else:
+                if (month_counter % 12) == 0 or index == len(timelist) - 1: # if at the end of the year or the corpus
+                    cumulative.append(number) # add the cummulative count
+
+                    if index + 1 == 12: # for the first year
+                        per.append(number) # append the cummulative value to number of comments per year
+                    else: # for the other years, subtract the last two cummulative values to find the number of relevant comments in that year
+                        per.append(number - cumulative[-2])
+                        month_counter = 0 # reset the counter at the end of the year
+
+        assert sum(per) == cumulative[-1], "Monthly counts do not add up to the total count"
+        assert cumulative[-1] == timelist[-1], "Total count does not add up to the number of posts on file"
+
+        return per,cumulative
+
     ### Function for reading and indexing a pre-processed corpus for LDA
     def LDA_Corpus_Processing(self):
         # check the existence of pre-processed data and sets
@@ -579,7 +627,6 @@ class LDAModel(ModelEstimator):
 
         else:  # if there is a trained model, load it from file
             print("Loading the trained LDA model from file")
-
             self.ldamodel = gensim.models.LdaMulticore.load(self.fns["model"])
 
     ### Get lower bounds on per-word perplexity for training and development sets (LDA)
@@ -652,7 +699,7 @@ class LDAModel(ModelEstimator):
                         if line.strip() != "":
                             rand_subsample.append(int(line))
 
-            per, cumulative = Get_Counts(frequency=self.topic_cont_freq)
+            per, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
 
             # Only start the counter where counts are greater than 0
             cumulative_as_arr = np.array(cumulative)
@@ -770,8 +817,8 @@ class LDAModel(ModelEstimator):
             global Freq_tracker
             Freq_tracker = {}
 
-        _, cumulative = Get_Counts(frequency=self.topic_cont_freq)
-        per, _ = Get_Counts(random=not self.all_, frequency=self.topic_cont_freq)
+        _, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
+        per, _ = self.Get_Counts(random=not self.all_, frequency=self.topic_cont_freq)
         no_intervals = len(cumulative)
 
         ## Create shared counters for comments for which the model has no
@@ -894,7 +941,7 @@ class LDAModel(ModelEstimator):
         # initialize a vector for average topic contribution
 
         # get the comment count for each month
-        per, cumulative = Get_Counts(frequency=self.topic_cont_freq)
+        per, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
 
         # scale contribution based on the number of comments in each month
         scaled = np.zeros_like(yr_topic_cont)
@@ -1057,14 +1104,27 @@ class LDAModel(ModelEstimator):
             # find the [sample_comments] comments for each top topic that show the greatest contribution
             sampled_indices[topic] = []
             sampled_probs[topic] = []
-            for element in top_topic_probs[topic][:min(len(top_topic_probs[topic]), sample_comments)]:
-                sampled_indices[topic].append(element[0])  # record the index
-                sampled_probs[topic].append(element[2])  # record the contribution of the topic
-                # suggest a random 8-digit id for the sampled comment
-                prop_id = np.random.random_integers(low=10000000, high=99999999)
-                while prop_id in sampled_ids:  # resample in the unlikely event the id is already in use
+
+            sampled_counter = 0
+            for element in top_topic_probs[topic]:
+                repeated = 0
+                if len(sampled_probs[topic]) != 0:
+                    for other_element in sampled_probs[topic]:
+                        if essentially_eq(element[2],other_element):
+                            repeated = 1
+
+                if repeated == 0:
+                    sampled_indices[topic].append(element[0])  # record the index
+                    sampled_probs[topic].append(element[2])  # record the contribution of the topic
+                    # suggest a random 8-digit id for the sampled comment
                     prop_id = np.random.random_integers(low=10000000, high=99999999)
-                sampled_ids[element[0]] = prop_id  # store the random id
+                    while prop_id in sampled_ids:  # resample in the unlikely event the id is already in use
+                        prop_id = np.random.random_integers(low=10000000, high=99999999)
+                    sampled_ids[element[0]] = prop_id  # store the random id
+                    sampled_counter += 1
+                    if sampled_counter == self.sample_comments:
+                        break
+
         return sampled_indices, sampled_probs, sampled_ids
 
     ### retrieve the original text of sampled comments and write them to file
@@ -1077,8 +1137,8 @@ class LDAModel(ModelEstimator):
         # find the top comments associated with each top topic
         sampled_indices, sampled_probs, sampled_ids = self.Top_Comment_Indices()
 
-        _, yearly_cumulative = Get_Counts(frequency="yearly")
-        _, monthly_cumulative = Get_Counts(frequency="monthly")
+        _, yearly_cumulative = self.Get_Counts(frequency="yearly")
+        _, monthly_cumulative = self.Get_Counts(frequency="monthly")
 
         if not Path(self.fns[
                         "original_comm"]).is_file():  # if the original relevant comments are not already available on disk, read them from the original compressed files
@@ -1238,19 +1298,19 @@ class LDAModel(ModelEstimator):
     ## function for sampling the most impactful comments
     def sample_pop(self, num_pop=num_pop, min_comm_length=min_comm_length):
 
-        assert Path(self.path + "/RC_Count_List").is_file()
-        assert Path(self.path + "/original_comm").is_file()
-        assert Path(self.path + "/votes").is_file()
+        assert Path(self.path + "counts/RC_Count_List").is_file()
+        assert Path(self.path + "original_comm/original_comm").is_file()
+        assert Path(self.path + "votes/votes").is_file()
 
         # Retrieve the list of upvote/downvote values
-        with open(self.path + "/RC_Count_List", 'r') as f:
+        with open(self.path + "counts/RC_Count_List", 'r') as f:
             timelist = []
             for line in f:
                 if line.strip() != "":
                     timelist.append(int(line))
 
         # Retrieve the text of the original comments
-        with open(self.path + "/original_comm", 'r') as f:
+        with open(self.path + "original_comm/original_comm", 'r') as f:
             orig_comm = []
             for line in f:
                 if line.strip() != "":
