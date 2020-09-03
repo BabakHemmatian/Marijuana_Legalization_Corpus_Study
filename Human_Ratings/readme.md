@@ -1,0 +1,1 @@
+This folder includes the code for neural network-based filtering of irrelevant reddit posts, as well as the human ratings it is trained on. The neural network itself can be found [here](https://drive.google.com/drive/folders/1j0tsGK2Y3ubIMBMc1fIyxZRP5a9VFXvr?usp=sharing), where you can also find the results of cross-validation and its associated models.

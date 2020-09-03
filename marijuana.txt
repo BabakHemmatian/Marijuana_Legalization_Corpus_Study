@@ -2,14 +2,14 @@
 \bCheeba\b
 \bDody\b
 \bEscoba\b
-\bHemp\b
+\bHemp\b(?! clothes)(?! clothing)
 \bKaff\b
 \bKaya\b
 \bKiff\b
 \bKush\b
-\bWeed\b(?! out\b)(?! through\b)
+\bWeed\b(?! out\b)(?! through\b)(?! killer)(?! control)(?! its' way into)(?! its way into)
 \bNug\b
-(?<!melting-)(?<!melting )(?<!stir the )(?<!stirring the )(?<!stirred the )(?<!sweeten the )\bpot\b(?! shot)(?!-shot)(?! luck)(?!-luck)(?! of )(?! black)(?! calling the kettle)
+(?<!melting-)(?<!melting )(?<!crack )(?<!stir the )(?<!stirring the )(?<!stirred the )(?<!sweeten the )(?<!pol )(?<!flower )(?<!honey )(?<!meet )(?<!crock )(?<!smoke )(?<!split the)\bpot\b(?!.shot)(?!.luck)(?! of )(?! black)(?! calling the kettle)(?!.hole)
 \bTHC\b
 \bSativa\b
 \bZambi\b
@@ -28,18 +28,19 @@ Devils Lettuce
 Devil Lettuce
 Doobie
 Downtown Brown
-Ganja
+\bGanja\b
 Giggle Smoke
 Good Giggles
 Grand Daddy Purp
 Granddaddy purp
 Grand Daddy purple
 Granddaddy purple
+\bGrass\b(?!.root)(?!.fire)(?!.fed)(?! withers)
 Green Crack
 Green Goblin
 Green Goddess
 Green Skunk
-Gunga
+\bGunga\b
 Hashish
 Jolly Green
 Jon-Jem
@@ -71,6 +72,10 @@ Sinsemilla
 Shwag
 schwag
 Smoochy Woochy Poochy
+smoke a joint
+smokes a joint
+smoking a joint
+smoked a joint
 Sour OG
 Spliff
 Tangy OG

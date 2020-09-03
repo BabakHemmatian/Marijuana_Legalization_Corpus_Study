@@ -17,6 +17,9 @@ from config import *
 from reddit_parser import Parser
 import tensorflow as tf
 parser_fns = Parser().get_parser_fns()
+from simpletransformers.classification import ClassificationModel
+from transformers import BertModel, BertTokenizer
+import torch
 from Utils import *
 
 
@@ -92,7 +95,7 @@ class Shared_Counter(object):
 
 class ModelEstimator(object):
     def __init__(self, all_=ENTIRE_CORPUS, MaxVocab=MaxVocab,
-                 output_path=output_path, path=path, dates=dates,
+                 output_path=output_path, path=model_path, dates=dates,
                  special_doi=special_doi, training_fraction=training_fraction,
                  V=OrderedDict({})):
         ## ensure the arguments have the correct types and values
@@ -382,10 +385,10 @@ class LDAModel(ModelEstimator):
         self.top_topic_set = top_topic_set
 
     def get_fns(self, **kwargs):
-        fns = {"original_comm": "{}/original_comm".format(self.path),
-               "lda_prep": "{}/lda_prep".format(self.path),
+        fns = {"original_comm": "{}/original_comm/original_comm".format(self.path),
+               "lda_prep": "{}/lda_prep/lda_prep".format(self.path),
                "counts": parser_fns["counts"] if self.all_ else parser_fns["counts_random"],
-               "indices_random": "{}/random_indices".format(self.path),
+               "indices_random": "{}/random_indices/random_indices".format(self.path),
                "train_set": "{}/LDA_train_set_{}".format(self.path, self.all_),
                "eval_set": "{}/LDA_eval_set_{}".format(self.path, self.all_),
                "corpus": "{}/RC_LDA_Corpus_{}.mm".format(self.path, self.all_),
@@ -412,15 +415,64 @@ class LDAModel(ModelEstimator):
                                                                    "idf" if self.topic_idf else "f"),
                "popular_comments": "{}/popular_comments-{}.csv".format(self.output_path,
                                                                        "idf" if self.topic_idf else "f"),
-               "original_comm": "{}/original_comm".format(self.path),
-               "counts": "{}/RC_Count_List".format(self.path),
-               "votes": "{}/votes".format(self.path),
+               "original_comm": "{}/original_comm/original_comm".format(self.path),
+               "counts": "{}/counts/RC_Count_List".format(self.path),
+               "votes": "{}/votes/votes".format(self.path),
                "data_for_R": "{}/data_for_R-{}.csv".format(self.output_path,
                                                            "idf" if self.topic_idf else "f")
                }
         for k, v in kwargs.items():
             fns[k] = v
         return fns
+
+    ### calculate the yearly relevant comment counts
+    def Get_Counts(self,model_path=model_path, random=False, frequency="monthly"):
+        assert frequency in ("monthly", "yearly")
+
+        fns=self.get_fns()
+        fn=fns["counts"] if not random else fns["counts_random"]
+
+        # check for monthly relevant comment counts
+        if not Path(fn).is_file():
+            raise Exception('The cummulative monthly counts could not be found')
+
+        # load monthly relevant comment counts
+        with open(fn,'r') as f:
+            timelist = []
+            for line in f:
+                if line.strip() != "":
+                    timelist.append(int(line))
+
+        # intialize lists and counters
+        cumulative = [] # cummulative number of comments per interval
+        per = [] # number of comments per interval
+
+        month_counter = 0
+
+        # iterate through monthly counts
+        for index,number in enumerate(timelist): # for each month
+            month_counter += 1 # update counter
+            if frequency=="monthly":
+                cumulative.append(number) # add the cummulative count
+                if index == 0: # for the first month
+                    per.append(number) # append the cummulative value to number of comments per year
+                else: # for the other months, subtract the last two cummulative values to find the number of relevant comments in that year
+                    per.append(number - cumulative[-2])
+
+            else:
+                if (month_counter % 12) == 0 or index == len(timelist) - 1: # if at the end of the year or the corpus
+                    cumulative.append(number) # add the cummulative count
+
+                    if index + 1 == 12: # for the first year
+                        per.append(number) # append the cummulative value to number of comments per year
+                    else: # for the other years, subtract the last two cummulative values to find the number of relevant comments in that year
+                        per.append(number - cumulative[-2])
+                        month_counter = 0 # reset the counter at the end of the year
+
+        assert sum(per) == cumulative[-1], "Monthly counts do not add up to the total count"
+        assert cumulative[-1] == timelist[-1], "Total count does not add up to the number of posts on file"
+
+        return per,cumulative
 
     ### Function for reading and indexing a pre-processed corpus for LDA
     def LDA_Corpus_Processing(self):
@@ -507,7 +559,7 @@ class LDAModel(ModelEstimator):
 
                 else:  # if the index is in neither set and we're processing the entire corpus, raise an Exception
                     if self.all_:
-                        raise Exception('Error in processing comment indices')
+                        raise Exception('Error in processing comment index '+str(index))
                     continue
 
             # write the number of words in the frequency-filtered corpus to file
@@ -575,7 +627,6 @@ class LDAModel(ModelEstimator):
 
         else:  # if there is a trained model, load it from file
             print("Loading the trained LDA model from file")
-
             self.ldamodel = gensim.models.LdaMulticore.load(self.fns["model"])
 
     ### Get lower bounds on per-word perplexity for training and development sets (LDA)
@@ -648,7 +699,7 @@ class LDAModel(ModelEstimator):
                         if line.strip() != "":
                             rand_subsample.append(int(line))
 
-            per, cumulative = Get_Counts(frequency=self.topic_cont_freq)
+            per, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
 
             # Only start the counter where counts are greater than 0
             cumulative_as_arr = np.array(cumulative)
@@ -766,8 +817,8 @@ class LDAModel(ModelEstimator):
             global Freq_tracker
             Freq_tracker = {}
 
-        _, cumulative = Get_Counts(frequency=self.topic_cont_freq)
-        per, _ = Get_Counts(random=not self.all_, frequency=self.topic_cont_freq)
+        _, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
+        per, _ = self.Get_Counts(random=not self.all_, frequency=self.topic_cont_freq)
         no_intervals = len(cumulative)
 
         ## Create shared counters for comments for which the model has no
@@ -890,7 +941,7 @@ class LDAModel(ModelEstimator):
         # initialize a vector for average topic contribution
 
         # get the comment count for each month
-        per, cumulative = Get_Counts(frequency=self.topic_cont_freq)
+        per, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
 
         # scale contribution based on the number of comments in each month
         scaled = np.zeros_like(yr_topic_cont)
@@ -1053,14 +1104,27 @@ class LDAModel(ModelEstimator):
             # find the [sample_comments] comments for each top topic that show the greatest contribution
             sampled_indices[topic] = []
             sampled_probs[topic] = []
-            for element in top_topic_probs[topic][:min(len(top_topic_probs[topic]), sample_comments)]:
-                sampled_indices[topic].append(element[0])  # record the index
-                sampled_probs[topic].append(element[2])  # record the contribution of the topic
-                # suggest a random 8-digit id for the sampled comment
-                prop_id = np.random.random_integers(low=10000000, high=99999999)
-                while prop_id in sampled_ids:  # resample in the unlikely event the id is already in use
+
+            sampled_counter = 0
+            for element in top_topic_probs[topic]:
+                repeated = 0
+                if len(sampled_probs[topic]) != 0:
+                    for other_element in sampled_probs[topic]:
+                        if essentially_eq(element[2],other_element):
+                            repeated = 1
+
+                if repeated == 0:
+                    sampled_indices[topic].append(element[0])  # record the index
+                    sampled_probs[topic].append(element[2])  # record the contribution of the topic
+                    # suggest a random 8-digit id for the sampled comment
                     prop_id = np.random.random_integers(low=10000000, high=99999999)
-                sampled_ids[element[0]] = prop_id  # store the random id
+                    while prop_id in sampled_ids:  # resample in the unlikely event the id is already in use
+                        prop_id = np.random.random_integers(low=10000000, high=99999999)
+                    sampled_ids[element[0]] = prop_id  # store the random id
+                    sampled_counter += 1
+                    if sampled_counter == self.sample_comments:
+                        break
+
         return sampled_indices, sampled_probs, sampled_ids
 
     ### retrieve the original text of sampled comments and write them to file
@@ -1073,8 +1137,8 @@ class LDAModel(ModelEstimator):
         # find the top comments associated with each top topic
         sampled_indices, sampled_probs, sampled_ids = self.Top_Comment_Indices()
 
-        _, yearly_cumulative = Get_Counts(frequency="yearly")
-        _, monthly_cumulative = Get_Counts(frequency="monthly")
+        _, yearly_cumulative = self.Get_Counts(frequency="yearly")
+        _, monthly_cumulative = self.Get_Counts(frequency="monthly")
 
         if not Path(self.fns[
                         "original_comm"]).is_file():  # if the original relevant comments are not already available on disk, read them from the original compressed files
@@ -1234,19 +1298,19 @@ class LDAModel(ModelEstimator):
     ## function for sampling the most impactful comments
     def sample_pop(self, num_pop=num_pop, min_comm_length=min_comm_length):
 
-        assert Path(self.path + "/RC_Count_List").is_file()
-        assert Path(self.path + "/original_comm").is_file()
-        assert Path(self.path + "/votes").is_file()
+        assert Path(self.path + "counts/RC_Count_List").is_file()
+        assert Path(self.path + "original_comm/original_comm").is_file()
+        assert Path(self.path + "votes/votes").is_file()
 
         # Retrieve the list of upvote/downvote values
-        with open(self.path + "/RC_Count_List", 'r') as f:
+        with open(self.path + "counts/RC_Count_List", 'r') as f:
             timelist = []
             for line in f:
                 if line.strip() != "":
                     timelist.append(int(line))
 
         # Retrieve the text of the original comments
-        with open(self.path + "/original_comm", 'r') as f:
+        with open(self.path + "original_comm/original_comm", 'r') as f:
             orig_comm = []
             for line in f:
                 if line.strip() != "":
@@ -1342,7 +1406,7 @@ class LDAModel(ModelEstimator):
 
 
 class NNModel(ModelEstimator):
-    def __init__(self, FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
+    def __init__(self, use_simple_bert=use_simple_bert, FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
                  batchSz=batchSz, word_embedSz=word_embedSz, hiddenSz=hiddenSz,
                  author_embedSz=author_embedSz, ff1Sz=ff1Sz, ff2Sz=ff2Sz,
                  keepP=keepP, l2regularization=l2regularization, NN_alpha=NN_alpha,
@@ -1377,6 +1441,29 @@ class NNModel(ModelEstimator):
             self.accuracy[set_key] = np.empty(epochs)
 
         self.fns = self.get_fns()
+
+    def train_bert_model(self, train_data):
+        if self.use_simple_bert:
+            self.bert_model = ClassificationModel('roberta', 'roberta-base',
+                                              args={"output_hidden_states" : True})  # Model for word embeddings
+
+        else:
+            self.bert_model = BertModel.from_pretrained('bert-base-uncased')
+            self.bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+       # self.bert_model.train_model(train_data)
+    def bert_predictions(self, sentence):
+        if use_simple_bert:
+            to_predict = [sentence]
+            _, _, all_embedding_outputs, hidden_states = self.bert_model.predict(to_predict)
+            # have a function reading in from the 3 files, average and then determine the correct label -- then attach the correct label to each document
+            # use author indices to pass in as additional args to bert
+            return hidden_states
+        else:
+            input_ids = torch.tensor(self.bert_tokenizer.encode(sentence, add_special_tokens=True)).unsqueeze(0)  # Batch size 1
+            outputs = self.bert_model(input_ids)
+            last_hidden_states = outputs[0]
+            return last_hidden_states
 
     def get_fns(self, **kwargs):
         fns = {"nn_prep": "{}/nn_prep".format(self.path),

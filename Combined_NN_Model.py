@@ -1,12 +1,24 @@
 ### import the required modules and functions
-#TODO: Is this the correct Write_Performance()?
+
+import subprocess
+import time
+import sys
 from Utils import Write_Performance
 from config import *
-from reddit_parser import Parser
 from ModelEstimation import NNModel
+from transformers import BertTokenizer
 from NN_Utils import *
+from reddit_parser import Parser # Does the parser object need to be adjusted?
 
-# NOTE: Don't forget to set NN=True in defaults.py before running this file
+# QUESTION: Does the ID need to show up here in the functions too?
+theparser=Parser()
+
+# Create relevant folders
+theparser.safe_dir_create()
+
+# parse the documents
+theparser.Parse_Rel_RC_Comments()
+
 
 ### Define the neural network object
 
@@ -15,23 +27,6 @@ nnmodel=NNModel()
 ### check key hyperparameters for correct data types
 
 nnmodel.NN_param_typecheck()
-
-### Write hyperparameters to file. Performance measures will be written to the
-# same file after analyses are performed
-
-Write_Performance()
-
-### call the parsing function
-
-theparser=Parser()
-# Create relevant folders
-theparser.safe_dir_create()
-theparser.Parse_Rel_RC_Comments()
-
-### call the function for calculating the percentage of relevant comments
-
-if calculate_perc_rel:
-    theparser.Perc_Rel_RC_Comment()
 
 ### create training, development and test sets
 
@@ -53,7 +48,7 @@ if special_doi == False and pretrained == False:
     nnmodel.Get_Sentiment(path)
 elif special_doi == True:
     nnmodel.Get_Human_Ratings(path)
-    #TODO: Define this function. It should already somehow incorporated into 
+    #TODO: Define this function. It should already somehow incorporated into
     # the ModelEstimator
 
 ### Sentiment Modeling/DOI Classification Neural Networks
