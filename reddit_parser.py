@@ -1548,7 +1548,7 @@ class Parser(object):
             else:
                 raise Exception("Machine specification not found.")
 
-    def Rel_sample(self,rel_sample_num=rel_sample_num,
+    def Rel_sample(self,rel_sample_num=rel_sample_num,min_comm_length=min_comm_length,
                     balanced_rel_sample=balanced_rel_sample):
 
         # check for previous screening results
@@ -1571,6 +1571,17 @@ class Parser(object):
 
             inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
 
+            if not Path(self.model_path + "/original_comm/original_comm").is_file():
+                raise Exception(
+                    'Original comments could not be found. Aborting.')
+            else:
+                lengths = []
+                for yr,mo in self.dates:
+                    with open(self.model_path + "/original_comm/original_comm-{}-{}".format(yr,mo),"r") as f:
+                        for line in f:
+                            if line.strip() != "":
+                                lengths.append(len(line.strip().split()))
+
             if not Path(self.model_path + "/auto_labels/auto_labels").is_file():
                 with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
                     for yr, mo,_,_ in inputs:
@@ -1580,12 +1591,6 @@ class Parser(object):
                                 if line.strip() != "":
                                     general_labels.write(line.strip() + "\n")
 
-            # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
-            random_sample = list(
-                np.random.choice(range(0, total_count), size=rel_sample_num, replace=False))
-
-            labels_array = np.ones(total_count)  # initiate array for labels
-
             # read labels from disk and identify indices of irrelevant posts
             irrel_idxes = []
             with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
@@ -1593,6 +1598,15 @@ class Parser(object):
                     if line.strip() == '0' or line.strip() == 'None':
                         labels_array[idx] = 0
                         irrel_idxes.append(idx)
+            print("{} automatically-detected irrelevant comments were found.".format(len(irrel_idxes)))
+
+            # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
+            rel_subset = [i for i in range(0, total_count) if lengths[i] >= min_comm_length]
+            random_sample = list(
+                np.random.choice(rel_subset, size=rel_sample_num, replace=False))
+
+            labels_array = np.ones(total_count)  # initiate array for labels
+
 
             # TODO: Add the ability to deal with posts for which the classifier
             # has failed to provide a prediction but rather an error (None classes).
@@ -1605,7 +1619,7 @@ class Parser(object):
                 for value in random_sample:
                     sampled_cats[int(labels_array[value])] += 1
 
-                print("Random sample composition: ")
+                print("Initial random sample composition: ")
                 print(sampled_cats)
 
                 for category, _ in sampled_cats.items():  # upsample and downsample
@@ -1614,10 +1628,10 @@ class Parser(object):
                     while sampled_cats[category] < goal[category]:
 
                         if category == 0:
-                            relevant_subset = [i for i in irrel_idxes if i not in random_sample]
+                            relevant_subset = [i for i in irrel_idxes if i not in random_sample and lengths[i] >= min_comm_length]
                         elif category == 1:
                             relevant_subset = [i for i in range(0, total_count) if
-                                               i not in irrel_idxes and i not in random_sample]
+                                               i not in irrel_idxes and i not in random_sample and lengths[i] >= min_comm_length]
 
                         new_proposed = np.random.choice(relevant_subset)
 
@@ -1807,10 +1821,17 @@ class Parser(object):
                     if idx == 0:
                         monthly_counter.append(monthly_count)
 
-                for yr, mo in self.dates:
-                    with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "a+") as f:  # write only the relevant posts
-                        for line in monthly_file:
-                            print(line.strip(),end="\n",file=f)
+                for id_,date in enumerate(self.dates):
+                    yr = date[0]
+                    mo = date[1]
+                    if id_ == 0:
+                        with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "w") as f:  # write only the relevant posts
+                            for line in monthly_file:
+                                print(line.strip(),end="\n",file=f)
+                    else:
+                        with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "a+") as f:  # write only the relevant posts
+                            for line in monthly_file:
+                                print(line.strip(),end="\n",file=f)
 
                 print("Successfully finished cleaning {} and the relevant monthly files at {}.".format(file,time.strftime('%l:%M%p, %m/%d/%Y')))
 
@@ -1826,7 +1847,7 @@ class Parser(object):
                 yr = date[0]
                 mo = date[1]
                 with open(self.model_path + "/counts/RC_Count_List-{}-{}".format(yr, mo), "w") as f:
-                    print(str(monthly_count[idx]),end="\n",file=f)
+                    print(str(monthly_counter[idx]),end="\n",file=f)
 
             # update the auto-labels file and check that all negative comments
             # are removed from the dataset
