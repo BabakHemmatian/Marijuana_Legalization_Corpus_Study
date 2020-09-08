@@ -4,6 +4,7 @@ from functools import partial
 import ast
 import operator
 import numpy as np
+import tensorflow as tf
 import gensim
 import pickle
 from math import ceil, floor
@@ -11,17 +12,19 @@ import matplotlib.pyplot as plt
 import multiprocessing
 import os
 from pathlib2 import Path
-from random import sample
+import random
 import time
 from config import *
 from reddit_parser import Parser
 import tensorflow as tf
 parser_fns = Parser().get_parser_fns()
 from simpletransformers.classification import ClassificationModel
-from transformers import BertModel, BertTokenizer
-import torch
+from transformers import RobertaConfig, RobertaTokenizer, TFRobertaModel, pipeline
+# TODO: remove the BERT stuff or comment them out
 from Utils import *
-
+# IDEA: # We should check this for LM pretraining on our dataset,
+# and maybe do that for the ROBERTA section later:
+# https://github.com/huggingface/transformers/blob/master/examples/language-modeling/run_language_modeling.py
 
 ## wrapper function for calculating topic contributions to a comment
 def Topic_Asgmt_Retriever_Multi_wrapper(args):
@@ -92,11 +95,11 @@ class Shared_Counter(object):
     def value(self):
         return self.val.value
 
-
+# TODO: This object should be updated based on what's shared bw the models
 class ModelEstimator(object):
     def __init__(self, all_=ENTIRE_CORPUS, MaxVocab=MaxVocab,
                  output_path=output_path, path=model_path, dates=dates,
-                 special_doi=special_doi, training_fraction=training_fraction,
+                 DOI=DOI, training_fraction=training_fraction,
                  V=OrderedDict({})):
         ## ensure the arguments have the correct types and values
         assert type(path) is str, "path variable is not an integer: %s" % str(type(path))
@@ -110,27 +113,29 @@ class ModelEstimator(object):
         self.output_path = output_path
         self.path = path
         self.dates = dates
-        self.special_doi = special_doi
+        self.DOI = DOI
         self.training_fraction = training_fraction
         self.V = V  # vocabulary
 
+    # TODO: This one should create just training and test sets for NN
     ### function to determine comment indices for new training, development and test sets
     def Create_New_Sets(self, indices):
         print("Creating sets")
 
         # determine number of comments in the dataset
         if self.all_:
-            if not self.special_doi:  # if not doing classification on
+            if not self.DOI:  # if not doing classification on
                 # human-rated comments over a DOI
                 num_comm = list(indices)[-1]  # retrieve the total number of comments
                 indices = range(num_comm)  # define sets over all comments
 
             else:  # if doing classification on sampled comments based on a DOI
                 # check to see if human comment ratings can be found on disk
+                # TODO: this file should be updated to reflect the new rating files
                 if not Path(self.fns["sample_ratings"]).is_file():
                     raise Exception("Human comment ratings for DOI training could not be found on file.")
 
-                # TODO: Edit and test for compatibility with Qualtrics data
+                # TODO: Edit and test for compatibility with Qualtrics data --> this might be OBSOLETE
                 # retrieve the number of comments for which there are complete human ratings
                 with open(self.fns["sample_ratings"], 'r+') as csvfile:
                     reader = csv.reader(csvfile)
@@ -157,9 +162,9 @@ class ModelEstimator(object):
             num_dev = int(floor(num_remaining / 2))  # size of the development set
             num_test = num_remaining - num_dev  # size of the test set
 
-            self.sets['dev'] = sample(indices, num_dev)  # choose development comments at random
+            self.sets['dev'] = random.sample(indices, num_dev)  # choose development comments at random
             remaining = set(indices).difference(self.sets['dev'])
-            self.sets['test'] = sample(remaining, num_test)  # choose test comments at random
+            self.sets['test'] = random.sample(remaining, num_test)  # choose test comments at random
             # use the rest as training set
             self.sets['train'] = set(remaining).difference(self.sets['test'])
 
@@ -175,14 +180,14 @@ class ModelEstimator(object):
 
             # write the sets to file
             for set_key in self.set_key_list:
-                with open(self.path + '/' + set_key + '_set_' + str(self.special_doi), 'a+') as f:
+                with open(self.path + '/' + set_key + '_set_' + str(self.DOI), 'a+') as f:
                     for index in self.sets[set_key]:
                         print(index, end='\n', file=f)
 
         else:  # for LDA over the entire corpus
             num_eval = num_comm - num_train  # size of evaluation set
 
-            self.LDA_sets['eval'] = sample(indices, num_eval)  # choose evaluation comments at random
+            self.LDA_sets['eval'] = random.sample(indices, num_eval)  # choose evaluation comments at random
             self.LDA_sets['train'] = set(indices).difference(
                 set(self.LDA_sets['eval']))  # assign the rest of the comments to training
 
@@ -200,6 +205,7 @@ class ModelEstimator(object):
                     for index in self.LDA_sets[set_key]:
                         print(index, end='\n', file=f)
 
+    # NOTE: The lack of an evaluation set for NN should reflect in this func too
     ### function for loading, calculating, or recalculating sets
     def Define_Sets(self):
         # load the number of comments or raise Exception if they can't be found
@@ -303,7 +309,7 @@ class ModelEstimator(object):
                     # ensure set sizes are correct
                     assert len(self.sets['dev']) - len(
                         self.sets['test']) < 1, "The sizes of the development and test sets do not match"
-                    l = list(indices[-1]) if (self.all_ and not self.special_doi) else len(list(indices))
+                    l = list(indices[-1]) if (self.all_ and not self.DOI) else len(list(indices))
                     assert len(self.sets['dev']) + len(self.sets['test']) + len(self.sets[
                                                                                     'train']) == l, "The sizes of the training, development and test sets do not add up to the number of posts on file"
 
@@ -1404,85 +1410,105 @@ class LDAModel(ModelEstimator):
                                  month_of_year[pop_comment, 0], results[number],
                                  pop_comm_topic[number]])
 
-
+# TODO: Some of the current fns can simply be loaded from the SQL database
+# TODO: In all cases, data should be read from that database
 class NNModel(ModelEstimator):
-    def __init__(self, use_simple_bert=use_simple_bert, FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
-                 batchSz=batchSz, word_embedSz=word_embedSz, hiddenSz=hiddenSz,
-                 author_embedSz=author_embedSz, ff1Sz=ff1Sz, ff2Sz=ff2Sz,
-                 keepP=keepP, l2regularization=l2regularization, NN_alpha=NN_alpha,
-                 early_stopping=early_stopping, LDA_topics=LDA_topics, num_topics=num_topics,
-                 authorship=authorship, **kwargs):
+    def __init__(self, DOI=DOI, RoBERTa_model=RoBERTa_model,pretrained=pretrained,
+                 FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
+                 batch_size=batch_size, ff2Sz=ff2Sz, LDA_topics=LDA_topics,
+                 # keepP=keepP, l2regularization=l2regularization, NN_alpha=NN_alpha,
+                 num_topics=num_topics, early_stopping=early_stopping,
+                 authorship=authorship, min_authorship=min_authorship,
+                 epochs=epochs, **kwargs):
         ModelEstimator.__init__(self, **kwargs)
+        # TODO: define the truncation variable. It should be the default because
+        # of RoBERTa's pretraining. Don't need to make it customizable
+        self.DOI = DOI
+        self.RoBERTa_model = RoBERTa_model
+        self.pretrained = pretrained
         self.FrequencyFilter = FrequencyFilter
         self.learning_rate = learning_rate
-        self.batchSz = batchSz
-        self.author_embedSz=author_embedSz
-        self.word_embedSz = word_embedSz
-        self.hiddenSz = hiddenSz
-        self.ff1Sz = ff1Sz
+        self.batch_size = batch_size
         self.ff2Sz = ff2Sz
-        self.keepP = keepP
-        self.l2regularization = l2regularization
-        if self.l2regularization:
-            self.NN_alpha = NN_alpha
-        self.early_stopping = early_stopping
         self.LDA_topics = LDA_topics
         self.num_topics = num_topics
         self.authorship = authorship
-        self.set_key_list = ['train', 'dev', 'test']  # for NN
+        self.min_authorship = min_authorship
+        # self.keepP = keepP
+        # self.l2regularization = l2regularization
+        # if self.l2regularization:
+        #     self.NN_alpha = NN_alpha
+        self.early_stopping = early_stopping
+        self.epochs = epochs
+        self.set_key_list = ['train', 'test']  # for NN
         self.sets = {key: [] for key in self.set_key_list}  # for NN
         self.indices = {key: [] for key in self.set_key_list}
         self.lengths = {key: [] for key in self.set_key_list}
         self.Max = {key: [] for key in self.set_key_list}
         self.Max_l = None
         self.sentiments = {key: [] for key in self.set_key_list}  # for NN
+
+        # TODO: the evaluation measures should probably be updated based on
+        # recent changes to reddit_parser.py
         self.accuracy = {key: [] for key in self.set_key_list}
         for set_key in self.set_key_list:
             self.accuracy[set_key] = np.empty(epochs)
 
         self.fns = self.get_fns()
 
-    def train_bert_model(self, train_data):
-        if self.use_simple_bert:
-            self.bert_model = ClassificationModel('roberta', 'roberta-base',
-                                              args={"output_hidden_states" : True})  # Model for word embeddings
+    # def train_bert_model(self, train_data):
+    #     if self.use_simple_bert:
+    #         self.bert_model = ClassificationModel('roberta', 'roberta-base',
+    #                                           args={"output_hidden_states" : True})  # Model for word embeddings
+    #
+    #     else:
+    #         self.bert_model = BertModel.from_pretrained('bert-base-uncased')
+    #         self.bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    #
+    #    # self.bert_model.train_model(train_data)
+    # def bert_predictions(self, sentence):
+    #     if use_simple_bert:
+    #         to_predict = [sentence]
+    #         _, _, all_embedding_outputs, hidden_states = self.bert_model.predict(to_predict)
+    #         # have a function reading in from the 3 files, average and then determine the correct label -- then attach the correct label to each document
+    #         # use author indices to pass in as additional args to bert
+    #         return hidden_states
+    #     else:
+    #         input_ids = torch.tensor(self.bert_tokenizer.encode(sentence, add_special_tokens=True)).unsqueeze(0)  # Batch size 1
+    #         outputs = self.bert_model(input_ids)
+    #         last_hidden_states = outputs[0]
+    #         return last_hidden_states
 
-        else:
-            self.bert_model = BertModel.from_pretrained('bert-base-uncased')
-            self.bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-       # self.bert_model.train_model(train_data)
-    def bert_predictions(self, sentence):
-        if use_simple_bert:
-            to_predict = [sentence]
-            _, _, all_embedding_outputs, hidden_states = self.bert_model.predict(to_predict)
-            # have a function reading in from the 3 files, average and then determine the correct label -- then attach the correct label to each document
-            # use author indices to pass in as additional args to bert
-            return hidden_states
-        else:
-            input_ids = torch.tensor(self.bert_tokenizer.encode(sentence, add_special_tokens=True)).unsqueeze(0)  # Batch size 1
-            outputs = self.bert_model(input_ids)
-            last_hidden_states = outputs[0]
-            return last_hidden_states
-
+    # TODO: remove references to nn_prep
     def get_fns(self, **kwargs):
-        fns = {"nn_prep": "{}/nn_prep".format(self.path),
-               "counts": parser_fns["counts"] if self.all_ else parser_fns["counts_random"],
-               "dictionary": "{}/dict_{}".format(self.path, self.special_doi),
-               "train_set": "{}/train_{}".format(self.path, self.special_doi),
-               "dev_set": "{}/dev_{}".format(self.path, self.special_doi),
-               "test_set": "{}/test_{}".format(self.path, self.special_doi),
-               "indexed_train_set": "{}/indexed_train_{}".format(self.path, self.special_doi),
-               "indexed_dev_set": "{}/indexed_dev_{}".format(self.path, self.special_doi),
-               "indexed_test_set": "{}/indexed_test_{}".format(self.path, self.special_doi),
+        fns = {"counts": parser_fns["counts"] if self.all_ else parser_fns["counts_random"],
+               "dictionary": "{}/dict_{}".format(self.path, self.DOI),
+               "original_comm": "{}/original_comm/original_comm".format(self.path),
+               "original_indices": "{}/original_indices/original_indices".format(self.path),
+               "train_set": "{}/train_{}".format(self.path, self.DOI),
+               "test_set": "{}/test_{}".format(self.path, self.DOI),
+               "indexed_train_set": "{}/indexed_train_{}".format(self.path, self.DOI),
+               "indexed_test_set": "{}/indexed_test_{}".format(self.path, self.DOI),
+               # TODO: the following should be replaced with the format of the ratings
                "sample_ratings": "{}/sample_ratings.csv".format(self.output_path),
-               "author": "{}/author".format(self.path),
-               "sentiments": "{}/sentiments".format(self.path)
                }
+
+        if self.author:
+            fns["author"] = "{}/author/author".format(self.path)
+        if self.sentiments:
+            fns["sentiments"] = "{}/sentiments/sentiments".format(self.path)
+            fns["t_sentiments"] = "{}/t_sentiments/t_sentiments".format(self.path)
+            fns["v_sentiments"] = "{}/v_sentiments/v_sentiments".format(self.path)
+        if self.subreddit:
+            fns["subreddit"] = "{}/subreddit/subreddit".format(self.path)
+        if self.vote_counting:
+            fns["votes"] = "{}/votes/votes".format(self.path)
+
         for k, v in kwargs.items():
             fns[k] = v
         return fns
 
+    # TODO: Replace the manual vocab-building with an implementation of the RoBERTa tokenizer
     ### load or create vocabulary and load or create indexed versions of comments in sets
     # NOTE: Only for NN. For LDA we use gensim's dictionary functions
     def Index_Set(self, set_key):
@@ -1500,7 +1526,7 @@ class NNModel(ModelEstimator):
         # if indexed comments are available and we are trying to index the training set
         if Path(self.fns["indexed_{}_set".format(set_key)]).is_file() and set_key == 'train':
             # If the vocabulary is available, load it
-            if Path(self.path + "/dict_" + str(self.special_doi)).is_file():
+            if Path(self.path + "/dict_" + str(self.DOI)).is_file():
                 print("Loading dictionary from file")
 
                 with open(self.fns["dictionary"], 'r') as f:
@@ -1620,8 +1646,8 @@ class NNModel(ModelEstimator):
         # timer
         print("Finished indexing the " + set_key + " set at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
-    ## function for getting average sentiment values for training, development
-    # and test sets
+    # TODO: See if we need this anymore
+    ## function for getting average sentiment values for training and test sets
     def Get_Sentiment(self, path):
         if not Path(self.fns["sentiments"]).is_file():
             raise Exception("Sentiment data could not be found on file.")
@@ -1637,24 +1663,9 @@ class NNModel(ModelEstimator):
                     else:
                         raise Exception("The set indices are not correctly defined")
 
-    def NN_param_typecheck(self):
-        assert 0 < self.learning_rate and 1 > self.learning_rate, "invalid learning rate"
-
-        assert type(self.batchSz) is int, "invalid batch size"
-        assert type(self.word_embedSz) is int, "invalid word embedding size"
-        assert type(self.hiddenSz) is int, "invalid hidden layer size"
-        if self.authorship:
-            assert type(self.author_embedSz) is int, "invalid authorship embedding size"
-        assert type(self.ff1Sz) is int, "invalid feedforward layer size"
-        assert type(self.ff2Sz) is int, "invalid feedforward layer size"
-        assert 0 < self.keepP and 1 >= self.keepP, "invalid dropout rate"
-        assert type(self.l2regularization) is bool, "invalid regularization parameter"
-        if self.l2regularization == True:
-            assert 0 < self.alpha and 1 > self.alpha, "invalid alpha parameter for regularization"
-        assert type(self.early_stopping) is bool, "invalid early_stopping parameter"
-
+    # TODO: Replace with the TF2 computation graph. See how the random initialization
+    # works in the new version
     ## Function for creating the neural network's computation graph
-
     def Setup_Comp_Graph(self, device_count=None):
 
         if not device_count is None:
@@ -1674,7 +1685,7 @@ class NNModel(ModelEstimator):
 
         # for pre-trained classification network, load parameters from file
 
-        if self.special_doi and self.pretrained:
+        if self.DOI and self.pretrained:
             print("Loading parameter estimates from file")
             word_embed = np.loadtxt(param_path + "word_embed", dtype='float32')
             if self.authorship:
@@ -1691,7 +1702,7 @@ class NNModel(ModelEstimator):
 
         # initial word embeddings
 
-        if self.special_doi and self.pretrained:
+        if self.DOI and self.pretrained:
             E = tf.Variable(word_embed)
         else:
             E = tf.Variable(tf.random.normal([len(V), word_embedSz], stddev=0.1))
@@ -1706,10 +1717,10 @@ class NNModel(ModelEstimator):
         # define the recurrent layer (Gated Recurrent Unit)
         rnn = tf.compat.v1.nn.rnn_cell.GRUCell(hiddenSz)
 
-        if self.special_doi and self.pretrained:
+        if self.DOI and self.pretrained:
             initialState = pre_state  # load pretrained state
         else:
-            initialState = rnn.zero_state(batchSz, tf.float32)
+            initialState = rnn.zero_state(batch_size, tf.float32)
 
         ff_inpt, nextState = tf.compat.v1.nn.dynamic_rnn(rnn, embed, initial_state=initialState)
 
@@ -1723,7 +1734,7 @@ class NNModel(ModelEstimator):
             # contribution estimates to the output of the GRU cell
 
         if self.authorship:
-            if not self.special_doi or not self.pretrained:
+            if not self.DOI or not self.pretrained:
                 author_embed = tf.Variable(tf.random.normal([len(author_list), author_embedSz], stddev=0.1))
                 # TODO: add the author listing (author_list) to the NN
                 # pre-processing function
@@ -1738,7 +1749,7 @@ class NNModel(ModelEstimator):
         if self.authorship:
             l1Sz += author_embedSz
 
-        if not self.special_doi:  # sentiment analysis (pos/neut/neg)
+        if not self.DOI:  # sentiment analysis (pos/neut/neg)
             # create weights and biases for three feedforward layers
             W1 = tf.Variable(tf.random.normal([l1Sz, ff1Sz], stddev=0.1))
             b1 = tf.Variable(tf.random.normal([ff1Sz], stddev=0.1))
@@ -1770,7 +1781,7 @@ class NNModel(ModelEstimator):
             else:
                 loss = tf.reduce_mean(input_tensor=xEnt)
 
-        elif self.special_doi:  # classification for a DOI
+        elif self.DOI:  # classification for a DOI
             if not self.pretrained:  # if initializing parameters
                 # create weights and biases for three feedforward layers
                 W1 = tf.Variable(tf.random.normal([l1Sz, ff1Sz], stddev=0.1))
@@ -1830,6 +1841,7 @@ class NNModel(ModelEstimator):
         if not pretrained:
             state = sess.run(initialState)
 
+    # No need for this anymore, we're truncating
     def Get_Set_Lengths(self):
         for set_key in self.set_key_list:
             for i, x in enumerate(self.indices[set_key]):
@@ -1838,7 +1850,8 @@ class NNModel(ModelEstimator):
         self.Max_l = max(Max['train'], Max['dev'], Max['test'])
         # Max_l: max length of a comment in the whole dataset
 
-    # TODO: add LDA input
+    # TODO: add LDA input, etc.
+    # TODO: add the more complicated evaluation metrics
     def train_and_evaluate(self):
 
         print("Number of planned training epochs: " + str(epochs))
@@ -1853,13 +1866,13 @@ class NNModel(ModelEstimator):
                 TotalCorr = 0  # reset number of correctly classified examples
 
                 # initialize vectors for feeding data and desired output
-                inputs = np.zeros([self.batchSz, Max_l])
+                inputs = np.zeros([self.batch_size, Max_l])
                 if self.LDA_topics:
                     lda_inpt = np.zeros([self.num_topics, 1])
                 if self.authorship:
                     # TODO: Calculate the number of assumed authors based on data
                     authorship_inpt = np.zeros([None, 1])
-                answers = np.zeros([batchSz, 3], dtype=np.int32)
+                answers = np.zeros([batch_size, 3], dtype=np.int32)
 
                 # batch counters
                 j = 0  # batch comment counter
@@ -1868,13 +1881,13 @@ class NNModel(ModelEstimator):
                 for i in range(len(self.indices[set_key])):  # for each comment in the set
                     inputs[j, :self.lengths[set_key][i]] = self.indices[set_key][i]
                     # TODO: fix this to pick up the human ratings from Qualtrics
-                    if special_doi == True:
+                    if DOI == True:
                         answers[j, :] = self.vote[set_key][i]
                     else:
                         answers[j, :] = self.sentiments[set_key][i]
 
                     j += 1  # update batch comment counter
-                    if j == batchSz - 1:  # if the current batch is filled
+                    if j == batch_size - 1:  # if the current batch is filled
 
                         if set_key == 'train':
                             # train on the examples
@@ -1890,13 +1903,13 @@ class NNModel(ModelEstimator):
                         p += 1  # update batch counter
 
                         # reset the input/label containers
-                        inputs = np.zeros([self.batchSz, self.Max_l])
+                        inputs = np.zeros([self.batch_size, self.Max_l])
                         if self.LDA_topics:
                             lda_inpt = np.zeros([self.num_topics, 1], dtype=np.float32)
                         if self.authorship:
                             authorship_inpt = np.zeros([self.num_topics])
                             # TODO: fix the size of the vector and add indexing of the authors to the NN preprocessing
-                        answers = np.zeros([self.batchSz, 3], dtype=np.int32)
+                        answers = np.zeros([self.batch_size, 3], dtype=np.int32)
 
                         # update the GRU state
                         state = next  # update the GRU state
@@ -1939,7 +1952,7 @@ class NNModel(ModelEstimator):
                             np.savetxt(output_path + "/" + variable, eval(variable))
 
                     # calculate set accuracy for the current epoch and save the value
-                    self.accuracy[set_key][k] = float(TotalCorr) / float(p * self.batchSz)
+                    self.accuracy[set_key][k] = float(TotalCorr) / float(p * self.batch_size)
                     print("Accuracy on the " + set_key + " set (Epoch " + str(k + 1) + "): " + str(
                         self.accuracy[set_key][k]))
                     print("Accuracy on the " + set_key + " set (Epoch " + str(k + 1) + "): " + str(
