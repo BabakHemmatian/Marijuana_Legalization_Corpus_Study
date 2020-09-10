@@ -29,20 +29,18 @@ nnmodel=NNModel()
 # should not be changed between the creation of sets for LDA and NN analyses
 
 ## Determine the comments that will comprise various sets
-nnmodel.Define_Sets()
+# NOTE: For DOI training, feed in [human_ratings_path] as an argument. The
+# filename format will be inferred based on parameters in defaults.py
+# TODO: fix the path variable. We might want to move it.
+nnmodel.Define_Sets(human_ratings_path = model_path + "/auto_labels")
 
 ## Read and index the content of comments in each set
 
 for set_key in nnmodel.set_key_list:
     nnmodel.Index_Set(set_key)
 
-## if performing sentiment pre-training, load comment sentiments from file
-if special_doi == False and pretrained == False:
-    nnmodel.Get_Sentiment(path)
-elif special_doi == True:
-    nnmodel.Get_Human_Ratings(path)
-    #TODO: Define this function. It should already somehow incorporated into
-    # the ModelEstimator
+#TODO: Add the getting sentiments and human ratings as part of the training func,
+# wuth path arguments if needed
 
 ### Sentiment Modeling/DOI Classification Neural Networks
 
