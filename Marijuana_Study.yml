@@ -5,7 +5,6 @@ channels:
   - defaults
 dependencies:
   - _libgcc_mutex
-  - _openmp_mutex
   - blas
   - ca-certificates
   - certifi
@@ -13,9 +12,6 @@ dependencies:
   - intel-openmp
   - ld_impl_linux-64
   - libffi
-  - libgcc-ng
-  - libgomp
-  - libstdcxx-ng
   - mkl
   - mkl-service
   - mkl_fft
@@ -66,7 +62,6 @@ dependencies:
     - defusedxml
     - docker-pycreds
     - docutils
-    - en-core-web-sm
     - entrypoints
     - enum-compat
     - filelock
