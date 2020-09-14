@@ -133,8 +133,6 @@ class ModelEstimator(object):
         self.training_fraction = training_fraction
         self.V = V  # vocabulary #TODO: check to see if this is needed
 
-    # TODO: first set aside 10 percent of data for test, then determine the
-    # validation split
     ### function to determine comment indices for new training, development and test sets
     def Create_New_Sets(self, indices):
         print("Creating sets")
@@ -145,7 +143,6 @@ class ModelEstimator(object):
             if NN and self.DOI:
 
                 # check to see if human comment ratings can be found on disk
-                # TODO: this file should be updated to reflect the new rating files
                 if not Path(model_path + "/auto_labels/rel_sample_ratings-0.csv").is_file():
                     raise Exception("Human comment ratings for DOI training could not be found on disk.")
 
@@ -187,10 +184,8 @@ class ModelEstimator(object):
             assert len(self.sets['test']) + len(self.sets['train']) == len(
                 indices), "The sizes of the training, development and test sets do not add up to the number of posts on file"
             # write the sets to file
-            index = 0
             for set_key in self.set_key_list:
-                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI),self.set_key_list[index])
-                index += 1
+                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI), self.sets[set_key])
 
         else:  # for LDA over the entire corpus
             num_eval = num_comm - num_train  # size of evaluation set
@@ -224,7 +219,6 @@ class ModelEstimator(object):
             raise Exception("File {} not found.".format(findices))
 
         indices = open(findices, 'r').read().split()
-        print("indices", len(indices))
         indices = filter(lambda x: x.strip(), indices)
         indices = map(int, indices)
 
