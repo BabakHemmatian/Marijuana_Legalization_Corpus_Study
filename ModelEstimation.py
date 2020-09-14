@@ -142,31 +142,29 @@ class ModelEstimator(object):
         # determine number of comments in the dataset
         if self.all_:
 
-            if self.NN and self.DOI:
+            if NN and self.DOI:
+
                 # check to see if human comment ratings can be found on disk
                 # TODO: this file should be updated to reflect the new rating files
-                if not Path(self.fns["sample_ratings"]).is_file():
+                if not Path(model_path + "/auto_labels/rel_sample_ratings-0.csv").is_file():
                     raise Exception("Human comment ratings for DOI training could not be found on disk.")
 
                 # TODO: Edit and test for compatibility with Qualtrics data --> this might be OBSOLETE
                 # retrieve the number of comments for which there are complete human ratings
-                with open(self.fns["sample_ratings"], 'r+') as csvfile:
+                with open(model_path + "/auto_labels/rel_sample_ratings-0.csv", 'r+') as csvfile:
                     reader = csv.reader(csvfile)
                     human_ratings = []  # initialize counter for the number of valid human ratings
                     # read human data for sampled comments one by one
                     for idx, row in enumerate(reader):
                         row = row[0].split(",")
                         # ignore headers and record the index of comments that are interpretable and that have ratings for all three goal variables
-                        if (idx != 0 and (row[5] != 'N' or row[5] != 'n') and
-                                row[2].isdigit() and row[3].isdigit() and
-                                row[4].isdigit()):
+                        if (idx != 0):
                             human_ratings.append(int(row[0]))
-                        # TODO: this should differ based on the DOI task
 
                 num_comm = len(human_ratings)  # the number of valid samples for network training
                 indices = human_ratings  # define sets over sampled comments with human ratings
 
-            elif self.NN:
+            elif NN:
                 num_comm = list(indices)[-1]  # retrieve the total number of comments
                 indices = range(num_comm)  # define sets over all comments
 
@@ -188,10 +186,11 @@ class ModelEstimator(object):
             # Check test set came out with the right proportion
             assert len(self.sets['test']) + len(self.sets['train']) == len(
                 indices), "The sizes of the training, development and test sets do not add up to the number of posts on file"
-
             # write the sets to file
+            index = 0
             for set_key in self.set_key_list:
-                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI),self.set_key_list[set_key])
+                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI),self.set_key_list[index])
+                index += 1
 
         else:  # for LDA over the entire corpus
             num_eval = num_comm - num_train  # size of evaluation set
@@ -216,7 +215,7 @@ class ModelEstimator(object):
 
     # NOTE: The lack of an evaluation set for NN should reflect in this func too
     ### function for loading, calculating, or recalculating sets
-    def Define_Sets(self):
+    def Define_Sets(self, human_ratings_path):
         # load the number of comments or raise Exception if they can't be found
         findices = self.fns["counts"] if self.all_ else self.fns["random_indices"]
         try:
@@ -225,6 +224,7 @@ class ModelEstimator(object):
             raise Exception("File {} not found.".format(findices))
 
         indices = open(findices, 'r').read().split()
+        print("indices", len(indices))
         indices = filter(lambda x: x.strip(), indices)
         indices = map(int, indices)
 
