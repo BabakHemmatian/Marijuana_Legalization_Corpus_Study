@@ -148,8 +148,8 @@ class ModelEstimator(object):
                 files = []
                 info_files = []
                 for element in human_ratings_pattern:
-                    files_to_add = glob.glob(element)
-                    info_to_add = glob.glob(re.sub(element,"ratings","info"))
+                    files_to_add = glob.glob(self.model_path + element)
+                    info_to_add = glob.glob(re.sub(self.model_path + element,"ratings","info"))
                     for file in files_to_add:
                         files.append(file)
                     for file in info_to_add:
@@ -208,7 +208,10 @@ class ModelEstimator(object):
                                 reader = csv.reader(csvfile)
                                 for row in reader:
                                     if int(row[0].strip()) == id_:
-                                        info_indices[int(row[0].strip())] = int(row[5].strip())
+                                        if not row[5].isdigit():
+                                            info_indices[int(row[0].strip())] = [int(i) for i in row[5].strip().split(",")]
+                                        else:
+                                            info_indices[int(row[0].strip())] = int(row[5].strip())
 
                 assert len(info_indices) == len(human_ratings["attitude"])
 
