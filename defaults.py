@@ -127,7 +127,7 @@ no_below = 5 # tokens that appear in less than this number of documents in
 # corpus will be filtered out (when NN=False, i.e. for the LDA model)
 no_above = 0.99 # tokens that appear in more than this fraction of documents in
 # corpus will be filtered out (when NN=False, i.e. for the LDA model)
-training_fraction = 0.90 # what percentage of data will be used for learning the
+training_fraction = 0.99 # what percentage of data will be used for learning the
 # LDA model. The rest of the dataset will be used as an evaluation set for
 # calculating perplexity and identifying overfitting
 NN_training_fraction = 0.90 # fraction of the data that is used for training
@@ -144,7 +144,7 @@ n_random_comments = 1500 # number of comments to sample from each year for
 iterations = 1000 # number of times LDA posterior distributions will be sampled
 num_threads = 5 # number of threads used for parallelized processing of comments
 # Only matters if using _Threaded functions (OBSOLETE)
-num_topics = 25 # number of topics to be generated in each LDA sampling
+num_topics = 100 # number of topics to be generated in each LDA sampling
 # NOTE: When NN=True, this variable is used to determine the results of which
 # LDA model should be incorporated into the neural network classifiers if they
 # are set to make use of LDA topics.
@@ -177,8 +177,8 @@ topic_idf_thresh = 0.1 # what proportion of contributions in a post would add to
 # estimated contribution to the discourse. Only matters if topic_idf = True.
 # Must be greater than zero and less than one.
 # TODO: add support for a range of idf values to be tested automatically
-calculate_perplexity = False # whether perplexity is calculated for the model
-calculate_coherence = False # whether umass coherence is calculated for the model
+calculate_perplexity = True # whether perplexity is calculated for the model
+calculate_coherence = True # whether umass coherence is calculated for the model
 
 ### Neural Network Hyperparameters
 
@@ -190,6 +190,11 @@ calculate_coherence = False # whether umass coherence is calculated for the mode
 # NOTE: If changed from a previous run, you will need to re-train your network
 RoBERTa_model = "base" # whether "base" or "large" versions of default RoBERTa
 # will be used
+DOI = "persuasion"
+# Dimension of interest for classification. Currently, "persuasion" attempts and
+# "attitude" classification are defined. If set to None, sentiment-pretraining
+# will be performed. The pretraining should be performed once before the
+# following pretrained variable can be set to True without giving an error
 pretrained = False # whether sentiment analysis pre-training is utilized.
 # NOTE: If false, RoBERTa's default weights will be used for textual context and the
 # inference layers will be randomly initialized
@@ -198,9 +203,6 @@ pretrained = False # whether sentiment analysis pre-training is utilized.
 # be set accordingly. Otherwise, if pretrained == True, sentiment pre-training
 # will be started on a run of the code, which may be time-consuming. TODO: make
 # sure the pre-training is included as described here
-DOI = "persuasion"
-# Dimension of interest for classification. Currently, "persuasion" attempts and
-# "attitude" classification are defined.
 LDA_topics = False # whether the neural networks take as part of their input
 # topic contributions to each post as determined by a previously-run LDA analysis
 # NOTE: the path to the LDA output to be used needs to be entered below manually
