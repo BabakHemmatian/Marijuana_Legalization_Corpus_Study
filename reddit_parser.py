@@ -1708,7 +1708,7 @@ class Parser(object):
             # write the sampled files to a csvfile
             with open(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample), 'a+') as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow(['year', 'month', 'text', 'auto label','original_indices'])
+                writer.writerow(['year', 'month', 'text', 'auto label','general_index'])
                 for document in sampled_docs:
                     writer.writerow(document)
 
