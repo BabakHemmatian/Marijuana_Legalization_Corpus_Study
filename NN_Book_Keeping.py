@@ -15,9 +15,13 @@ theparser=Parser(machine="local")
 # Extract a random sample of rel_sample_num documents along with their labels
 # according to the pretrained neural relevance classifier, to evaluate classifier
 # performance.
-# NOTE: Will skip if a previous sample is found on file to prevent potentially
-# overwriting human judgments
-theparser.Rel_sample()
+# # NOTE: feed in [human_ratings_pattern] as an argument if there are previous
+# samples that you would like to be excluded in the next sampling. The fn uses
+# glob to match the list of patterns provided to files within the offered path
+# and include them in training/testing
+# NOTE: Make sure the corresponding "info" files containing the previous samples'
+# metadata are stored in the same directory
+theparser.Rel_sample(human_ratings_pattern = ["/auto_labels/sample_info-200-False-*"])
 
 # NOTE: Requires rel_sample results hand-annotated for accuracy
 # Reports per-class precision, recall, f1 and accuracy
