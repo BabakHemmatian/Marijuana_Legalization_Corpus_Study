@@ -90,10 +90,12 @@ Neural_Relevance_Filtering = False # The dataset will be cleaned from posts
 # NOTE: Default model_path is [repository path]/Human_Ratings/1_1/full_1005/
 # See RoBERTa_Classifier.py for training, learning and evaluation details.
 # NOTE: This task takes a long time to complete.
-rel_sample_num = 200 # A random sample of this size (if available) will be
+rel_sample_num = 750 # A random sample of this size (if available) will be
 # extracted from the dataset to evaluate the classification model.
 balanced_rel_sample = False # whether the random filtering sample should be
 # balanced across classification categories (relevant, irrelevant by default)
+# NOTE: If the dataset has previously been auto-filtered for relevance, this
+# should be set to False 
 eval_relevance = False # F1, recall, precision and accuracy for the sample derived
 # from Neural_Relevance_Filtering. Requires the sample to be complemented by
 # manual labels. The default location for the sample is
