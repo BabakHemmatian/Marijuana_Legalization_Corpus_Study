@@ -29,12 +29,13 @@ nnmodel=NNModel()
 # should not be changed between the creation of sets for LDA and NN analyses
 
 ## Determine the comments that will comprise various sets
-# NOTE: For DOI training, feed in [human_ratings_path] as an argument. The fn
+# NOTE: For DOI training, feed in [human_ratings_pattern] as an argument. The fn
 # uses glob to match the list of patterns provided to files within the offered
 # path and include them in training/testing
 # NOTE: Make sure the corresponding "info" files with the ratings' metadata
-# are stored in the same directory
-nnmodel.Define_Sets(human_ratings_pattern = model_path + ["/auto_labels/*(sample_ratings-200-False-*"])
+# are stored in the same directory.
+# NOTE: The prefix will be automatically set to [model_path]
+nnmodel.Define_Sets(human_ratings_pattern = ["/auto_labels/sample_info-200-False-*"])
 
 ## Read and index the content of comments in each set
 # TODO: Set this up to add the RoBERTa activations as flattened column to the database
