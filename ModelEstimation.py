@@ -198,22 +198,9 @@ class ModelEstimator(object):
                                         else:
                                             human_ratings["persuasion"][int(row[0])].append(formatted_row)
 
-                assert len(human_ratings["attitude"]) == len(human_ratings["persuasion"])
 
-                info_indices = {}
-                for id_ in human_ratings["attitude"].keys():
-                    if id_ not in info_indices.keys():
-                        for file in info_files:
-                            with open(file,"r") as csvfile:
-                                reader = csv.reader(csvfile)
-                                for row in reader:
-                                    if int(row[0].strip()) == id_:
-                                        info_indices[int(row[0].strip())] = int(row[5].strip())
-
-                assert len(info_indices) == len(human_ratings["attitude"])
-
-                num_comm = len(human_ratings["attitude"])  # the number of valid samples for network training
-                indices = human_ratings["attitude"].keys()  # define sets over sampled comments with human ratings
+                num_comm = len(human_ratings)  # the number of valid samples for network training
+                indices = human_ratings.keys()  # define sets over sampled comments with human ratings
 
             elif self.NN:
                 num_comm = list(indices)[-1]  # retrieve the total number of comments
