@@ -31,13 +31,13 @@ nnmodel=NNModel()
 ## Determine the comments that will comprise various sets
 # NOTE: For DOI training, feed in [human_ratings_path] as an argument. The
 # filename format will be inferred based on parameters in defaults.py
-# TODO: fix the path variable. We might want to move the rating files
-# TODO: Debug the function, maybe add the indices to the SQL database.
+# TODO: fix the path variable. We might want to move it.
 nnmodel.Define_Sets(human_ratings_path = model_path + "/auto_labels")
 
 ## Read and index the content of comments in each set
-# TODO: Set this up to add the RoBERTa activations as flattened column to the database
-nnmodel.RoBERTa_Set()
+
+for set_key in nnmodel.set_key_list:
+    nnmodel.Index_Set(set_key)
 
 #TODO: Add the getting sentiments and human ratings as part of the training func,
 # wuth path arguments if needed
@@ -61,6 +61,3 @@ nnmodel.Get_Set_Lengths()
 # in defaults.py
 
 nnmodel.train_and_evaluate()
-
-# TODO: implement
-nnmodel.test()
