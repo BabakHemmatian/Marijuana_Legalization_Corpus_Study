@@ -133,76 +133,35 @@ class ModelEstimator(object):
         self.training_fraction = training_fraction
         self.V = V  # vocabulary #TODO: check to see if this is needed
 
-    # TODO: first set aside 10 percent of data for test, then determine the
-    # validation split
     ### function to determine comment indices for new training, development and test sets
-    def Create_New_Sets(self, indices, human_ratings_pattern=None):
+    def Create_New_Sets(self, indices):
         print("Creating sets")
 
         # determine number of comments in the dataset
         if self.all_:
 
-            if self.NN and self.DOI is not None:
+            if NN and self.DOI:
 
                 # check to see if human comment ratings can be found on disk
-                files = []
-                info_files = []
-                for element in human_ratings_pattern:
-                    files_to_add = glob.glob(element)
-                    info_to_add = glob.glob(re.sub(element,"ratings","info"))
-                    for file in files_to_add:
-                        files.append(file)
-                    for file in info_to_add:
-                        info_files.append(file)
-
-                if len(files) == 0:
+                if not Path(model_path + "/auto_labels/rel_sample_ratings-0.csv").is_file():
                     raise Exception("Human comment ratings for DOI training could not be found on disk.")
-                if len(info_files) == 0:
-                    raise Exception("Metadata files for human comment ratings could not be found on disk.")
 
-                human_ratings = {"attitude":{},"persuasion":{}}
-                for file in files:
-
-                    # retrieve the number of comments for which there are complete human ratings
-                    with open(file, 'r') as csvfile:
-                        reader = csv.reader(csvfile)
-                        # read human data for sampled comments one by one
-                        for idx, row in enumerate(reader):
-                            # ignore headers and record the index of comments that are interpretable and that have ratings for all three goal variables
-                            if (idx != 0) and (row[2] != '0'): # if not a header or an irrelevant comment
-
-                                relevant_rows = [row[3],row[4]]
-
-                                for id_,relevant_row in enumerate(relevant_rows):
-
-                                    formatted_row = relevant_row
-                                    if "//" in formatted_row:
-                                        formatted_row = relevant_row.split("//")[0]
-
-                                    if "unclear" in formatted_row.lower():
-                                        if any(char.isdigit() for char in formatted_row):
-                                            formatted_row = int(re.sub('[^0-9]','', formatted_row))
-                                        else:
-                                            formatted_row = 0
-
-                                    if id_ == 0:
-                                        if row[0] not in human_ratings["attitude"]:
-                                            if relevant_row.strip() != "":
-                                                human_ratings["attitude"][int(row[0])] = [formatted_row]
-                                        else:
-                                            human_ratings["attitude"][int(row[0])].append(formatted_row)
-                                    else:
-                                        if row[0] not in human_ratings["persuasion"]:
-                                            if relevant_row.strip() != "":
-                                                human_ratings["persuasion"][int(row[0])] = [formatted_row]
-                                        else:
-                                            human_ratings["persuasion"][int(row[0])].append(formatted_row)
-
+                # TODO: Edit and test for compatibility with Qualtrics data --> this might be OBSOLETE
+                # retrieve the number of comments for which there are complete human ratings
+                with open(model_path + "/auto_labels/rel_sample_ratings-0.csv", 'r+') as csvfile:
+                    reader = csv.reader(csvfile)
+                    human_ratings = []  # initialize counter for the number of valid human ratings
+                    # read human data for sampled comments one by one
+                    for idx, row in enumerate(reader):
+                        row = row[0].split(",")
+                        # ignore headers and record the index of comments that are interpretable and that have ratings for all three goal variables
+                        if (idx != 0):
+                            human_ratings.append(int(row[0]))
 
                 num_comm = len(human_ratings)  # the number of valid samples for network training
-                indices = human_ratings.keys()  # define sets over sampled comments with human ratings
+                indices = human_ratings  # define sets over sampled comments with human ratings
 
-            elif self.NN:
+            elif NN:
                 num_comm = list(indices)[-1]  # retrieve the total number of comments
                 indices = range(num_comm)  # define sets over all comments
 
@@ -224,10 +183,9 @@ class ModelEstimator(object):
             # Check test set came out with the right proportion
             assert len(self.sets['test']) + len(self.sets['train']) == len(
                 indices), "The sizes of the training, development and test sets do not add up to the number of posts on file"
-
             # write the sets to file
             for set_key in self.set_key_list:
-                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI),self.set_key_list[set_key])
+                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI), self.sets[set_key])
 
         else:  # for LDA over the entire corpus
             num_eval = num_comm - num_train  # size of evaluation set
@@ -244,8 +202,6 @@ class ModelEstimator(object):
             assert len(self.LDA_sets['train']) + len(self.LDA_sets['eval']) == len(
                 indices), "The training and evaluation set sizes do not correspond to the number of posts on file"
 
-            # TODO: here's where we should add both the training and test set membership to
-            # the SQL database, and upload the actual ratings to the attitude or persuasion
             # write the sets to file
             for set_key in self.LDA_set_keys:
                 with open(self.fns["{}_set".format(set_key)], 'a+') as f:
@@ -254,7 +210,7 @@ class ModelEstimator(object):
 
     # NOTE: The lack of an evaluation set for NN should reflect in this func too
     ### function for loading, calculating, or recalculating sets
-    def Define_Sets(self,human_ratings_pattern=None):
+    def Define_Sets(self, human_ratings_path):
         # load the number of comments or raise Exception if they can't be found
         findices = self.fns["counts"] if self.all_ else self.fns["random_indices"]
         try:
@@ -285,7 +241,7 @@ class ModelEstimator(object):
                     if Path(self.fns["{}_set".format(set_key)]).is_file():
                         os.remove(self.fns["{}_set".format(set_key)])
 
-                self.Create_New_Sets(indices,human_ratings_pattern)  # create sets
+                self.Create_New_Sets(indices)  # create sets
 
             # If recreating is not requested, attempt to load the sets
             elif Q == "N" or Q == "n":
@@ -312,7 +268,7 @@ class ModelEstimator(object):
                         if Path(self.fns["{}_set".format(set_key)]).is_file():
                             os.remove(self.fns["{}_set".format(set_key)])
 
-                    self.Create_New_Sets(indices,human_ratings_pattern)  # create sets
+                    self.Create_New_Sets(indices)  # create sets
 
             else:  # if response was something other tha Y or N
                 print("Operation aborted")
@@ -371,7 +327,7 @@ class ModelEstimator(object):
                             os.remove(self.fns["{}_set".format(set_key)])
 
                     # create new sets
-                    self.Create_New_Sets(indices, human_ratings_pattern)
+                    self.Create_New_Sets(indices)
 
 
 class LDAModel(ModelEstimator):
@@ -1500,6 +1456,8 @@ class NNModel(ModelEstimator):
                # TODO: do we want to get different train/test sets for things other than DOI?
                "indexed_train_set": "{}/indexed_train_{}".format(self.path, self.DOI),
                "indexed_test_set": "{}/indexed_test_{}".format(self.path, self.DOI),
+               # TODO: the following should be replaced with the format of the ratings
+               "sample_ratings": "{}/sample_ratings.csv".format(self.output_path),
                }
 
 
@@ -1557,10 +1515,7 @@ class NNModel(ModelEstimator):
                     encoded_input = tokenizer(texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
                     roberta_output = roberta(encoded_input)
                     roberta_output = np.asarray(roberta_output[0]) # shape (batch_size, 3, hidden_size)
-                    if i+1 == total_count:
-                        roberta_output = roberta_output.reshape(len(train_texts),2304)
-                    else:
-                        roberta_output = roberta_output.reshape(self.batch_size,2304)
+                    roberta_output = roberta_output.reshape(self.batch_size,2304)
 
                     # BUG: The format is not correct, because roberta has three activations for each post with weird shape
                     for id_,document in enumerate(roberta_output):
@@ -1589,10 +1544,10 @@ class NNModel(ModelEstimator):
                     else:
                         raise Exception("The set indices are not correctly defined")
 
-
-    ## Function for creating the neural network's computation graph, training
-    # and evaluating
-    def train_and_evaluate(self):
+    # TODO: Replace with the TF2 computation graph. See how the random initialization
+    # works in the new version
+    ## Function for creating the neural network's computation graph
+    def Setup_Comp_Graph(self, device_count=None):
 
         if not device_count is None:
             self.device_count = device_count
@@ -1652,7 +1607,7 @@ class NNModel(ModelEstimator):
 
     # TODO: add LDA input, etc.
     # TODO: add F1 to metrics
-
+    def train_and_evaluate(self):
 
         # NEW STUFF
         checkpoint_path = self.output_path + "/params/training_1/cp.ckpt"
@@ -1666,37 +1621,13 @@ class NNModel(ModelEstimator):
         # TODO: the input should be an iterator using fetchall. In fact, replace get_indexed_comment and index_set with some light processing here using iterators
         # TODO: this should be updated to reflect the configurable parts of the input, probably through an IF condition
         # TODO: should add rowid condition based on whether something is in the training set.
-
-        conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
-        cursor = conn.cursor()
-
-        document_batch = []
-
-        if input2_sz == 0:
-            command = cursor.execute("SELECT roberta_activation,{} FROM comments WHERE {} IS NOT NULL".format(self.DOI,self.DOI))
-        else:
-            input2 = []
-            if self.LDA_topics:
-                for topic in range(num_topics):
-                    input2.append("topic_{}".format(topic))
-                if self.authorship:
-                    input2.append("author")
-                if self.subreddits:
-                    input2.append("subreddit")
-
-            command = cursor.execute("SELECT roberta_activation,{} FROM comments WHERE attitude IS NOT NULL".format(",".join(input2)))
-
-        for document in command:
-            document_batch.append(document)
-            # IF any additions are needed as input2, get them from the database in the SQL command below
-            # ELSE:
-
-            if len(document_batch) == 10000:
-
-                # TODO: the reformatting of the subreddits should come here
-                # TODO: the null topic values should be fed in as zeros
-
-
+        # IF any additions are needed as input2, get them from the database in the SQL command below
+        # ELSE:
+        if self.DOI == "attitude":
+            cursor.execute("SELECT roberta_activation,attitude WHERE attitude IS NOT NULL")
+        elif self.DOI == "persuasion":
+            cursor.execute("SELECT roberta_activation,persuasion WHERE persuasion IS NOT NULL")
+            roberta_output = cursor.fetchall()
             model.fit(x = np.asarray(roberta_output[0]), y = np.asarray(roberta_output[1]), batch_size = batch_size, epochs = epochs, validation_split = 0.2, validation_batch_size=batch_size, metrics=[tf.keras.metrics.CategoricalAccuracy,tf.keras.metrics.Precision,tf.keras.metrics.Recall])
 
         # timer
