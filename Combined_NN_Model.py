@@ -1,70 +1,26 @@
 ### import the required modules and functions
-#TODO: Is this the correct Write_Performance()? --> NO, it's not. We should
-# update it with the parameters important for the NN in Utils.py
-# Same for NN_param_typecheck in NN_Utils.py
-import subprocess
+
 import time
 import sys
-
-from pycorenlp import StanfordCoreNLP
-
-from Utils import Write_Performance
-from config import *
-from reddit_parser import Parser
+# from Utils import *
+# from config import *
 from ModelEstimation import NNModel
-from transformers import BertTokenizer
-from NN_Utils import *
+from reddit_parser import Parser # Does the parser object need to be adjusted?
 
-# NOTE: Don't forget to set NN=True in defaults.py before running this file
-
-### Define the neural network object
-
-nnmodel=NNModel()
-
-
-### check key hyperparameters for correct data types
-
-nnmodel.NN_param_typecheck()
-
-### Write hyperparameters to file. Performance measures will be written to the
-# same file after analyses are performed
-
-Write_Performance()
-
-### call the parsing function
-
-# CoreNLP
-# create a connection to the CoreNLP server to retrieve sentiment
-# (requires CoreNLP_server.py in the same directory)
-subprocess.Popen(['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer --quiet'],
-               shell=True, cwd="./stanford-corenlp-4.0.0")
-time.sleep(5)  # wait for connection to the server to be established
-
+# QUESTION: Does the ID need to show up here in the functions too?
 theparser=Parser()
+
 # Create relevant folders
 theparser.safe_dir_create()
 
 # parse the documents
 theparser.Parse_Rel_RC_Comments()
 
-if Neural_Relevance_Filtering:
-    # Use a transformer-based neural network trained on human ratings to prune the
-    # dataset from irrelevant posts. Path will default to the Human_Ratings folder
-    theparser.Neural_Relevance_Screen()
+### check key hyperparameters for correct data types
+# NN_param_typecheck()
 
-    # Needs results from Neural_Relevance_Screen
-    theparser.Neural_Relevance_Clean()
-
-theparser.lang_filtering() # filter non-English posts
-
-# NOTE: Requires a Neural_Relevance_Screen random sample hand-annotated for accuracy
-if eval_relevance:
-    theparser.eval_relevance()
-
-### call the function for calculating the percentage of relevant comments
-# NOTE: May work only for full-year sets of dates
-if calculate_perc_rel:
-    theparser.Perc_Rel_RC_Comment()
+### Define the neural network object
+nnmodel=NNModel()
 
 ### create training, development and test sets
 
@@ -73,21 +29,20 @@ if calculate_perc_rel:
 # should not be changed between the creation of sets for LDA and NN analyses
 
 ## Determine the comments that will comprise various sets
-
-nnmodel.Define_Sets()
+# NOTE: For DOI training, feed in [human_ratings_pattern] as an argument. The fn
+# uses glob to match the list of patterns provided to files within the offered
+# path and include them in training/testing
+# NOTE: Make sure the corresponding "info" files with the ratings' metadata
+# are stored in the same directory.
+# NOTE: The prefix will be automatically set to [model_path]
+nnmodel.Define_Sets(human_ratings_pattern = ["/auto_labels/sample_ratings-200-False-*"])
 
 ## Read and index the content of comments in each set
+# TODO: Set this up to add the RoBERTa activations as flattened column to the database
+nnmodel.RoBERTa_Set()
 
-for set_key in nnmodel.set_key_list:
-    nnmodel.Index_Set(set_key)
-
-## if performing sentiment pre-training, load comment sentiments from file
-if special_doi == False and pretrained == False:
-    nnmodel.Get_Sentiment(path)
-elif special_doi == True:
-    nnmodel.Get_Human_Ratings(path)
-    #TODO: Define this function. It should already somehow incorporated into
-    # the ModelEstimator
+#TODO: Add the getting sentiments and human ratings as part of the training func,
+# wuth path arguments if needed
 
 ### Sentiment Modeling/DOI Classification Neural Networks
 
@@ -108,3 +63,6 @@ nnmodel.Get_Set_Lengths()
 # in defaults.py
 
 nnmodel.train_and_evaluate()
+
+# TODO: implement
+nnmodel.test()
