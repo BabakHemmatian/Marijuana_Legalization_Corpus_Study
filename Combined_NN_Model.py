@@ -2,8 +2,8 @@
 
 import time
 import sys
-from Utils import *
-from config import *
+# from Utils import *
+# from config import *
 from ModelEstimation import NNModel
 from reddit_parser import Parser # Does the parser object need to be adjusted?
 
@@ -17,7 +17,7 @@ theparser.safe_dir_create()
 theparser.Parse_Rel_RC_Comments()
 
 ### check key hyperparameters for correct data types
-NN_param_typecheck()
+# NN_param_typecheck()
 
 ### Define the neural network object
 nnmodel=NNModel()
@@ -35,7 +35,7 @@ nnmodel=NNModel()
 # NOTE: Make sure the corresponding "info" files with the ratings' metadata
 # are stored in the same directory.
 # NOTE: The prefix will be automatically set to [model_path]
-nnmodel.Define_Sets(human_ratings_pattern = ["/auto_labels/sample_info-200-False-*"])
+nnmodel.Define_Sets(human_ratings_pattern = ["/auto_labels/sample_ratings-200-False-*"])
 
 ## Read and index the content of comments in each set
 # TODO: Set this up to add the RoBERTa activations as flattened column to the database

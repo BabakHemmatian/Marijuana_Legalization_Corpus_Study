@@ -150,7 +150,9 @@ class ModelEstimator(object):
                 info_files = []
                 for element in human_ratings_pattern:
                     files_to_add = glob.glob(self.path + element)
-                    info_to_add = glob.glob(re.sub(r'\sratings\s', 'info', self.path + element))
+                    print("files", files_to_add)
+                    info_to_add = glob.glob(re.sub(r'ratings', 'info', self.path + element))
+                    print("info", info_to_add)
                     for file in files_to_add:
                         files.append(file)
                     for file in info_to_add:
@@ -175,7 +177,8 @@ class ModelEstimator(object):
                                 relevant_rows = [row[3],row[4]]
 
                                 for id_,relevant_row in enumerate(relevant_rows):
-                                    print(id_, relevant_row)
+                                    # print("rows")
+                                    # print(row[3], row[4])
 
                                     formatted_row = relevant_row
                                     if "//" in formatted_row:
@@ -202,20 +205,21 @@ class ModelEstimator(object):
 
                 assert len(human_ratings["attitude"]) == len(human_ratings["persuasion"])
 
-                # print("human_ratings", human_ratings)
-
                 info_indices = {}
                 for id_ in human_ratings["attitude"].keys():
                     if id_ not in info_indices.keys():
                         for file in info_files:
                             with open(file,"r") as csvfile:
                                 reader = csv.reader(csvfile)
+                                count = 0
                                 for row in reader:
-                                    if int(row[0].strip()) == id_:
-                                        if not row[5].isdigit():
-                                            info_indices[int(row[0].strip())] = [int(i) for i in row[5].strip().split(",")]
-                                        else:
-                                            info_indices[int(row[0].strip())] = int(row[5].strip())
+                                    if count!= 0:
+                                        if int(row[0].strip()) == id_:
+                                            if not row[5].isdigit():
+                                                info_indices[int(row[0].strip())] = [int(i) for i in row[5].strip().split(",")]
+                                            else:
+                                                info_indices[int(row[0].strip())] = int(row[5].strip())
+                                    count = count + 1
 
                 assert len(info_indices) == len(human_ratings["attitude"])
 
@@ -247,7 +251,7 @@ class ModelEstimator(object):
 
             # write the sets to file
             for set_key in self.set_key_list:
-                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI),self.set_key_list[set_key])
+                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI), self.sets[set_key])
 
         else:  # for LDA over the entire corpus
             num_eval = num_comm - num_train  # size of evaluation set
