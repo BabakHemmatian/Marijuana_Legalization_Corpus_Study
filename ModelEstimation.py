@@ -136,13 +136,13 @@ class ModelEstimator(object):
     # TODO: first set aside 10 percent of data for test, then determine the
     # validation split
     ### function to determine comment indices for new training, development and test sets
-    def Create_New_Sets(self, indices, human_ratings_pattern):
+    def Create_New_Sets(self, indices, human_ratings_pattern=None):
         print("Creating sets")
 
         # determine number of comments in the dataset
         if self.all_:
 
-            if NN and self.DOI is not None:
+            if self.NN and self.DOI is not None:
 
                 # check to see if human comment ratings can be found on disk
                 files = []
@@ -260,61 +260,13 @@ class ModelEstimator(object):
             assert len(self.LDA_sets['train']) + len(self.LDA_sets['eval']) == len(
                 indices), "The training and evaluation set sizes do not correspond to the number of posts on file"
 
-            
+            # TODO: here's where we should add both the training and test set membership to
+            # the SQL database, and upload the actual ratings to the attitude or persuasion
             # write the sets to file
             for set_key in self.LDA_set_keys:
                 with open(self.fns["{}_set".format(set_key)], 'a+') as f:
                     for index in self.LDA_sets[set_key]:
-                        print(index, file=f)
-
-        # TODO: here's where we should add both the training and test set membership to
-        # the SQL database, and upload the actual ratings to the attitude or persuasion
-
-        #In the database we should add training/test column (ALTER TABLE table_name ADD training int)
-
-        # rows_to_be_added = {} #key is the index and value is a list with attitude, persuasion, training/test value
-        # attitude_key_set = human_ratings["attitude"].keys()
-        # persuasion_key_set = human_ratings["persuasion"].keys()
-        # training_key_set = self.set_key_list["train"]
-        # test_key_set = self.set_key_list["test"]
-
-        # for aks in attitude_key_set:
-        #     original_index = info_indices[aks] + 1
-        #     val = ",".join(set(human_ratings["attitude"][aks]))
-        #     rows_to_be_added[original_index] = [val]
-
-        # for pks in persuasion_key_set:
-        #     original_index = info_indices[pks] + 1
-        #     val = ",".join(set(human_ratings["attitude"][pks]))  
-        #     if original_index in rows_to_be_added.keys():
-        #         rows_to_be_added[original_index].append(val)
-        #     else:
-        #         rows_to_be_added[original_index] = ["", val]
-
-        # for trks in training_key_set:
-        #     original_index = info_indices[trks] + 1
-        #     val = 1
-        #     if original_index in rows_to_be_added.keys():
-        #         rows_to_be_added[original_index].append(val)
-        #     else:
-        #         rows_to_be_added[original_index] = ["", "", val]
-
-        # for teks in test_key_set:
-        #     original_index = info_indices[teks] + 1
-        #     val = 0
-        #     if original_index in rows_to_be_added.keys():
-        #         rows_to_be_added[original_index].append(val)
-        #     else:
-        #         rows_to_be_added[original_index] = ["", "", val]
-
-        # ##db code UPDATE table_name SET training WHERE id = 1;
-        # conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
-        # cursor = conn.cursor()
-        # for row in rows_to_be_added.key():
-        #     sql = "UPDATE comments SET attitude = %s, persuasion = %s, training = %d WHERE original_index = %d"
-        #     val = (rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
-        #     cursor.execute(sql, val)
-        # conn.commit()
+                        print(index, end='\n', file=f)
 
     # NOTE: The lack of an evaluation set for NN should reflect in this func too
     ### function for loading, calculating, or recalculating sets
@@ -426,8 +378,7 @@ class ModelEstimator(object):
                             os.remove(self.fns["{}_set".format(set_key)])
 
                     # create new sets
-                    #FOR BABAK: check if this is okay
-                    self.Create_New_Sets(indices, human_ratings_pattern)
+                    self.Create_New_Sets(indices)
 
                 else:  # for LDA
                     # delete any partial set
@@ -1759,8 +1710,10 @@ class NNModel(ModelEstimator):
             if len(document_batch) == 10000:
 
                 # TODO: the reformatting of the subreddits should come here
-                # TODO: the null topic values should be fed in as zero
-                model.fit(x = np.asarray(roberta_output[0]), y = np.asarray(roberta_output[1]), batch_size = batch_size, epochs = epochs, validation_split = 0.2, validation_batch_size=batch_size, metrics=[tf.keras.metrics.CategoricalAccuracy,tf.keras.metrics.Precision,tf.keras.metrics.Recall])
+                # TODO: the null topic values should be fed in as zeros
+
+
+            model.fit(x = np.asarray(roberta_output[0]), y = np.asarray(roberta_output[1]), batch_size = batch_size, epochs = epochs, validation_split = 0.2, validation_batch_size=batch_size, metrics=[tf.keras.metrics.CategoricalAccuracy,tf.keras.metrics.Precision,tf.keras.metrics.Recall])
 
         # timer
         print("Finishing time:" + time.strftime('%l:%M%p, %m/%d/%Y'))
