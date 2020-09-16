@@ -130,9 +130,11 @@ no_above = 0.99 # tokens that appear in more than this fraction of documents in
 training_fraction = 0.99 # what percentage of data will be used for learning the
 # LDA model. The rest of the dataset will be used as an evaluation set for
 # calculating perplexity and identifying overfitting
-NN_training_fraction = 0.90 # fraction of the data that is used for training
-# the neural network. 20% of this fraction will be used for validation, while
-# [1 - training_fraction] fraction will serve as a test set
+NN_training_fraction = 0.80 # fraction of the data that is used for training
+# the neural network.[1 - training_fraction] fraction of the dataset will be
+# divided randomly and equally into evaluation and test sets
+# TODO: restructure the set-producing functions to take advantage of TF2's
+# built-in validation split
 # TODO: remove the need for dummy bert_prep files
 
 ### LDA hyperparameters
@@ -187,7 +189,6 @@ calculate_coherence = False # whether umass coherence is calculated for the mode
 # attitude/argumentation based on unsupervised sentiment training and across
 # variations
 ## determine kind of network
-# NOTE: If changed from a previous run, you will need to re-train your network
 RoBERTa_model = "base" # whether "base" or "large" versions of default RoBERTa
 # will be used
 pretrained = False # whether sentiment analysis pre-training is utilized.
@@ -207,19 +208,16 @@ LDA_topics = False # whether the neural networks take as part of their input
 authorship = False # whether the neural networks take as part of their input
 # the username of a post's author.
 # NOTE: When the username is missing for posts (e.g. in cases where the author
-# deleted their Reddit account), the model assigns the OTHER author node
+# deleted their Reddit account), the model assumes a different author for each
+# anonymous posting.
 # NOTE: The functions assume that "author" files from pre-processing are
 # available in the same folder as the one containing this file
-top_authors = 200 # the number of named authors in the dataset with the most
-# posts to receive their own inference layer node if authorship = True. The rest
-# will be assigned to the OTHER author node
-# NOTE: the top 200 authors have at least 200 posts
-use_subreddits = False # whether the inference layers learn associations with
-# the more strongly represented subreddits.
-top_subs = 500 # the number of subreddits in the dataset with the most posts to
-# receive their own inference layer nodes if use_subreddits = True. The rest will
-# be assigned to the OTHER subreddit node
-# NOTE: the top 500 subreddits have at least 500 posts
+min_authorship = 50 # the minimum number of posts in the dataset for a named
+# author for them to receive their own inference layer node if authorship = True
+# NOTE: If changed from a previous run, you need to re-train your network
+# TODO: ask Carsten what to do with the deleted authors so as not to create too many
+# variables...
+# TODO: remove use_simple_bert
 
 ## Training hyperparameters
 # TODO: allow the other ones to be fed as lists too. Would simplify training
@@ -289,10 +287,10 @@ data_path = model_path + "/" # where the dataset is
 # TODO: this would need to loop through different learning_rates, etc., as needed
 if NN: # If running a neural network analysis
     if authorship == True:
-        auth_label = top_authors
+        auth_label = min_authorship
     else:
         auth_label = "False"
-    output_path = "{}/{}_{}_pre_{}_lda_{}_auth_{}_subs_{}_ep_{}_rate_{}_ff2_{}".format(model_path,RoBERTa_model,DOI,pretrained,LDA_topics,auth_label,use_subreddits,epochs,learning_rate,ff2Sz)
+    output_path = "{}/{}_{}_pre_{}_lda_{}_auth_{}_ep_{}_rate_{}_ff2_{}".format(model_path,RoBERTa_model,DOI,pretrained,LDA_topics,auth_label,learning_rate,ff2Sz)
     if not os.path.exists(output_path):
         print("Creating directory to store the output")
         os.makedirs(output_path)
