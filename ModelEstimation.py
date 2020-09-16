@@ -150,7 +150,9 @@ class ModelEstimator(object):
                 info_files = []
                 for element in human_ratings_pattern:
                     files_to_add = glob.glob(self.path + element)
+                    print("files", files_to_add)
                     info_to_add = glob.glob(re.sub(r'ratings', 'info', self.path + element))
+                    print("info", info_to_add)
                     for file in files_to_add:
                         files.append(file)
                     for file in info_to_add:
@@ -231,10 +233,7 @@ class ModelEstimator(object):
         else:  # if using LDA on a random subsample of the comments
             num_comm = len(indices)  # total number of sampled comments
 
-        num_train = int(ceil(0.90 * num_comm))  # size of training set
-
-        training_set = []
-        testing_set = []
+        num_train = int(ceil(training_fraction * num_comm))  # size of training set
 
         if isinstance(self, NNModel):  # for NN
             num_test = num_comm - num_train  # the number of comments in development set or test set
@@ -253,9 +252,6 @@ class ModelEstimator(object):
             # write the sets to file
             for set_key in self.set_key_list:
                 np.save(self.path + '/' + set_key + '_set_' + str(self.DOI), self.sets[set_key])
-
-            training_set = self.sets['train']
-            testing_set = self.sets['test']
 
         else:  # for LDA over the entire corpus
             num_eval = num_comm - num_train  # size of evaluation set
@@ -284,66 +280,49 @@ class ModelEstimator(object):
 
         #In the database we should add training/test column (ALTER TABLE table_name ADD training int)
 
-        rows_to_be_added = {} #key is the index and value is a list with attitude, persuasion, training/test value
-        attitude_key_set = human_ratings["attitude"].keys()
-        persuasion_key_set = human_ratings["persuasion"].keys()
-        training_key_set = training_set
-        test_key_set = testing_set
+        # rows_to_be_added = {} #key is the index and value is a list with attitude, persuasion, training/test value
+        # attitude_key_set = human_ratings["attitude"].keys()
+        # persuasion_key_set = human_ratings["persuasion"].keys()
+        # training_key_set = self.set_key_list["train"]
+        # test_key_set = self.set_key_list["test"]
 
-        for aks in attitude_key_set:
-            original_index = -1
-            if type(info_indices[aks]) is list:
-                original_index = info_indices[aks][0]
-            else:
-                original_index = info_indices[aks] + 1
-            set_values = set(human_ratings["attitude"][aks])
-            val = ",".join(str(s) for s in set_values)
-            rows_to_be_added[original_index] = [val]
+        # for aks in attitude_key_set:
+        #     original_index = info_indices[aks] + 1
+        #     val = ",".join(set(human_ratings["attitude"][aks]))
+        #     rows_to_be_added[original_index] = [val]
 
-        for pks in persuasion_key_set:
-            original_index = -1
-            if type(info_indices[pks]) is list:
-                original_index = info_indices[pks][0]
-            else:
-                original_index = info_indices[pks] + 1
-            set_values = set(human_ratings["persuasion"][pks])
-            val = ",".join(str(s) for s in set_values)
-            if original_index in rows_to_be_added.keys():
-                rows_to_be_added[original_index].append(val)
-            else:
-                rows_to_be_added[original_index] = ["", val]
+        # for pks in persuasion_key_set:
+        #     original_index = info_indices[pks] + 1
+        #     val = ",".join(set(human_ratings["attitude"][pks]))  
+        #     if original_index in rows_to_be_added.keys():
+        #         rows_to_be_added[original_index].append(val)
+        #     else:
+        #         rows_to_be_added[original_index] = ["", val]
 
-        for trks in training_key_set:
-            original_index = -1
-            if type(info_indices[trks]) is list:
-                original_index = info_indices[trks][0]
-            else:
-                original_index = info_indices[trks] + 1
-            val = 1
-            if original_index in rows_to_be_added.keys():
-                rows_to_be_added[original_index].append(val)
-            else:
-                rows_to_be_added[original_index] = ["", "", val]
+        # for trks in training_key_set:
+        #     original_index = info_indices[trks] + 1
+        #     val = 1
+        #     if original_index in rows_to_be_added.keys():
+        #         rows_to_be_added[original_index].append(val)
+        #     else:
+        #         rows_to_be_added[original_index] = ["", "", val]
 
-        for teks in test_key_set:
-            original_index = -1
-            if type(info_indices[teks]) is list:
-                original_index = info_indices[teks][0]
-            else:
-                original_index = info_indices[teks] + 1
-            val = 0
-            if original_index in rows_to_be_added.keys():
-                rows_to_be_added[original_index].append(val)
-            else:
-                rows_to_be_added[original_index] = ["", "", val]
+        # for teks in test_key_set:
+        #     original_index = info_indices[teks] + 1
+        #     val = 0
+        #     if original_index in rows_to_be_added.keys():
+        #         rows_to_be_added[original_index].append(val)
+        #     else:
+        #         rows_to_be_added[original_index] = ["", "", val]
 
-        conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
-        cursor = conn.cursor()
-        for row in rows_to_be_added.keys():
-            print("row", row)
-            sql = "UPDATE comments SET attitude={0}, persuasion={1}, training={2} WHERE original_indices={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
-            cursor.execute(sql)
-        conn.commit()
+        # ##db code UPDATE table_name SET training WHERE id = 1;
+        # conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
+        # cursor = conn.cursor()
+        # for row in rows_to_be_added.key():
+        #     sql = "UPDATE comments SET attitude = %s, persuasion = %s, training = %d WHERE original_index = %d"
+        #     val = (rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
+        #     cursor.execute(sql, val)
+        # conn.commit()
 
     # NOTE: The lack of an evaluation set for NN should reflect in this func too
     ### function for loading, calculating, or recalculating sets
