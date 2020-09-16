@@ -1519,9 +1519,8 @@ class NNModel(ModelEstimator):
                         train_texts.append(comment[1].strip())
 
                     encoded_input = tokenizer(texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
-                    roberta_output = roberta(encoded_input)
-                    roberta_output = np.asarray(roberta_output[0]) # shape (batch_size, 3, hidden_size)
-                    roberta_output = roberta_output.reshape(self.batch_size,2304)
+                    roberta_output = roberta(encoded_input) # shape (batch_size, sequence_length, hidden_size)
+                    roberta_output = np.asarray(roberta_output[0])
 
                     # BUG: The format is not correct, because roberta has three activations for each post with weird shape
                     for id_,document in enumerate(roberta_output):
@@ -1558,7 +1557,7 @@ class NNModel(ModelEstimator):
         if not device_count is None:
             self.device_count = device_count
 
-        input1 = tf.keras.layers.Input(shape = (2304,),dtype=tf.float32)
+        input1 = tf.keras.layers.Input(shape = (3,768,),dtype=tf.float32)
         inpt2_sz = 0
         if self.authorship:
             input2_sz += self.top_authors + 1
@@ -1566,11 +1565,12 @@ class NNModel(ModelEstimator):
             input2_sz += self.num_topics
         if self.use_subreddits:
             input2_sz += self.top_subs + 1
+        flatten = tf.keras.layers.Flatten(data_format='channels_last')(input1)
         if inpt2_sz != 0:
-            input2 = tf.keras.layers.Input(shape = (input2_sz,))
-            ff1 = tf.keras.layers.Dense(128,dtype=tf.float32)([input1,input2])
+            input2 = tf.keras.layers.Input(shape = (flatten.shape[0] + input2_sz))
+            ff1 = tf.keras.layers.Dense(128,dtype=tf.float32)([flatten,input2])
         else:
-            ff1 = tf.keras.layers.Dense(128,dtype=tf.float32)(input1)
+            ff1 = tf.keras.layers.Dense(128,dtype=tf.float32)(flatten)
         out = tf.keras.layers.Dense(3,dtype=tf.float32)(ff1)
         if inpt2_sz != 0:
             model = tf.keras.Model([input1,input2], [out])
