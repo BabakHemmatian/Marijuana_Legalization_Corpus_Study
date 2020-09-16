@@ -127,7 +127,7 @@ no_below = 5 # tokens that appear in less than this number of documents in
 # corpus will be filtered out (when NN=False, i.e. for the LDA model)
 no_above = 0.99 # tokens that appear in more than this fraction of documents in
 # corpus will be filtered out (when NN=False, i.e. for the LDA model)
-training_fraction = 0.90 # what percentage of data will be used for learning the
+training_fraction = 0.99 # what percentage of data will be used for learning the
 # LDA model. The rest of the dataset will be used as an evaluation set for
 # calculating perplexity and identifying overfitting
 NN_training_fraction = 0.90 # fraction of the data that is used for training
