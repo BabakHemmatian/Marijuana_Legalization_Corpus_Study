@@ -6,6 +6,7 @@ import operator
 import numpy as np
 import tensorflow as tf
 import gensim
+import glob
 import pickle
 from math import ceil, floor
 import matplotlib.pyplot as plt
@@ -148,8 +149,8 @@ class ModelEstimator(object):
                 files = []
                 info_files = []
                 for element in human_ratings_pattern:
-                    files_to_add = glob.glob(self.model_path + element)
-                    info_to_add = glob.glob(re.sub(self.model_path + element,"ratings","info"))
+                    files_to_add = glob.glob(self.path + element)
+                    info_to_add = glob.glob(re.sub(r'\sratings\s', 'info', self.path + element))
                     for file in files_to_add:
                         files.append(file)
                     for file in info_to_add:
@@ -174,6 +175,7 @@ class ModelEstimator(object):
                                 relevant_rows = [row[3],row[4]]
 
                                 for id_,relevant_row in enumerate(relevant_rows):
+                                    print(id_, relevant_row)
 
                                     formatted_row = relevant_row
                                     if "//" in formatted_row:
@@ -199,6 +201,8 @@ class ModelEstimator(object):
                                             human_ratings["persuasion"][int(row[0])].append(formatted_row)
 
                 assert len(human_ratings["attitude"]) == len(human_ratings["persuasion"])
+
+                # print("human_ratings", human_ratings)
 
                 info_indices = {}
                 for id_ in human_ratings["attitude"].keys():
