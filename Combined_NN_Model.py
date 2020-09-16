@@ -1,13 +1,10 @@
 ### import the required modules and functions
 
-import subprocess
 import time
 import sys
-from Utils import Write_Performance
-from config import *
+# from Utils import *
+# from config import *
 from ModelEstimation import NNModel
-from transformers import BertTokenizer
-from NN_Utils import *
 from reddit_parser import Parser # Does the parser object need to be adjusted?
 
 # QUESTION: Does the ID need to show up here in the functions too?
@@ -19,14 +16,11 @@ theparser.safe_dir_create()
 # parse the documents
 theparser.Parse_Rel_RC_Comments()
 
+### check key hyperparameters for correct data types
+# NN_param_typecheck()
 
 ### Define the neural network object
-
 nnmodel=NNModel()
-
-### check key hyperparameters for correct data types
-
-nnmodel.NN_param_typecheck()
 
 ### create training, development and test sets
 
@@ -35,21 +29,20 @@ nnmodel.NN_param_typecheck()
 # should not be changed between the creation of sets for LDA and NN analyses
 
 ## Determine the comments that will comprise various sets
-
-nnmodel.Define_Sets()
+# NOTE: For DOI training, feed in [human_ratings_pattern] as an argument. The fn
+# uses glob to match the list of patterns provided to files within the offered
+# path and include them in training/testing
+# NOTE: Make sure the corresponding "info" files with the ratings' metadata
+# are stored in the same directory.
+# NOTE: The prefix will be automatically set to [model_path]
+nnmodel.Define_Sets(human_ratings_pattern = ["/auto_labels/sample_ratings-200-False-*"])
 
 ## Read and index the content of comments in each set
+# TODO: Set this up to add the RoBERTa activations as flattened column to the database
+nnmodel.RoBERTa_Set()
 
-for set_key in nnmodel.set_key_list:
-    nnmodel.Index_Set(set_key)
-
-## if performing sentiment pre-training, load comment sentiments from file
-if special_doi == False and pretrained == False:
-    nnmodel.Get_Sentiment(path)
-elif special_doi == True:
-    nnmodel.Get_Human_Ratings(path)
-    #TODO: Define this function. It should already somehow incorporated into
-    # the ModelEstimator
+#TODO: Add the getting sentiments and human ratings as part of the training func,
+# wuth path arguments if needed
 
 ### Sentiment Modeling/DOI Classification Neural Networks
 
@@ -70,3 +63,6 @@ nnmodel.Get_Set_Lengths()
 # in defaults.py
 
 nnmodel.train_and_evaluate()
+
+# TODO: implement
+nnmodel.test()

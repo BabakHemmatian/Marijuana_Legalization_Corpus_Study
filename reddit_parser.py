@@ -1,5 +1,4 @@
 import bz2
-import copy
 import errno
 import lzma
 import zstandard as zstd
@@ -10,12 +9,14 @@ import datetime
 import itertools
 import scipy
 import glob
-import hashlib
 import html
 import json
 import multiprocessing
 import spacy
 import nltk
+nltk.download("stopwords")
+nltk.download("punkt")
+nltk.download("vader_lexicon")
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import numpy as np
 from math import floor,ceil
@@ -38,8 +39,8 @@ import logging
 import fnmatch
 from sklearn.metrics import accuracy_score,cohen_kappa_score
 from sklearn.model_selection import KFold
-from keras.preprocessing.sequence import pad_sequences
-import hashlib
+# from keras.preprocessing.sequence import pad_sequences
+# import hashlib
 import csv
 import shutil
 import ahocorasick
@@ -48,7 +49,6 @@ import ahocorasick
 
 # NOTE: This needs to be importable from the main module for multiprocessing
 # https://stackoverflow.com/questions/24728084/why-does-this-implementation-of-multiprocessing-pool-not-work
-
 def parse_one_month_wrapper(args):
     year, month, on_file, kwargs = args
     Parser(**kwargs).parse_one_month(year, month)
@@ -288,68 +288,68 @@ class Parser(object):
 
         return special_free
 
-    ## NN_encode: uses the BERT tokenizer to process a comment into its
-    ## sentence-by-sentence segment IDs and vocabulary IDs
-    def NN_encode(self, text):
-        # check input arguments for valid type
-        assert type(text) is list or type(text) is str
-
-        # Create 2d arrays for sentence ids and segment ids.
-        sentence_ids = [] # each subarray is an array of vocab ids for each token in the sentence
-        segment_ids = [] # each subarray is an array of ids indicating which sentence each token belongs to
-        # The following code will:
-        #   (1) Tokenize each sentence.
-        #   (2) Prepend the `[CLS]` token to the start of each sentence.
-        #   (3) Append the `[SEP]` token to the end of each sentence.
-        #   (4) Map tokens to their IDs.
-        id = 0
-        for index, sent in enumerate(text):  # iterate over the sentences
-            encoded_sent = self.bert_tokenizer.encode(sent,  # Sentence to encode
-                                                      add_special_tokens=True)  # Add '[CLS]' and '[SEP]'
-            segment = [id] * len(self.bert_tokenizer.tokenize(sent))
-            sentence_ids.append(encoded_sent)
-            segment_ids.append(segment)
-            # # alternate segment id between 0 and 1
-            # # TODO: Ask Babak about this
-            id = 1 - id
-        return sentence_ids, segment_ids
-
-    ## Gets attention masks so BERT knows which tokens correspond to real words vs padding
-    def NN_attention_masks(self, input_ids):
-        # Create attention masks
-        attention_masks = []
-        for sent in input_ids:
-            # Create mask.
-            #   - If a token ID is 0, it's padding -- set the mask to 0.
-            #   - If a token ID is > 0, it's a real token -- set the mask to 1.
-            att_mask = [int(token_id > 0) for token_id in sent]
-
-            # Store the attention mask for this sentence.
-            attention_masks.append(att_mask)
-        return attention_masks
-
-    ## Main parsing function for BERT
-    def parse_for_bert(self, body):
-        # Encode the sentences into sentence and segment ids using BERT
-        sentence_ids, segment_ids = self.NN_encode(body)  # encode the text for NN
-        # TODO: double check with Babak on max length
-        max_length = 128
-        # Pad our input tokens with value 0.
-        # "post" indicates that we want to pad and truncate at the end of the sequence,
-        # as opposed to the beginning.
-        # Pad sentences to fit length
-        padded_sentence_ids = pad_sequences(segment_ids, maxlen=max_length, dtype="long",
-                                            value=0, truncating="post", padding="post")
-        # Create attention masks
-        attention_masks = self.NN_attention_masks(padded_sentence_ids)
-        data_to_write = {
-            'tokenized_sentences': body,
-            'sentence_ids': padded_sentence_ids.tolist(),
-            ## These below should also be ndarrays
-            'segment_ids': segment_ids,
-            'attention_masks': attention_masks
-        }
-        return data_to_write
+    # ## NN_encode: uses the BERT tokenizer to process a comment into its
+    # ## sentence-by-sentence segment IDs and vocabulary IDs
+    # def NN_encode(self, text):
+    #     # check input arguments for valid type
+    #     assert type(text) is list or type(text) is str
+    #
+    #     # Create 2d arrays for sentence ids and segment ids.
+    #     sentence_ids = [] # each subarray is an array of vocab ids for each token in the sentence
+    #     segment_ids = [] # each subarray is an array of ids indicating which sentence each token belongs to
+    #     # The following code will:
+    #     #   (1) Tokenize each sentence.
+    #     #   (2) Prepend the `[CLS]` token to the start of each sentence.
+    #     #   (3) Append the `[SEP]` token to the end of each sentence.
+    #     #   (4) Map tokens to their IDs.
+    #     id = 0
+    #     for index, sent in enumerate(text):  # iterate over the sentences
+    #         encoded_sent = self.bert_tokenizer.encode(sent,  # Sentence to encode
+    #                                                   add_special_tokens=True)  # Add '[CLS]' and '[SEP]'
+    #         segment = [id] * len(self.bert_tokenizer.tokenize(sent))
+    #         sentence_ids.append(encoded_sent)
+    #         segment_ids.append(segment)
+    #         # # alternate segment id between 0 and 1
+    #         # # TODO: Ask Babak about this
+    #         id = 1 - id
+    #     return sentence_ids, segment_ids
+    #
+    # ## Gets attention masks so BERT knows which tokens correspond to real words vs padding
+    # def NN_attention_masks(self, input_ids):
+    #     # Create attention masks
+    #     attention_masks = []
+    #     for sent in input_ids:
+    #         # Create mask.
+    #         #   - If a token ID is 0, it's padding -- set the mask to 0.
+    #         #   - If a token ID is > 0, it's a real token -- set the mask to 1.
+    #         att_mask = [int(token_id > 0) for token_id in sent]
+    #
+    #         # Store the attention mask for this sentence.
+    #         attention_masks.append(att_mask)
+    #     return attention_masks
+    #
+    # ## Main parsing function for BERT
+    # def parse_for_bert(self, body):
+    #     # Encode the sentences into sentence and segment ids using BERT
+    #     sentence_ids, segment_ids = self.NN_encode(body)  # encode the text for NN
+    #     # TODO: double check with Babak on max length
+    #     max_length = 128
+    #     # Pad our input tokens with value 0.
+    #     # "post" indicates that we want to pad and truncate at the end of the sequence,
+    #     # as opposed to the beginning.
+    #     # Pad sentences to fit length
+    #     padded_sentence_ids = pad_sequences(segment_ids, maxlen=max_length, dtype="long",
+    #                                         value=0, truncating="post", padding="post")
+    #     # Create attention masks
+    #     attention_masks = self.NN_attention_masks(padded_sentence_ids)
+    #     data_to_write = {
+    #         'tokenized_sentences': body,
+    #         'sentence_ids': padded_sentence_ids.tolist(),
+    #         ## These below should also be ndarrays
+    #         'segment_ids': segment_ids,
+    #         'attention_masks': attention_masks
+    #     }
+    #     return data_to_write
 
     ## define the preprocessing function to lemmatize, and remove punctuation,
     # special characters and stopwords (LDA)
@@ -1548,154 +1548,201 @@ class Parser(object):
             else:
                 raise Exception("Machine specification not found.")
 
-    def Rel_sample(self,rel_sample_num=rel_sample_num,
-                    balanced_rel_sample=balanced_rel_sample):
 
-        # check for previous screening results
-        if Path(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample)).is_file():
+    def Rel_sample(self,rel_sample_num=rel_sample_num,min_comm_length=min_comm_length,
+                    balanced_rel_sample=balanced_rel_sample,human_ratings_pattern=None):
 
-            print("Relevance sampled found on file. Moving on.")
+        if not Path(self.model_path + "/counts/RC_Count_List").is_file():
+            raise Exception(
+                'Cumulative monthly comment counts could not be found')
+        else:
+            timelist_original = []
+            with open(self.model_path + "/counts/RC_Count_List", "r") as f:
+                for line in f:
+                    if line.strip() != "":
+                        timelist_original.append(int(line))
+        total_count = timelist_original[-1]
 
-        else:  # if screening results not found
+        inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
 
-            if not Path(self.model_path + "/counts/RC_Count_List").is_file():
-                raise Exception(
-                    'Cumulative monthly comment counts could not be found')
-            else:
-                timelist_original = []
-                with open(self.model_path + "/counts/RC_Count_List", "r") as f:
+        if not Path(self.model_path + "/original_comm/original_comm").is_file():
+            raise Exception(
+                'Original comments could not be found. Aborting.')
+        else:
+            lengths = []
+            for yr,mo in self.dates:
+                with open(self.model_path + "/original_comm/original_comm-{}-{}".format(yr,mo),"r") as f:
                     for line in f:
                         if line.strip() != "":
-                            timelist_original.append(int(line))
-            total_count = timelist_original[-1]
+                            lengths.append(len(line.strip().split()))
 
-            inputs = [(year, month, self.on_file, self.__dict__) for year, month in self.dates]
+        if not Path(self.model_path + "/auto_labels/auto_labels").is_file():
+            with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
+                for yr, mo,_,_ in inputs:
+                    with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo),
+                              "r") as monthly:
+                        for line in monthly:
+                            if line.strip() != "":
+                                general_labels.write(line.strip() + "\n")
 
-            if not Path(self.model_path + "/auto_labels/auto_labels").is_file():
-                with open(self.model_path + "/auto_labels/auto_labels", "a+") as general_labels:
-                    for yr, mo,_,_ in inputs:
-                        with open(self.model_path + "/auto_labels/auto_labels-{}-{}".format(yr, mo),
-                                  "r") as monthly:
-                            for line in monthly:
-                                if line.strip() != "":
-                                    general_labels.write(line.strip() + "\n")
+        # read labels from disk and identify indices of irrelevant posts
+        irrel_idxes = []
+        with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
+            for idx, line in enumerate(labels):
+                if line.strip() == '0' or line.strip() == 'None':
+                    labels_array[idx] = 0
+                    irrel_idxes.append(idx)
+        print("{} automatically-detected irrelevant comments were found.".format(len(irrel_idxes)))
 
-            # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
-            random_sample = list(
-                np.random.choice(range(0, total_count), size=rel_sample_num, replace=False))
 
-            labels_array = np.ones(total_count)  # initiate array for labels
+        # If there are previous sampled sets that need to be excluded, extract
+        # them from file and note the indices in the general database
+        if human_ratings_pattern is not None:
+            info_files = []
+            for element in human_ratings_pattern:
+                info_to_add = glob.glob(self.model_path + element)
+                for file in info_to_add:
+                    info_files.append(file)
 
-            # read labels from disk and identify indices of irrelevant posts
-            irrel_idxes = []
-            with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
-                for idx, line in enumerate(labels):
-                    if line.strip() == '0' or line.strip() == 'None':
-                        labels_array[idx] = 0
-                        irrel_idxes.append(idx)
+        exclude = []
+        if len(info_files) > 0:
+            for file in info_files:
+                with open(file,"r") as f:
+                    reader = csv.reader(f)
+                    for id_,row in enumerate(reader):
+                        if id_ != 0:
+                            if row[5].strip() != "":
+                                if not row[5].isdigit():
+                                    idx_list = [int(i) for i in row[5].strip().split(",")]
+                                    for element in idx_list:
+                                        if element not in exclude:
+                                            exclude.append(element)
+                                else:
+                                    if int(row[5].strip()) not in exclude:
+                                        exclude.append(int(row[5].strip()))
 
-            # TODO: Add the ability to deal with posts for which the classifier
-            # has failed to provide a prediction but rather an error (None classes).
+        # Sample rel_sample_num documents at random for evaluating the dataset and the auto-labeling
+        rel_subset = [i for i in range(0, total_count) if lengths[i] >= min_comm_length and i not in exclude]
+        random_sample = list(
+            np.random.choice(rel_subset, size=rel_sample_num, replace=False))
 
-            # if obtaining a sample of labels balanced across output categories:
-            if balanced_rel_sample:
-                sampled_cats = {0: 0, 1: 0}
-                goal = {0: floor(float(rel_sample_num) / 2), 1: ceil(float(rel_sample_num) / 2)}
+        labels_array = np.ones(total_count)  # initiate array for labels
 
-                for value in random_sample:
-                    sampled_cats[int(labels_array[value])] += 1
 
-                print("Random sample composition: ")
-                print(sampled_cats)
+        # TODO: Add the ability to deal with posts for which the classifier
+        # has failed to provide a prediction but rather an error (None classes).
 
-                for category, _ in sampled_cats.items():  # upsample and downsample
-                    # to have a balance of posts marked positive or negative
+        # if obtaining a sample of labels balanced across output categories:
+        if balanced_rel_sample:
+            sampled_cats = {0: 0, 1: 0}
+            goal = {0: floor(float(rel_sample_num) / 2), 1: ceil(float(rel_sample_num) / 2)}
 
-                    while sampled_cats[category] < goal[category]:
+            for value in random_sample:
+                sampled_cats[int(labels_array[value])] += 1
 
-                        if category == 0:
-                            relevant_subset = [i for i in irrel_idxes if i not in random_sample]
-                        elif category == 1:
-                            relevant_subset = [i for i in range(0, total_count) if
-                                               i not in irrel_idxes and i not in random_sample]
+            print("Initial random sample composition: ")
+            print(sampled_cats)
 
-                        new_proposed = np.random.choice(relevant_subset)
+            for category, _ in sampled_cats.items():  # upsample and downsample
+                # to have a balance of posts marked positive or negative
 
-                        random_sample.append(new_proposed)
-                        sampled_cats[category] += 1
-                        relevant_subset.remove(new_proposed)
+                while sampled_cats[category] < goal[category]:
 
-                    while sampled_cats[category] > goal[category]:
+                    if category == 0:
+                        relevant_subset = [i for i in irrel_idxes if i not in random_sample and lengths[i] >= min_comm_length]
+                    elif category == 1:
+                        relevant_subset = [i for i in rel_subset if
+                                           i not in irrel_idxes and i not in random_sample and lengths[i] >= min_comm_length]
 
-                        if category == 0:
-                            relevant_subset = [i for i in random_sample if i in irrel_idxes]
-                        elif category == 1:
-                            relevant_subset = [i for i in random_sample if i not in irrel_idxes]
+                    new_proposed = np.random.choice(relevant_subset)
 
-                        new_proposed = np.random.choice(relevant_subset)
-                        random_sample.remove(new_proposed)
-                        sampled_cats[category] -= 1
+                    random_sample.append(new_proposed)
+                    sampled_cats[category] += 1
+                    relevant_subset.remove(new_proposed)
 
-                print("Balanced random sample counts: ")
-                print(sampled_cats)
+                while sampled_cats[category] > goal[category]:
 
-            # Sample the documents using the chosen indices
-            print("Sampling " + str(len(set(random_sample))) + " documents")
+                    if category == 0:
+                        relevant_subset = [i for i in random_sample if i in irrel_idxes]
+                    elif category == 1:
+                        relevant_subset = [i for i in random_sample if i not in irrel_idxes]
 
-            sampled_docs = []
+                    new_proposed = np.random.choice(relevant_subset)
+                    random_sample.remove(new_proposed)
+                    sampled_cats[category] -= 1
 
-            with open(self.model_path + "/original_comm/original_comm", "r") as sampling:
+            print("Balanced random sample counts: ")
+            print(sampled_cats)
 
-                for idx, sampler in enumerate(sampling):
-                    int_counter = 0
-                    try:
-                        while idx > timelist_original[int_counter]:
-                            int_counter += 1
-                        if idx in random_sample:
-                            # writing year, month, text to sample file
-                            sampled_docs.append(
-                                [str(dates[int_counter][0]), str(dates[int_counter][1]), sampler])
+        # Sample the documents using the chosen indices
+        print("Sampling " + str(len(set(random_sample))) + " documents")
 
-                    except:  # if the date associated with the post is beyond
-                        # the pre-specified time intervals, associate the post with
-                        # the next month. May happen with a few documents at the edges
-                        # of data files
+        sampled_docs = []
 
-                        if idx in random_sample:
-                            # determine the relevant next month and year
-                            yr = dates[int_counter - 1][0]
-                            mo = dates[int_counter - 1][1]
-                            if mo == 12:
-                                yr += 1
-                                mo = 1
-                            else:
-                                mo += 1
+        with open(self.model_path + "/original_comm/original_comm", "r") as sampling:
 
-                            print("Warning: Mismatched timestamp detected.")
-                            sampled_docs.append([str(yr), str(mo), sampler])
-
-            # load labels for the sampled documents
-            general_counter = 0
-            sample_counter = 0
-            with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
-                for idx, line in enumerate(labels):
+            for idx, sampler in enumerate(sampling):
+                int_counter = 0
+                try:
+                    while idx > timelist_original[int_counter]:
+                        int_counter += 1
                     if idx in random_sample:
-                        sampled_docs[sample_counter].append(line)
-                        sample_counter += 1
+                        # writing year, month, text to sample file
+                        sampled_docs.append(
+                            [str(dates[int_counter][0]), str(dates[int_counter][1]), sampler])
 
-            # shuffle the docs and check number and length
-            np.random.shuffle(sampled_docs)
-            assert (len(sampled_docs) == rel_sample_num) or (len(sampled_docs) == len(irrel_idxes))
+                except:  # if the date associated with the post is beyond
+                    # the pre-specified time intervals, associate the post with
+                    # the next month. May happen with a few documents at the edges
+                    # of data files
 
-            for element in sampled_docs:
-                assert len(element) == 4
+                    if idx in random_sample:
+                        # determine the relevant next month and year
+                        yr = dates[int_counter - 1][0]
+                        mo = dates[int_counter - 1][1]
+                        if mo == 12:
+                            yr += 1
+                            mo = 1
+                        else:
+                            mo += 1
 
-            # write the sampled files to a csvfile
-            with open(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample), 'a+') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(['year', 'month', 'text', 'auto label'])
-                for document in sampled_docs:
-                    writer.writerow(document)
+                        print("Warning: Mismatched timestamp detected.")
+                        sampled_docs.append([str(yr), str(mo), sampler])
+
+        # load labels for the sampled documents
+        general_counter = 0
+        sample_counter = 0
+        with open(self.model_path + "/auto_labels/auto_labels", "r") as labels:
+            for idx, line in enumerate(labels):
+                if idx in random_sample:
+                    sampled_docs[sample_counter].append(line)
+                    sampled_docs[sample_counter].append(idx)
+                    sample_counter += 1
+
+        # shuffle the docs and check number and length
+        np.random.shuffle(sampled_docs)
+
+        try:
+            assert len(sampled_docs) == rel_sample_num
+        except:
+            print("Warning! Failed to sample {} documents. Only {} samples collected. Number of comments to sample from: {}".format(rel_sample_num,len(sampled_docs),len(rel_subset)))
+
+        for element in sampled_docs:
+            assert len(element) == 5
+
+        # check for previous sampling results
+        if Path(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample)).is_file():
+
+            trial = 1
+            while Path(self.model_path + "/auto_labels/{}-sample_labeled-{}-{}.csv".format(trial,rel_sample_num,balanced_rel_sample)).is_file():
+                trial+= 1
+
+        # write the sampled files to a csvfile
+        with open(self.model_path + "/auto_labels/{}-sample_labeled-{}-{}.csv".format(trial,rel_sample_num,balanced_rel_sample), 'a+') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['year', 'month', 'text', 'auto label','general_index'])
+            for document in sampled_docs:
+                writer.writerow(document)
 
     ## Function that uses the results of Neural_Relevance_Screen to remove posts
     # likely to be irrelevant from the dataset.
@@ -1807,10 +1854,17 @@ class Parser(object):
                     if idx == 0:
                         monthly_counter.append(monthly_count)
 
-                for yr, mo in self.dates:
-                    with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "a+") as f:  # write only the relevant posts
-                        for line in monthly_file:
-                            print(line.strip(),end="\n",file=f)
+                for id_,date in enumerate(self.dates):
+                    yr = date[0]
+                    mo = date[1]
+                    if id_ == 0:
+                        with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "w") as f:  # write only the relevant posts
+                            for line in monthly_file:
+                                print(line.strip(),end="\n",file=f)
+                    else:
+                        with open(self.model_path + file + "-{}-{}".format(yr, mo), "r") as monthly_file, open(self.model_path + file, "a+") as f:  # write only the relevant posts
+                            for line in monthly_file:
+                                print(line.strip(),end="\n",file=f)
 
                 print("Successfully finished cleaning {} and the relevant monthly files at {}.".format(file,time.strftime('%l:%M%p, %m/%d/%Y')))
 
@@ -1826,7 +1880,7 @@ class Parser(object):
                 yr = date[0]
                 mo = date[1]
                 with open(self.model_path + "/counts/RC_Count_List-{}-{}".format(yr, mo), "w") as f:
-                    print(str(monthly_count[idx]),end="\n",file=f)
+                    print(str(monthly_counter[idx]),end="\n",file=f)
 
             # update the auto-labels file and check that all negative comments
             # are removed from the dataset
