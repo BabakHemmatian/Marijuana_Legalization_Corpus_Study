@@ -1,4 +1,5 @@
 import bz2
+import copy
 import errno
 import lzma
 import zstandard as zstd
@@ -9,14 +10,12 @@ import datetime
 import itertools
 import scipy
 import glob
+import hashlib
 import html
 import json
 import multiprocessing
 import spacy
 import nltk
-nltk.download("stopwords")
-nltk.download("punkt")
-nltk.download("vader_lexicon")
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import numpy as np
 from math import floor,ceil
@@ -39,8 +38,8 @@ import logging
 import fnmatch
 from sklearn.metrics import accuracy_score,cohen_kappa_score
 from sklearn.model_selection import KFold
-# from keras.preprocessing.sequence import pad_sequences
-# import hashlib
+from keras.preprocessing.sequence import pad_sequences
+import hashlib
 import csv
 import shutil
 import ahocorasick
@@ -49,6 +48,7 @@ import ahocorasick
 
 # NOTE: This needs to be importable from the main module for multiprocessing
 # https://stackoverflow.com/questions/24728084/why-does-this-implementation-of-multiprocessing-pool-not-work
+
 def parse_one_month_wrapper(args):
     year, month, on_file, kwargs = args
     Parser(**kwargs).parse_one_month(year, month)
@@ -288,68 +288,68 @@ class Parser(object):
 
         return special_free
 
-    # ## NN_encode: uses the BERT tokenizer to process a comment into its
-    # ## sentence-by-sentence segment IDs and vocabulary IDs
-    # def NN_encode(self, text):
-    #     # check input arguments for valid type
-    #     assert type(text) is list or type(text) is str
-    #
-    #     # Create 2d arrays for sentence ids and segment ids.
-    #     sentence_ids = [] # each subarray is an array of vocab ids for each token in the sentence
-    #     segment_ids = [] # each subarray is an array of ids indicating which sentence each token belongs to
-    #     # The following code will:
-    #     #   (1) Tokenize each sentence.
-    #     #   (2) Prepend the `[CLS]` token to the start of each sentence.
-    #     #   (3) Append the `[SEP]` token to the end of each sentence.
-    #     #   (4) Map tokens to their IDs.
-    #     id = 0
-    #     for index, sent in enumerate(text):  # iterate over the sentences
-    #         encoded_sent = self.bert_tokenizer.encode(sent,  # Sentence to encode
-    #                                                   add_special_tokens=True)  # Add '[CLS]' and '[SEP]'
-    #         segment = [id] * len(self.bert_tokenizer.tokenize(sent))
-    #         sentence_ids.append(encoded_sent)
-    #         segment_ids.append(segment)
-    #         # # alternate segment id between 0 and 1
-    #         # # TODO: Ask Babak about this
-    #         id = 1 - id
-    #     return sentence_ids, segment_ids
-    #
-    # ## Gets attention masks so BERT knows which tokens correspond to real words vs padding
-    # def NN_attention_masks(self, input_ids):
-    #     # Create attention masks
-    #     attention_masks = []
-    #     for sent in input_ids:
-    #         # Create mask.
-    #         #   - If a token ID is 0, it's padding -- set the mask to 0.
-    #         #   - If a token ID is > 0, it's a real token -- set the mask to 1.
-    #         att_mask = [int(token_id > 0) for token_id in sent]
-    #
-    #         # Store the attention mask for this sentence.
-    #         attention_masks.append(att_mask)
-    #     return attention_masks
-    #
-    # ## Main parsing function for BERT
-    # def parse_for_bert(self, body):
-    #     # Encode the sentences into sentence and segment ids using BERT
-    #     sentence_ids, segment_ids = self.NN_encode(body)  # encode the text for NN
-    #     # TODO: double check with Babak on max length
-    #     max_length = 128
-    #     # Pad our input tokens with value 0.
-    #     # "post" indicates that we want to pad and truncate at the end of the sequence,
-    #     # as opposed to the beginning.
-    #     # Pad sentences to fit length
-    #     padded_sentence_ids = pad_sequences(segment_ids, maxlen=max_length, dtype="long",
-    #                                         value=0, truncating="post", padding="post")
-    #     # Create attention masks
-    #     attention_masks = self.NN_attention_masks(padded_sentence_ids)
-    #     data_to_write = {
-    #         'tokenized_sentences': body,
-    #         'sentence_ids': padded_sentence_ids.tolist(),
-    #         ## These below should also be ndarrays
-    #         'segment_ids': segment_ids,
-    #         'attention_masks': attention_masks
-    #     }
-    #     return data_to_write
+    ## NN_encode: uses the BERT tokenizer to process a comment into its
+    ## sentence-by-sentence segment IDs and vocabulary IDs
+    def NN_encode(self, text):
+        # check input arguments for valid type
+        assert type(text) is list or type(text) is str
+
+        # Create 2d arrays for sentence ids and segment ids.
+        sentence_ids = [] # each subarray is an array of vocab ids for each token in the sentence
+        segment_ids = [] # each subarray is an array of ids indicating which sentence each token belongs to
+        # The following code will:
+        #   (1) Tokenize each sentence.
+        #   (2) Prepend the `[CLS]` token to the start of each sentence.
+        #   (3) Append the `[SEP]` token to the end of each sentence.
+        #   (4) Map tokens to their IDs.
+        id = 0
+        for index, sent in enumerate(text):  # iterate over the sentences
+            encoded_sent = self.bert_tokenizer.encode(sent,  # Sentence to encode
+                                                      add_special_tokens=True)  # Add '[CLS]' and '[SEP]'
+            segment = [id] * len(self.bert_tokenizer.tokenize(sent))
+            sentence_ids.append(encoded_sent)
+            segment_ids.append(segment)
+            # # alternate segment id between 0 and 1
+            # # TODO: Ask Babak about this
+            id = 1 - id
+        return sentence_ids, segment_ids
+
+    ## Gets attention masks so BERT knows which tokens correspond to real words vs padding
+    def NN_attention_masks(self, input_ids):
+        # Create attention masks
+        attention_masks = []
+        for sent in input_ids:
+            # Create mask.
+            #   - If a token ID is 0, it's padding -- set the mask to 0.
+            #   - If a token ID is > 0, it's a real token -- set the mask to 1.
+            att_mask = [int(token_id > 0) for token_id in sent]
+
+            # Store the attention mask for this sentence.
+            attention_masks.append(att_mask)
+        return attention_masks
+
+    ## Main parsing function for BERT
+    def parse_for_bert(self, body):
+        # Encode the sentences into sentence and segment ids using BERT
+        sentence_ids, segment_ids = self.NN_encode(body)  # encode the text for NN
+        # TODO: double check with Babak on max length
+        max_length = 128
+        # Pad our input tokens with value 0.
+        # "post" indicates that we want to pad and truncate at the end of the sequence,
+        # as opposed to the beginning.
+        # Pad sentences to fit length
+        padded_sentence_ids = pad_sequences(segment_ids, maxlen=max_length, dtype="long",
+                                            value=0, truncating="post", padding="post")
+        # Create attention masks
+        attention_masks = self.NN_attention_masks(padded_sentence_ids)
+        data_to_write = {
+            'tokenized_sentences': body,
+            'sentence_ids': padded_sentence_ids.tolist(),
+            ## These below should also be ndarrays
+            'segment_ids': segment_ids,
+            'attention_masks': attention_masks
+        }
+        return data_to_write
 
     ## define the preprocessing function to lemmatize, and remove punctuation,
     # special characters and stopwords (LDA)
@@ -1695,7 +1695,6 @@ class Parser(object):
                 for idx, line in enumerate(labels):
                     if idx in random_sample:
                         sampled_docs[sample_counter].append(line)
-                        sampled_docs[sample_counter].append(idx)
                         sample_counter += 1
 
             # shuffle the docs and check number and length
@@ -1708,7 +1707,7 @@ class Parser(object):
             # write the sampled files to a csvfile
             with open(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample), 'a+') as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow(['year', 'month', 'text', 'auto label','original_indices'])
+                writer.writerow(['year', 'month', 'text', 'auto label'])
                 for document in sampled_docs:
                     writer.writerow(document)
 
