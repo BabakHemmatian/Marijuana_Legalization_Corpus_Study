@@ -1651,7 +1651,7 @@ class Parser(object):
                     if category == 0:
                         relevant_subset = [i for i in irrel_idxes if i not in random_sample and lengths[i] >= min_comm_length]
                     elif category == 1:
-                        relevant_subset = [i for i in rel_subset if
+                        relevant_subset = [i for i in range(0, total_count) if
                                            i not in irrel_idxes and i not in random_sample and lengths[i] >= min_comm_length]
 
                     new_proposed = np.random.choice(relevant_subset)
@@ -1721,14 +1721,10 @@ class Parser(object):
 
         # shuffle the docs and check number and length
         np.random.shuffle(sampled_docs)
-
-        try:
-            assert len(sampled_docs) == rel_sample_num
-        except:
-            print("Warning! Failed to sample {} documents. Only {} samples collected. Number of comments to sample from: {}".format(rel_sample_num,len(sampled_docs),len(rel_subset)))
+        assert (len(sampled_docs) == rel_sample_num) or (len(sampled_docs) == len(irrel_idxes))
 
         for element in sampled_docs:
-            assert len(element) == 5
+            assert len(element) == 4
 
         # check for previous sampling results
         if Path(self.model_path + "/auto_labels/sample_labeled-{}-{}.csv".format(rel_sample_num,balanced_rel_sample)).is_file():
