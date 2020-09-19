@@ -284,66 +284,66 @@ class ModelEstimator(object):
 
         #In the database we should add training/test column (ALTER TABLE table_name ADD training int)
 
-        rows_to_be_added = {} #key is the index and value is a list with attitude, persuasion, training/test value
-        attitude_key_set = human_ratings["attitude"].keys()
-        persuasion_key_set = human_ratings["persuasion"].keys()
-        training_key_set = training_set
-        test_key_set = testing_set
+        # rows_to_be_added = {} #key is the index and value is a list with attitude, persuasion, training/test value
+        # attitude_key_set = human_ratings["attitude"].keys()
+        # persuasion_key_set = human_ratings["persuasion"].keys()
+        # training_key_set = training_set
+        # test_key_set = testing_set
 
-        for aks in attitude_key_set:
-            original_index = -1
-            if type(info_indices[aks]) is list:
-                original_index = info_indices[aks][0]
-            else:
-                original_index = info_indices[aks] + 1
-            set_values = set(human_ratings["attitude"][aks])
-            val = ",".join(str(s) for s in set_values)
-            rows_to_be_added[original_index] = [val]
+        # for aks in attitude_key_set:
+        #     original_index = -1
+        #     if type(info_indices[aks]) is list:
+        #         original_index = info_indices[aks][0]
+        #     else:
+        #         original_index = info_indices[aks] + 1
+        #     set_values = set(human_ratings["attitude"][aks])
+        #     val = ",".join(str(s) for s in set_values)
+        #     rows_to_be_added[original_index] = [val]
 
-        for pks in persuasion_key_set:
-            original_index = -1
-            if type(info_indices[pks]) is list:
-                original_index = info_indices[pks][0]
-            else:
-                original_index = info_indices[pks] + 1
-            set_values = set(human_ratings["persuasion"][pks])
-            val = ",".join(str(s) for s in set_values)
-            if original_index in rows_to_be_added.keys():
-                rows_to_be_added[original_index].append(val)
-            else:
-                rows_to_be_added[original_index] = ["", val]
+        # for pks in persuasion_key_set:
+        #     original_index = -1
+        #     if type(info_indices[pks]) is list:
+        #         original_index = info_indices[pks][0]
+        #     else:
+        #         original_index = info_indices[pks] + 1
+        #     set_values = set(human_ratings["persuasion"][pks])
+        #     val = ",".join(str(s) for s in set_values)
+        #     if original_index in rows_to_be_added.keys():
+        #         rows_to_be_added[original_index].append(val)
+        #     else:
+        #         rows_to_be_added[original_index] = ["", val]
 
-        for trks in training_key_set:
-            original_index = -1
-            if type(info_indices[trks]) is list:
-                original_index = info_indices[trks][0]
-            else:
-                original_index = info_indices[trks] + 1
-            val = 1
-            if original_index in rows_to_be_added.keys():
-                rows_to_be_added[original_index].append(val)
-            else:
-                rows_to_be_added[original_index] = ["", "", val]
+        # for trks in training_key_set:
+        #     original_index = -1
+        #     if type(info_indices[trks]) is list:
+        #         original_index = info_indices[trks][0]
+        #     else:
+        #         original_index = info_indices[trks] + 1
+        #     val = 1
+        #     if original_index in rows_to_be_added.keys():
+        #         rows_to_be_added[original_index].append(val)
+        #     else:
+        #         rows_to_be_added[original_index] = ["", "", val]
 
-        for teks in test_key_set:
-            original_index = -1
-            if type(info_indices[teks]) is list:
-                original_index = info_indices[teks][0]
-            else:
-                original_index = info_indices[teks] + 1
-            val = 0
-            if original_index in rows_to_be_added.keys():
-                rows_to_be_added[original_index].append(val)
-            else:
-                rows_to_be_added[original_index] = ["", "", val]
+        # for teks in test_key_set:
+        #     original_index = -1
+        #     if type(info_indices[teks]) is list:
+        #         original_index = info_indices[teks][0]
+        #     else:
+        #         original_index = info_indices[teks] + 1
+        #     val = 0
+        #     if original_index in rows_to_be_added.keys():
+        #         rows_to_be_added[original_index].append(val)
+        #     else:
+        #         rows_to_be_added[original_index] = ["", "", val]
 
-        conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
-        cursor = conn.cursor()
-        for row in rows_to_be_added.keys():
-            print("row", row)
-            sql = "UPDATE comments SET attitude={0}, persuasion={1}, training={2} WHERE original_indices={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
-            cursor.execute(sql)
-        conn.commit()
+        # conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
+        # cursor = conn.cursor()
+        # for row in rows_to_be_added.keys():
+        #     print("row", row)
+        #     sql = "UPDATE comments SET attitude={0}, persuasion={1}, training={2} WHERE original_indices={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
+        #     cursor.execute(sql)
+        # conn.commit()
 
     # NOTE: The lack of an evaluation set for NN should reflect in this func too
     ### function for loading, calculating, or recalculating sets
@@ -1603,30 +1603,30 @@ class NNModel(ModelEstimator):
 
     # TODO: adding the labels should be a separate function
 
-    # TODO: Replace the manual vocab-building with an implementation of the RoBERTa tokenizer
     ### load or create vocabulary and load or create indexed versions of comments in sets
     # NOTE: Only for NN. For LDA we use gensim's dictionary functions
-    def RoBERTa_Set(self, texts):
+    def RoBERTa_Set(self):
 
         # load the SQL database
         try:
             if not LDA_topics:
-                conn = sqlite3.connect(self.model_path+"/reddit.db",detect_types=sqlite3.PARSE_DECLTYPES)
+                conn = sqlite3.connect("reddit.db",detect_types=sqlite3.PARSE_DECLTYPES)
             else:
-                conn = sqlite3.connect(self.model_path+"/reddit_{}.db".format(num_topics),detect_types=sqlite3.PARSE_DECLTYPES)
+                conn = sqlite3.connect("reddit_{}.db".format(num_topics),detect_types=sqlite3.PARSE_DECLTYPES)
             cursor = conn.cursor()
         except:
             raise Exception('Pre-processed SQL database could not be found')
 
         ## record word frequency in the entire dataset
-        with open(fns["counts"],"r") as f:
+        with open(self.fns["counts"],"r") as f:
             for line in f:
                 if line.strip() != 0:
                     total_count = int(line)
-
+     
         cursor.execute("SELECT COUNT(*) AS CNTREC FROM pragma_table_info('comments') WHERE name='roberta_activation'")
         column = cursor.fetchall()
-        if column[0] == 0:
+
+        if column[0][0] == 0:
 
             print("RoBERTa activations for the database not found. Computing and adding activations.")
             cursor.execute("ALTER TABLE comments ADD roberta_activation array")
@@ -1636,9 +1636,10 @@ class NNModel(ModelEstimator):
             roberta = TFRobertaModel.from_pretrained('roberta-base')
 
             for i in range(total_count):
+                t0 = time.time()
                 if i != 0 and (i+1 % self.batch_size == 0 or i+1 == total_count):
 
-                    cursor.execute("SELECT rowid,text,roberta_activation FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+self.batch_size+1))
+                    cursor.execute("SELECT rowid,original_comm,roberta_activation FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+self.batch_size+1))
 
                     train_texts = []
                     train_indices = []
@@ -1648,21 +1649,25 @@ class NNModel(ModelEstimator):
                         comment[1] = line.decode('utf-8','ignore')
                         train_texts.append(comment[1].strip())
 
-                    encoded_input = tokenizer(texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
+                    cursor.execute("SELECT original_comm FROM comments")
+                    texts = cursor.fetchall()
+
+                    encoded_input = tokenizer(texts[0], return_tensors="tf",truncation=True,padding=True,max_length=512)
                     roberta_output = roberta(encoded_input)
                     roberta_output = np.asarray(roberta_output[0]) # shape (batch_size, 3, hidden_size)
                     if i+1 == total_count:
                         roberta_output = roberta_output.reshape(len(train_texts),2304)
                     else:
                         roberta_output = roberta_output.reshape(self.batch_size,2304)
-
-                    # BUG: The format is not correct, because roberta has three activations for each post with weird shape
+                    
                     for id_,document in enumerate(roberta_output):
+                        #https://tableplus.com/blog/2018/11/how-to-update-multiple-rows-at-once-in-mysql.html
                         for element in cursor.execute("SELECT roberta_activation FROM comments WHERE rowid = {}".format(id_+1)):
                             cursor.execute("UPDATE comments SET roberta_activation = {}".format(roberta_output))
                     conn.commit()
 
-            # timer
+                t1 = time.time()
+                print("Time taken for one iteration", t1-t0)
             print("Finished processing the dataset using RoBERTa-base at " + time.strftime('%l:%M%p, %m/%d/%Y'))
         else:
             print("Loading RoBERTa-base activations from the database.")
