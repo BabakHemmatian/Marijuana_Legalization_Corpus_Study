@@ -1626,6 +1626,8 @@ class NNModel(ModelEstimator):
         cursor.execute("SELECT COUNT(*) AS CNTREC FROM pragma_table_info('comments') WHERE name='roberta_activation'")
         column = cursor.fetchall()
 
+        print("batch_size", self.batch_size)
+
         if column[0][0] == 0:
 
             print("RoBERTa activations for the database not found. Computing and adding activations.")
@@ -1637,7 +1639,10 @@ class NNModel(ModelEstimator):
 
             for i in range(total_count):
                 t0 = time.time()
+                
                 if i != 0 and (i+1 % self.batch_size == 0 or i+1 == total_count):
+                    print("i", i)
+                    print("total count", total_count)
 
                     cursor.execute("SELECT rowid,original_comm,roberta_activation FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+self.batch_size+1))
 
@@ -1648,26 +1653,40 @@ class NNModel(ModelEstimator):
                         train_indices.append(int(comment[0].strip()))
                         comment[1] = line.decode('utf-8','ignore')
                         train_texts.append(comment[1].strip())
+                    print("finished comment")
 
                     cursor.execute("SELECT original_comm FROM comments")
-                    texts = cursor.fetchall()
+                    texts = [item[0] for item in cursor.fetchall()]
 
-                    encoded_input = tokenizer(texts[0], return_tensors="tf",truncation=True,padding=True,max_length=512)
+                    print("finished execute")
+
+                    encoded_input = tokenizer(texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
+                    print("finished toensizer")
                     roberta_output = roberta(encoded_input)
+                    print("finished roberta")
                     roberta_output = np.asarray(roberta_output[0]) # shape (batch_size, 3, hidden_size)
-                    if i+1 == total_count:
-                        roberta_output = roberta_output.reshape(len(train_texts),2304)
-                    else:
-                        roberta_output = roberta_output.reshape(self.batch_size,2304)
                     
+                    print("finished encoding")
+                    if i+1 == total_count:
+                        roberta_output = roberta_output.reshape(self.batch_size,2304)
+                    else:
+                        roberta_output = roberta_output.reshape(len(train_texts),2304) 
+                    
+                    print("finished reshaping")
                     for id_,document in enumerate(roberta_output):
-                        #https://tableplus.com/blog/2018/11/how-to-update-multiple-rows-at-once-in-mysql.html
                         for element in cursor.execute("SELECT roberta_activation FROM comments WHERE rowid = {}".format(id_+1)):
                             cursor.execute("UPDATE comments SET roberta_activation = {}".format(roberta_output))
                     conn.commit()
 
+                    # sql_query = "INSERT INTO comments (rowid, roberta_activation) VALUES "
+                    # for id_,document in enumerate(roberta_output):
+                    #     sql_query += "(" + (id_+1) + "," + roberta_output + "),"
+                    # sql_query = sql_query[:-1]
+                    # cursor.execute(sql_query)
+                    # conn.commit()
+
                 t1 = time.time()
-                print("Time taken for one iteration", t1-t0)
+                print("Time taken", t1-t0)
             print("Finished processing the dataset using RoBERTa-base at " + time.strftime('%l:%M%p, %m/%d/%Y'))
         else:
             print("Loading RoBERTa-base activations from the database.")
