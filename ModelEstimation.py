@@ -1628,54 +1628,59 @@ class NNModel(ModelEstimator):
 
         print("batch_size", self.batch_size)
 
-        # if column[0][0] == 0:
+        if column[0][0] == 0:
 
-        print("RoBERTa activations for the database not found. Computing and adding activations.")
-        # cursor.execute("ALTER TABLE comments ADD roberta_activation array")
-        # conn.commit()
+            print("RoBERTa activations for the database not found. Computing and adding activations.")
+            cursor.execute("ALTER TABLE comments ADD roberta_activation array")
+            conn.commit()
 
-        tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
-        roberta = TFRobertaModel.from_pretrained('roberta-base')
+            tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+            roberta = TFRobertaModel.from_pretrained('roberta-base')
 
-        for i in range(total_count):
-            t0 = time.time()
-            
-            if i != 0 and ((i+1) % self.batch_size == 0 or i+1 == total_count):
+            for i in range(total_count):
+                t0 = time.time()
+                
+                if i != 0 and ((i+1) % self.batch_size == 0 or i+1 == total_count):
 
-                cursor.execute("SELECT rowid,original_comm,roberta_activation FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+self.batch_size+1))
+                    cursor.execute("SELECT rowid,original_comm,roberta_activation FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+self.batch_size+1))
 
-                train_texts = []
-                train_indices = []
+                    train_texts = []
+                    train_indices = []
 
-                for comment in cursor:  # for each comment
-                    train_indices.append(int(comment[0]))
-                    # comment[1] = line.decode('utf-8','ignore')
-                    train_texts.append(comment[1].strip())
+                    for comment in cursor:  # for each comment
+                        train_indices.append(int(comment[0]))
+                        train_texts.append(comment[1].strip())
 
-                encoded_input = tokenizer(train_texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
-                roberta_output = roberta(encoded_input)
-                print("finished encoding")
-                roberta_output = np.asarray(roberta_output[1]) 
+                    encoded_input = tokenizer(train_texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
+                    tokens_tensor = encoded_input['input_ids'].to('cuda:0')
+                    token_type_ids = encoded_input['token_type_ids'].to('cuda:0')
+                    attention_mask = encoded_input['attention_mask'].to('cuda:0')
+                    output = {'input_ids' : tokens_tensor, 'token_type_ids' : token_type_ids,'attention_mask' : attention_mask}
+                    encoded_input = output
+                    roberta = roberta.to('cuda:0')
+                    roberta_output = roberta(encoded_input)
+                    print("finished encoding")
+                    roberta_output = np.asarray(roberta_output[1]) 
 
-                # for id_,document in enumerate(roberta_output):
-                #     for element in cursor.execute("SELECT roberta_activation FROM comments WHERE rowid = {}".format(id_+1)):
-                #         cursor.execute("UPDATE comments SET roberta_activation = {}".format(roberta_output))
-                # conn.commit()
+                    # for id_,document in enumerate(roberta_output):
+                    #     for element in cursor.execute("SELECT roberta_activation FROM comments WHERE rowid = {}".format(id_+1)):
+                    #         cursor.execute("UPDATE comments SET roberta_activation = {}".format(roberta_output))
+                    # conn.commit()
 
-                for id_,document in enumerate(roberta_output):
-                    str_doc = ""
-                    for doc in document:
-                      str_doc += str(doc)
-                      str_doc += ","
-                    str_doc = str_doc[:-1]
-                    cursor.execute("UPDATE comments SET roberta_activation = \"{}\" WHERE ROWID = {}".format(str_doc, (id_ + 1)))
-                conn.commit()
+                    for id_,document in enumerate(roberta_output):
+                        str_doc = ""
+                        for doc in document:
+                        str_doc += str(doc)
+                        str_doc += ","
+                        str_doc = str_doc[:-1]
+                        cursor.execute("UPDATE comments SET roberta_activation = \"{}\" WHERE ROWID = {}".format(str_doc, (id_ + 1)))
+                    conn.commit()
 
-            t1 = time.time()
-            print("Time taken", t1-t0)
-        print("Finished processing the dataset using RoBERTa-base at " + time.strftime('%l:%M%p, %m/%d/%Y'))
-        # else:
-        #     print("Loading RoBERTa-base activations from the database.")
+                t1 = time.time()
+                print("Time taken", t1-t0)
+            print("Finished processing the dataset using RoBERTa-base at " + time.strftime('%l:%M%p, %m/%d/%Y'))
+        else:
+            print("Loading RoBERTa-base activations from the database.")
 
 
     # TODO: Should rewrite this as a utility for the training function
