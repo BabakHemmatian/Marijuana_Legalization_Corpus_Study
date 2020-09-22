@@ -28,19 +28,19 @@ from Utils import *
 # https://github.com/huggingface/transformers/blob/master/examples/language-modeling/run_language_modeling.py
 
 ## converter functions for storing and retrieving numpy arrays from the SQLite database
-def adapt_array(arr):
-    """
-    http://stackoverflow.com/a/31312102/190597 (SoulNibbler)
-    """
-    out = io.BytesIO()
-    np.save(out, arr)
-    out.seek(0)
-    return sqlite3.Binary(out.read())
+# def adapt_array(arr):
+#     """
+#     http://stackoverflow.com/a/31312102/190597 (SoulNibbler)
+#     """
+#     out = io.BytesIO()
+#     np.save(out, arr)
+#     out.seek(0)
+#     return sqlite3.Binary(out.read())
 
-def convert_array(text):
-    out = io.BytesIO(text)
-    out.seek(0)
-    return np.load(out)
+# def convert_array(text):
+#     out = io.BytesIO(text)
+#     out.seek(0)
+#     return np.load(out)
 
 
 ## wrapper function for calculating topic contributions to a comment
@@ -1641,8 +1641,6 @@ class NNModel(ModelEstimator):
             t0 = time.time()
             
             if i != 0 and ((i+1) % self.batch_size == 0 or i+1 == total_count):
-                print("i", i)
-                print("total count", total_count)
 
                 cursor.execute("SELECT rowid,original_comm,roberta_activation FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+self.batch_size+1))
 
@@ -1653,40 +1651,28 @@ class NNModel(ModelEstimator):
                     train_indices.append(int(comment[0]))
                     # comment[1] = line.decode('utf-8','ignore')
                     train_texts.append(comment[1].strip())
-                print("finished comment")
 
-                cursor.execute("SELECT original_comm FROM comments")
-                texts = [item[0] for item in cursor.fetchall()]
-
-                print("finished execute")
-
-                encoded_input = tokenizer(texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
-                print("finished toensizer")
+                encoded_input = tokenizer(train_texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
                 roberta_output = roberta(encoded_input)
-                print("finished roberta")
-                roberta_output = np.asarray(roberta_output[0]) # shape (batch_size, 3, hidden_size)
-                
                 print("finished encoding")
-                if i+1 == total_count:
-                    roberta_output = roberta_output.reshape(self.batch_size,2304)
-                else:
-                    roberta_output = roberta_output.reshape(len(train_texts),2304) 
-                
-                print("finished reshaping")
-                for id_,document in enumerate(roberta_output):
-                    for element in cursor.execute("SELECT roberta_activation FROM comments WHERE rowid = {}".format(id_+1)):
-                        cursor.execute("UPDATE comments SET roberta_activation = {}".format(roberta_output))
-                conn.commit()
+                roberta_output = np.asarray(roberta_output[1]) 
 
-                # sql_query = "INSERT INTO comments (rowid, roberta_activation) VALUES "
                 # for id_,document in enumerate(roberta_output):
-                #     sql_query += "(" + (id_+1) + "," + roberta_output + "),"
-                # sql_query = sql_query[:-1]
-                # cursor.execute(sql_query)
+                #     for element in cursor.execute("SELECT roberta_activation FROM comments WHERE rowid = {}".format(id_+1)):
+                #         cursor.execute("UPDATE comments SET roberta_activation = {}".format(roberta_output))
                 # conn.commit()
 
+                for id_,document in enumerate(roberta_output):
+                    str_doc = ""
+                    for doc in document:
+                      str_doc += str(doc)
+                      str_doc += ","
+                    str_doc = str_doc[:-1]
+                    cursor.execute("UPDATE comments SET roberta_activation = \"{}\" WHERE ROWID = {}".format(str_doc, (id_ + 1)))
+                conn.commit()
+
             t1 = time.time()
-            # print("Time taken", t1-t0)
+            print("Time taken", t1-t0)
         print("Finished processing the dataset using RoBERTa-base at " + time.strftime('%l:%M%p, %m/%d/%Y'))
         # else:
         #     print("Loading RoBERTa-base activations from the database.")
