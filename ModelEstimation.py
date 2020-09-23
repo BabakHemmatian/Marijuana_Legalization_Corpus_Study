@@ -1652,14 +1652,7 @@ class NNModel(ModelEstimator):
                         train_texts.append(comment[1].strip())
 
                     encoded_input = tokenizer(train_texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
-                    tokens_tensor = encoded_input['input_ids'].to('cuda:0')
-                    token_type_ids = encoded_input['token_type_ids'].to('cuda:0')
-                    attention_mask = encoded_input['attention_mask'].to('cuda:0')
-                    output = {'input_ids' : tokens_tensor, 'token_type_ids' : token_type_ids,'attention_mask' : attention_mask}
-                    encoded_input = output
-                    roberta = roberta.to('cuda:0')
                     roberta_output = roberta(encoded_input)
-                    print("finished encoding")
                     roberta_output = np.asarray(roberta_output[1]) 
 
                     # for id_,document in enumerate(roberta_output):
@@ -1670,10 +1663,10 @@ class NNModel(ModelEstimator):
                     for id_,document in enumerate(roberta_output):
                         str_doc = ""
                         for doc in document:
-                        str_doc += str(doc)
-                        str_doc += ","
+                            str_doc += str(doc)
+                            str_doc += ","
                         str_doc = str_doc[:-1]
-                        cursor.execute("UPDATE comments SET roberta_activation = \"{}\" WHERE ROWID = {}".format(str_doc, (id_ + 1)))
+                        cursor.execute("UPDATE comments SET roberta_activation = \"{}\" WHERE ROWID = {}".format(str_doc, (id_ + 1 + i - 99)))
                     conn.commit()
 
                 t1 = time.time()
