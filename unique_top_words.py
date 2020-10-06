@@ -5,23 +5,35 @@ import sys
 import numpy
 
 num_topics = 50
+ENTIRE_CORPUS = True
 
 ## Load model, dictionary and set to top topics
 ldam=LDAModel()
 ldam.get_model()
 dictionary = gensim.corpora.Dictionary.load("RC_LDA_Dict_True.dict")
-top_topics = []
-with open("top_topic_ids","r") as f: # should be copied manually from the
-# output path
-    for line in f:
-        if line.strip() != "":
-            top_topics.append(int(line.strip()))
+# Legal status: [7,13,14,34,38]
+# policy: [3,6,8,19,40,43,48]
+# properties: [2,4,9,12,16,17,41]
+# enforcement: [10,15,28,37,47]
+# personal: [22,24,35,42,45,49]
+# legal history: [29,44]
+# acces: [26,39]
+# economy: [11,25]
+category = "economy"
+top_topics = [11,25]
+
+# NOTE: we're defining the sets manually. Hence commenting out the following loop
+# with open("LDA_{}_{}/top_topic_ids-f".format(ENTIRE_CORPUS,num_topics),"r") as f: # should be copied manually from the
+# # output path
+#     for line in f:
+#         if line.strip() != "":
+#             top_topics.append(int(line.strip()))
 
 ## Extract the top words of top topics
 # NOTE: Requires top_words_all_[num_topics] in the model's directory.
 # Please manually copy from [output_path]
 top_word = {key:0 for key in range(num_topics)}
-with open("top_words_all_"+str(num_topics),"r") as f:
+with open("LDA_full-corpus:{}_{}/top_words_all_{}".format(ENTIRE_CORPUS,num_topics,num_topics),"r") as f:
     for idx,line in enumerate(f):
         if idx == 100:
             break
@@ -101,7 +113,7 @@ print("standard deviation (assigned top topic): "+str(numpy.std(all_assigned)))
 
 
 ## Write unique terms for top topics to file. Change path if need be
-fout = open("top_uniques.txt","a+")
+fout = open("LDA_full-corpus:{}_{}/top_uniques_{}.txt".format(ENTIRE_CORPUS,num_topics,category),"a+")
 
 for topic in top_word.keys():
     if topic in top_topics:
@@ -114,7 +126,7 @@ for topic in top_word.keys():
         print(twos[topic],file=fout)
 
 ## Used in development of figures for publication. For developers' use only
-with open("top_twenty_50.txt","w") as fout_new:
+with open("LDA_{}_{}/top_twenty_50.txt".format(ENTIRE_CORPUS,num_topics),"w") as fout_new:
     for topic in top_word.keys():
         for idx,word_tuple in enumerate(top_word[topic]):
             if idx == 20:
