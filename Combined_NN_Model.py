@@ -2,8 +2,8 @@
 
 import time
 import sys
-# from Utils import *
-# from config import *
+from Utils import *
+from config import *
 from ModelEstimation import NNModel
 from reddit_parser import Parser # Does the parser object need to be adjusted?
 
@@ -17,7 +17,7 @@ theparser.safe_dir_create()
 theparser.Parse_Rel_RC_Comments()
 
 ### check key hyperparameters for correct data types
-# NN_param_typecheck()
+NN_param_typecheck()
 
 ### Define the neural network object
 nnmodel=NNModel()
