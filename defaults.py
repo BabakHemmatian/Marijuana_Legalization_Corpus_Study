@@ -14,7 +14,7 @@ import numpy as np
 
 ### Data management hyperparameters
 
-NN = False # Set to False for LDA, to true for neural network classification
+NN = True # Set to False for LDA, to true for neural network classification
 ENTIRE_CORPUS = True # Are we using a random subset of comments, or the whole
 # dataset? The names of model files and output directories will include the
 # value of this variable (e.g. the default LDA output directory label is
