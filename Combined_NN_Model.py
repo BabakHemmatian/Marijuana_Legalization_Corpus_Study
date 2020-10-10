@@ -8,17 +8,7 @@ from config import *
 from ModelEstimation import NNModel
 from transformers import BertTokenizer
 from NN_Utils import *
-from reddit_parser import Parser # Does the parser object need to be adjusted?
-
-# QUESTION: Does the ID need to show up here in the functions too?
-theparser=Parser()
-
-# Create relevant folders
-theparser.safe_dir_create()
-
-# parse the documents
-theparser.Parse_Rel_RC_Comments()
-
+from reddit_parser import Parser
 
 ### Define the neural network object
 

@@ -29,7 +29,7 @@ cache_dir
 outputs
 runs
 /__pycache__/
-*.pyc
+.pyc
 sentiment_pretraining/*.txt
 sentiment_pretraining/*.csv
 timedict
