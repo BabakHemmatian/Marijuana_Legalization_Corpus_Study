@@ -42,3 +42,4 @@ __pycache__
 avg_textblob_vader
 *.csv
 subreddit
+CoreNLP_errors.txt
