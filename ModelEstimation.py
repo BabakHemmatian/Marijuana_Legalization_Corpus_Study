@@ -155,7 +155,6 @@ class ModelEstimator(object):
                         files.append(file)
                     for file in info_to_add:
                         info_files.append(file)
-
                 if len(files) == 0:
                     raise Exception("Human comment ratings for DOI training could not be found on disk.")
                 if len(info_files) == 0:
@@ -169,12 +168,17 @@ class ModelEstimator(object):
                         reader = csv.reader(csvfile)
                         # read human data for sampled comments one by one
                         for idx, row in enumerate(reader):
+                            rand_index = 0
+                            text = 1
+                            relevance = 2
+                            attitude = 3
+                            persuasion = 4
                             # ignore headers and record the index of comments that are interpretable and that have ratings for all three goal variables
-                            if (idx != 0) and (row[2] != '0'): # if not a header or an irrelevant comment
+                            if (idx != 0) and (row[relevance] != '0'): # if not a header or an irrelevant comment
 
-                                relevant_rows = [row[3],row[4]]
+                                relevant_rows = [row[attitude], row[persuasion]]
 
-                                for id_,relevant_row in enumerate(relevant_rows):
+                                for id_, relevant_row in enumerate(relevant_rows):
                                     # print("rows")
                                     # print(row[3], row[4])
 
@@ -189,34 +193,41 @@ class ModelEstimator(object):
                                             formatted_row = 0
 
                                     if id_ == 0:
-                                        if row[0] not in human_ratings["attitude"]:
+                                        if row[rand_index] not in human_ratings["attitude"]:
                                             if relevant_row.strip() != "":
-                                                human_ratings["attitude"][int(row[0])] = [formatted_row]
+                                                human_ratings["attitude"][int(row[rand_index])] = [int(formatted_row)]
                                         else:
-                                            human_ratings["attitude"][int(row[0])].append(formatted_row)
+                                            human_ratings["attitude"][int(row[rand_index])].append(int(formatted_row))
                                     else:
-                                        if row[0] not in human_ratings["persuasion"]:
+                                        if row[rand_index] not in human_ratings["persuasion"]:
                                             if relevant_row.strip() != "":
-                                                human_ratings["persuasion"][int(row[0])] = [formatted_row]
+                                                human_ratings["persuasion"][int(row[rand_index])] = [int(formatted_row)]
                                         else:
-                                            human_ratings["persuasion"][int(row[0])].append(formatted_row)
+                                            human_ratings["persuasion"][int(row[rand_index])].append(int(formatted_row))
 
                 assert len(human_ratings["attitude"]) == len(human_ratings["persuasion"])
 
                 info_indices = {}
+
                 for id_ in human_ratings["attitude"].keys():
                     if id_ not in info_indices.keys():
+
                         for file in info_files:
-                            with open(file,"r") as csvfile:
+
+                            with open(file, "r") as csvfile:
                                 reader = csv.reader(csvfile)
                                 count = 0
                                 for row in reader:
-                                    if count!= 0:
-                                        if int(row[0].strip()) == id_:
-                                            if not row[5].isdigit():
-                                                info_indices[int(row[0].strip())] = [int(i) for i in row[5].strip().split(",")]
+                                    rand_index = 0
+                                    general_index = 5
+                                    if count != 0:
+                                        new_rand_index = int(row[rand_index].strip())
+                                        if new_rand_index in human_ratings["attitude"]:
+                                            if row[general_index].strip().isdigit():
+                                                info_indices[new_rand_index] = int(row[general_index].strip())
                                             else:
-                                                info_indices[int(row[0].strip())] = int(row[5].strip())
+                                                # Just use the first general index in the list
+                                                info_indices[new_rand_index] = row[general_index].strip().split(",")[0]
                                     count = count + 1
 
                 assert len(info_indices) == len(human_ratings["attitude"])
@@ -291,21 +302,13 @@ class ModelEstimator(object):
         test_key_set = testing_set
 
         for aks in attitude_key_set:
-            original_index = -1
-            if type(info_indices[aks]) is list:
-                original_index = info_indices[aks][0]
-            else:
-                original_index = info_indices[aks] + 1
+            original_index = int(info_indices[aks]) + 1
             set_values = set(human_ratings["attitude"][aks])
             val = ",".join(str(s) for s in set_values)
             rows_to_be_added[original_index] = [val]
 
         for pks in persuasion_key_set:
-            original_index = -1
-            if type(info_indices[pks]) is list:
-                original_index = info_indices[pks][0]
-            else:
-                original_index = info_indices[pks] + 1
+            original_index = int(info_indices[pks]) + 1
             set_values = set(human_ratings["persuasion"][pks])
             val = ",".join(str(s) for s in set_values)
             if original_index in rows_to_be_added.keys():
@@ -314,11 +317,7 @@ class ModelEstimator(object):
                 rows_to_be_added[original_index] = ["", val]
 
         for trks in training_key_set:
-            original_index = -1
-            if type(info_indices[trks]) is list:
-                original_index = info_indices[trks][0]
-            else:
-                original_index = info_indices[trks] + 1
+            original_index = int(info_indices[trks]) + 1
             val = 1
             if original_index in rows_to_be_added.keys():
                 rows_to_be_added[original_index].append(val)
@@ -326,11 +325,7 @@ class ModelEstimator(object):
                 rows_to_be_added[original_index] = ["", "", val]
 
         for teks in test_key_set:
-            original_index = -1
-            if type(info_indices[teks]) is list:
-                original_index = info_indices[teks][0]
-            else:
-                original_index = info_indices[teks] + 1
+            original_index = int(info_indices[teks]) + 1
             val = 0
             if original_index in rows_to_be_added.keys():
                 rows_to_be_added[original_index].append(val)
@@ -341,7 +336,7 @@ class ModelEstimator(object):
         cursor = conn.cursor()
         for row in rows_to_be_added.keys():
             print("row", row)
-            sql = "UPDATE comments SET attitude={0}, persuasion={1}, training={2} WHERE original_indices={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
+            sql = "UPDATE comments SET attitude={0}, persuasion={1}, training={2} WHERE ROWID={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
             cursor.execute(sql)
         conn.commit()
 

@@ -146,7 +146,7 @@ n_random_comments = 1500 # number of comments to sample from each year for
 iterations = 1000 # number of times LDA posterior distributions will be sampled
 num_threads = 5 # number of threads used for parallelized processing of comments
 # Only matters if using _Threaded functions (OBSOLETE)
-num_topics = 100 # number of topics to be generated in each LDA sampling
+num_topics = 50 # number of topics to be generated in each LDA sampling
 # NOTE: When NN=True, this variable is used to determine the results of which
 # LDA model should be incorporated into the neural network classifiers if they
 # are set to make use of LDA topics.
