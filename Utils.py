@@ -26,7 +26,7 @@ def NN_param_typecheck():
         assert 0 < learning_rate and 1 > learning_rate
     elif type(learning_rate) is list:
         for rate in learning_rate:
-            assert 0 < learning_rate and 1 > learning_rate
+            assert 0 < rate and 1 > rate
     else:
         raise Exception("Learning rate format not recognized.")
     assert type(batch_size) is int
