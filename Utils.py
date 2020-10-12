@@ -9,6 +9,16 @@ def NN_param_typecheck():
     assert type(DOI) is str
     assert type(RoBERTa_model) is str
     assert type(pretrained) is bool
+    assert type(LDA_topics) is bool
+    if LDA_topics:
+        assert type(num_topics) is int
+    assert type(authorship) is bool
+    if authorship:
+        assert type(top_authors) is int
+    assert type(use_subreddits) is bool
+    if use_subreddits:
+        assert type(top_subs) is int
+    assert type(ff2Sz) is int
     assert 0 < NN_training_fraction and 1 >= NN_training_fraction
     assert type(FrequencyFilter) is int
     assert type(epochs) is int
@@ -19,9 +29,7 @@ def NN_param_typecheck():
             assert 0 < learning_rate and 1 > learning_rate
     else:
         raise Exception("Learning rate format not recognized.")
-    assert type(batchSz) is int
-    assert type(hiddenSz) is int
-    assert type(ff2Sz) is int
+    assert type(batch_size) is int
     # assert 0 < keepP and 1 >= keepP
     # assert type(l2regularization) is bool
     # if l2regularization == True:
