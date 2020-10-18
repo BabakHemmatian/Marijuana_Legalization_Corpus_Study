@@ -1,23 +1,16 @@
-import torch
 import os
-import sqlite3
-import pandas as pd
+import torch
 from defaults import model_path
-
 # Establish configurable variables
+
 # Labeling
 NEGATIVE_BOUND = 0
 NEUTRAL_BOUND = 0.1
 NEGATIVE_LABEL = 0
 NEUTRAL_LABEL = 1
 POSITIVE_LABEL = 2
+LABELS_COL = 'labels'
 TEXT_COL = 'text'
-LABEL_COL = 'labels'
-
-# Batch range. Depending on your RAM constraints, you may make this
-# window smaller or larger
-STARTING_COMMENT = 0
-ENDING_COMMENT = 50
 
 # Model parameters
 TEST_SIZE = 0.2
@@ -28,29 +21,29 @@ EPOCHS = 1
 MANUAL_SEED = 1
 SAVE_STEPS_FREQ = 1000
 NUM_LABELS = 3
-MODEL_TO_TRAIN = 'roberta-base'
-MODEL_TO_TEST = model_path + '{}/sentiment_pretraining/outputs/'.format(model_path)
-OUTPUT_DIR = model_path + '{}/sentiment_pretraining/sentiment_pretraining_steps/{}-{}'.format(model_path,
-                                                                                              STARTING_COMMENT,
-                                                                                              ENDING_COMMENT)
+TRAIN_MODEL_PATH = 'roberta-base' # can be changed to a checkpoint path if you want to do incremental training
+OUTPUT_DIR = '{}/sentiment_pretraining/model_checkpoints'.format(model_path)
+EVAL_MODEL_PATH = 'outputs/'
 USE_CUDA = torch.cuda.is_available()
-if not os.path.exists("{}/sentiment_pretraining".format(model_path)):
-    os.mkdir("{}/sentiment_pretraining".format(model_path))
+
+# Batch range. Depending on your RAM constraints, you may make this
+# window smaller or larger
+STARTING_COMMENT = 200000
+ENDING_COMMENT = 1500000
+
 # Data paths
 DATABASE_PATH = '{}/reddit.db'.format(model_path)
 DATA_PATH = '{}/sentiment_pretraining/sentiment_pretraining_data.csv'.format(model_path)
-METRICS = '{}/sentiment_pretraining/metrics.txt'.format(model_path)
-WRONG_PREDICTIONS = '{}/sentiment_pretraining/wrong_predictions.csv'.format(model_path)
-MODEL_OUTPUTS = "{}/sentiment_pretraining/model_outputs.txt".format(model_path)
-RESULTS = "{}/sentiment_pretraining/results.txt".format(model_path)
+METRICS_PATH = '{}/sentiment_pretraining/metrics.txt'.format(model_path)
+WRONG_PREDICTIONS_PATH = '{}/sentiment_pretraining/wrong_predictions.csv'.format(model_path)
+MODEL_OUTPUTS_PATH = "{}/sentiment_pretraining/model_outputs.txt".format(model_path)
+RESULTS_PATH = '{}/sentiment_pretraining/results.txt'.format(model_path)
 
 # Evaluation
 TRUE_POSITIVE = 'tp'
 FALSE_POSITIVE = 'fp'
-TRUE_NEGATIVE = 'tn'
 FALSE_NEGATIVE = 'fn'
-
-
+TRUE_NEGATIVE = 'tn'
 # Function to transform the continuous sentiment rating into a
 # discrete label.
 def transform_avg_sentiment(original_sentiment):
@@ -88,10 +81,10 @@ def get_comment_sentiment_df():
         original_comm,
         sentiments
         from comments
-        ''', conn)
+          ''', conn)
 
     original_df = pd.DataFrame(SQL_Query, columns=['original_comm', 'sentiments'])
     renamed_df = original_df.rename(columns={'original_comm': 'text'})
-    renamed_df[LABEL_COL] = renamed_df.apply(lambda row: transform_avg_sentiment(row.sentiments), axis=1)
+    renamed_df['labels'] = renamed_df.apply(lambda row: transform_avg_sentiment(row.sentiments), axis=1)
     renamed_df.to_csv(DATA_PATH)
     return renamed_df

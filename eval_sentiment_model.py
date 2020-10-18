@@ -1,16 +1,23 @@
-import csv
-import numpy as np
-from sentiment_pretraining_defaults import *
-from sklearn.metrics import accuracy_score
 from simpletransformers.classification import ClassificationModel
+from sklearn.metrics import f1_score, accuracy_score
+from sentiment_pretraining_defaults import *
+import csv
+import pandas as pd
+import numpy as np
+import os
 
-# Get data sets
-data = get_comment_sentiment_df()[[TEXT_COL, LABEL_COL]]
-train, test = train_test_split(data, test_size=TEST_SIZE, random_state=RANDOM_STATE, shuffle=True)
+# Load Trained Model
 
+model = ClassificationModel('bert', EVAL_MODEL_PATH, num_labels=3, use_cuda=False,
+                            args={'fp16': False, 'num_train_epochs': 2, 'manual_seed': 1,
+                                  "eval_batch_size": EVAL_BATCH_SIZE,
+                                  "train_batch_size": TRAIN_BATCH_SIZE})
+
+data = get_comment_sentiment_df()[[TEXT_COL, LABELS_COL]]
+train_df, eval_df = train_test_split(data, test_size=TEST_SIZE, random_state=RANDOM_STATE, shuffle=True)
 freqs = {0: 0, 1: 0, 2: 0}
 
-for post in train.itertuples():
+for post in train_df.itertuples():
     freqs[post.labels] += 1
 
 print("Original training class frequencies: ")
@@ -19,35 +26,28 @@ print(freqs)
 test_freqs = {0: 0, 1: 0, 2: 0}
 
 # Evaluate Model
-for post in test.itertuples():
+for post in eval_df.itertuples():
     test_freqs[post.labels] += 1
 print("Original test class frequences: ")
 print(test_freqs)
 
-# Create model
-to_test_model = ClassificationModel('roberta', MODEL_TO_TEST, num_labels=NUM_LABELS, use_cuda=USE_CUDA,
-                                    args={'fp16': False, 'num_train_epochs': EPOCHS, 'manual_seed': MANUAL_SEED,
-                                          'save_steps': SAVE_STEPS_FREQ, 'save_optimizer_and_scheduler': True,
-                                          "eval_batch_size": EVAL_BATCH_SIZE,
-                                          "train_batch_size": TRAIN_BATCH_SIZE})
-
-result, model_outputs, wrong_predictions = to_test_model.eval_model(test, acc=accuracy_score)
+result, model_outputs, wrong_predictions = model.eval_model(eval_df, acc=accuracy_score)
 
 # Write f1, accuracy, and mcc metrics
-result_file = open(METRICS, "a")
+result_file = open(METRICS_PATH, "a")
 result_file.write(str(result))
 result_file.close()
 
 # Write wrong predictions
-with open(WRONG_PREDICTIONS, 'a') as file:
-    field_names = [TEXT_COL, LABEL_COL]
+with open(WRONG_PREDICTIONS_PATH, 'a') as file:
+    field_names = [TEXT_COL, LABELS_COL]
     csv_writer = csv.DictWriter(file, fieldnames=field_names)
     csv_writer.writeheader()
     for example in wrong_predictions:
-        csv_writer.writerow({TEXT_COL: example.text_a, LABEL_COL: example.label})
+        csv_writer.writerow({TEXT_COL: example.text_a, LABELS_COL: example.label})
 
 # Write outputs of the model
-with open(MODEL_OUTPUTS, "a") as output_file:
+with open(MODEL_OUTPUTS_PATH, "a") as output_file:
     for output in model_outputs:
         output_file.write(str(output) + "\n")
 
@@ -59,7 +59,6 @@ for i in range(0, len(eval_df)):
     predictions[i] = np.argmax(model_outputs[i])
 labels = labels.flatten()
 predictions = predictions.flatten()
-
 label_measures = []
 for value in [0, 1, 2]:
     label_measures.append(dict())
@@ -109,17 +108,17 @@ for label in [0, 1, 2]:
     if tp != 0 or fp != 0:
         precisions.append(float(tp) / (float(tp) + float(fp)))
 
-        with open(RESULTS, "a+") as f:
+        with open(RESULTS_PATH, "a+") as f:
             f.write("precisions: " + str(precisions) + "\n")
 
     if tp != 0 or fn != 0:
         recalls.append(float(tp) / (float(tp) + float(fn)))
 
-        with open(RESULTS, "a+") as f:
+        with open(RESULTS_PATH, "a+") as f:
             f.write("recalls: " + str(recalls) + "\n")
 
     if tp != 0 or (fn != 0 and fp != 0):
         f1s.append(2 * (precisions[label] * recalls[label]) / (precisions[label] + recalls[label]))
 
-        with open(RESULTS, "a+") as f:
+        with open(RESULTS_PATH, "a+") as f:
             f.write("f1s: " + str(f1s) + "\n")
