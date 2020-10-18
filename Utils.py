@@ -57,7 +57,7 @@ def Write_Performance(output_path=output_path, NN=NN):
             print("Early stopping = " + str(early_stopping),file=perf)
 
 ### calculate the yearly relevant comment counts
-def Get_Counts(path=path, random=False, frequency="monthly"):
+def Get_Counts(model_path=model_path, random=False, frequency="monthly"):
     assert frequency in ("monthly", "yearly")
 
     fns=reddit_parser.Parser().get_parser_fns()
