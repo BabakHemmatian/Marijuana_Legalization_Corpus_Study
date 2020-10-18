@@ -10,6 +10,9 @@ from transformers import BertTokenizer
 from NN_Utils import *
 from reddit_parser import Parser
 
+# Parser
+theparser = Parser()
+
 ### Define the neural network object
 
 nnmodel=NNModel()

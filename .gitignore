@@ -23,6 +23,9 @@ train.csv
 t_sentiments
 v_sentiments
 c_sentiments
+sentiments/
+bert_prep
+
 subreddit
 
 cache_dir

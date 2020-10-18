@@ -102,7 +102,7 @@ class Parser(object):
     #       https://files.pushshift.io/reddit/comments/.
     #   clean_raw: Delete the raw data file when finished.
 
-    def __init__(self, nlp_wrapper=StanfordCoreNLP('http://localhost:9000'),bert_tokenizer=BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True), clean_raw=CLEAN_RAW, dates=dates,
+    def __init__(self, nlp_wrapper=StanfordCoreNLP('http://localhost:9000'), clean_raw=CLEAN_RAW, dates=dates,
                  download_raw=DOWNLOAD_RAW, hashsums=None, NN=NN, data_path=data_path,
                  model_path=model_path,legality=legality, marijuana=marijuana,
                  stop=stop, write_original=WRITE_ORIGINAL,array=None,calculate_perc_rel=calculate_perc_rel,
@@ -149,7 +149,6 @@ class Parser(object):
         self.array = array
         self.machine = machine
         self.on_file = on_file
-        self.bert_tokenizer = bert_tokenizer
          # connect the Python wrapper to the server
         # Instantiate CoreNLP wrapper than can be used across multiple threads
         self.nlp_wrapper = nlp_wrapper
