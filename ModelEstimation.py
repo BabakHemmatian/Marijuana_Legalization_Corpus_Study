@@ -193,13 +193,14 @@ class ModelEstimator(object):
                                             formatted_row = 0
 
                                     if id_ == 0:
-                                        if row[rand_index] not in human_ratings["attitude"]:
+
+                                        if int(row[rand_index]) not in human_ratings["attitude"]:
                                             if relevant_row.strip() != "":
                                                 human_ratings["attitude"][int(row[rand_index])] = [int(formatted_row)]
                                         else:
                                             human_ratings["attitude"][int(row[rand_index])].append(int(formatted_row))
                                     else:
-                                        if row[rand_index] not in human_ratings["persuasion"]:
+                                        if int(row[rand_index]) not in human_ratings["persuasion"]:
                                             if relevant_row.strip() != "":
                                                 human_ratings["persuasion"][int(row[rand_index])] = [int(formatted_row)]
                                         else:
@@ -335,8 +336,7 @@ class ModelEstimator(object):
         conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
         cursor = conn.cursor()
         for row in rows_to_be_added.keys():
-            print("row", row)
-            sql = "UPDATE comments SET attitude={0}, persuasion={1}, training={2} WHERE ROWID={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
+            sql = "UPDATE comments SET attitude='{0}', persuasion='{1}', training={2} WHERE ROWID={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
             cursor.execute(sql)
         conn.commit()
 
