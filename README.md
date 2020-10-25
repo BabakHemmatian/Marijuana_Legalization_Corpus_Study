@@ -21,7 +21,7 @@ which has the most up-to-date dataset and information used by the model. Each ro
     - v_sentiments (Text): The sentiment value for each sentence in original_comm as a comma-separated string, extracted from the [Vader package](https://pypi.org/project/vaderSentiment/)
     - sentiments (Real): The sentiment taken from t_sentiments and v_sentiments averaged across all the sentences in the comment. 
     - votes (Integer): The number of votes (net of upvotes and downvotes) of a pos
-    - author (String): The comment's reddit username
+    - author (Text): The comment's reddit username.
     - relevance (Integer): A number from 0-3 indicating the relevance of a post (0 if irrelevant and 3 if very relevant). Will be a comma-separated string of values if multiple human raters disagreed on the relevance.
     - attitude (Text): A number from 0-5 indicating the attitude of a post (0 if no attitude, 5 if a lot of attitude). Will be a comma-separated string of values if multiple human raters disagreed on the attitude.
     - persuasion (Text): A number from 0-5 indicating the degree of persuasiveness of a a post (0 if not very persuasive, 5 if very persuasve). Will be a comma-separated string of values if multiple human raters disagreed on the attitude.
