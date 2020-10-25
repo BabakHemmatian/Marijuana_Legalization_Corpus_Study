@@ -3,36 +3,6 @@ import numpy as np
 
 conn = sqlite3.connect('reddit.db')
 
-sql_create_comments_table = """ CREATE TABLE IF NOT EXISTS comments (
-                                        original_comm text,
-                                        original_indices integer,
-                                        subreddit text,
-                                        month integer,
-                                        year integer,
-                                        average_comment real,
-                                        processed_text text,
-                                        author_id integer,
-                                        FOREIGN KEY(author_id) REFERENCES author(rowid)
-                                    ); """
-
-sql_create_sentiment_table = """ CREATE TABLE IF NOT EXISTS sentiments (
-                                        month integer,
-                                        year integer,
-                                        start_index integer,
-                                        end_index integer,
-                                        average_comment,
-                                        v_sentiment real,
-                                        t_sentiment real,
-                                        comment_id int,
-                                        FOREIGN KEY (comment_id) REFERENCES comments (rowid)
-                                    ); """
-
-sql_create_author_table = """ CREATE TABLE IF NOT EXISTS author (
-                                        id integer PRIMARY KEY,
-                                        name text,
-                                    ); """
-
-
 def insert_one_month_to_authors(conn, year, month):
     c = conn.cursor()
     with open(f"author/author-{year}-{month}") as f:
@@ -91,10 +61,12 @@ def insert_all_to_comments(conn, year_range, cols):
                                         subreddit text,
                                         month integer,
                                         year integer,
-                                        average_comment real,
                                         t_sentiments text,
                                         v_sentiments text,
-                                        processed_text text,
+                                        sentiments text,
+                                        relevance text,
+                                        attitude text,
+                                        persuasion,
                                         votes int,
                                         author text
                                     ); """
@@ -120,6 +92,7 @@ if __name__ == "__main__":
         'original_indices',
         't_sentiments',
         'v_sentiments',
+        'sentiments',
         'votes',
         'author'
     ]
