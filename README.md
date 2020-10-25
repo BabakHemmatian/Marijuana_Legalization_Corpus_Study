@@ -16,8 +16,8 @@ which has the most up-to-date dataset and information used by the model. Each ro
     - original_indices: I don't know what this means fully. 
     - subreddit (String): The subreddit the comment was posted in.
     - month (Integer): The month the comment was posted.
-    - year (Integer): The year the comment was posted.
-    - average_comment (String): TODO: Fill this in
+    - year (Integer): The year the comment was posted. 
+    - average_comment (String): 
     - t_sentiments (String): The sentiment value for each sentence in original_comm as a comma-separated string, extracted from the [TextBlob package](https://textblob.readthedocs.io/en/dev/#).
     - v_sentiments: The sentiment value for each sentence in original_comm as a comma-separated string, extracted from the [Vader package](https://pypi.org/project/vaderSentiment/)
     - votes (Integer): The number of votes (net of upvotes and downvotes) of a pos
