@@ -163,6 +163,7 @@ class ModelEstimator(object):
                 human_ratings = {"attitude":{},"persuasion":{}}
                 for file in files:
 
+
                     # retrieve the number of comments for which there are complete human ratings
                     with open(file, 'r') as csvfile:
                         reader = csv.reader(csvfile)
@@ -183,6 +184,7 @@ class ModelEstimator(object):
                                     # print(row[3], row[4])
 
                                     formatted_row = relevant_row
+                                    print(formatted_row)
                                     if "//" in formatted_row:
                                         formatted_row = relevant_row.split("//")[0]
 
@@ -193,7 +195,6 @@ class ModelEstimator(object):
                                             formatted_row = 0
 
                                     if id_ == 0:
-
                                         if int(row[rand_index]) not in human_ratings["attitude"]:
                                             if relevant_row.strip() != "":
                                                 human_ratings["attitude"][int(row[rand_index])] = [int(formatted_row)]
@@ -333,7 +334,7 @@ class ModelEstimator(object):
             else:
                 rows_to_be_added[original_index] = ["", "", val]
 
-        conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
+        conn = sqlite3.connect("reddit.db".format(self.num_topics))
         cursor = conn.cursor()
         for row in rows_to_be_added.keys():
             sql = "UPDATE comments SET attitude='{0}', persuasion='{1}', training={2} WHERE ROWID={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)

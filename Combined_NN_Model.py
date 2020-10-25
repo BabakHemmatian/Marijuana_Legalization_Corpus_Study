@@ -35,7 +35,7 @@ nnmodel=NNModel()
 # NOTE: Make sure the corresponding "info" files with the ratings' metadata
 # are stored in the same directory.
 # NOTE: The prefix will be automatically set to [model_path]
-nnmodel.Define_Sets(human_ratings_pattern = ["/auto_labels/sample_info-200-False-*","/auto_labels/1-rel_sample_ratings-300-False-*"])
+nnmodel.Define_Sets(human_ratings_pattern = ["/Ratings/sample_info-200-False-*","/Ratings/1-rel_sample_ratings-300-False-*"])
 
 ## Read and index the content of comments in each set
 # TODO: Set this up to add the RoBERTa activations as flattened column to the database
