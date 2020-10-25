@@ -6,6 +6,11 @@
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
       <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/reddit_50.db</jdbc-url>
+    <data-source source="LOCAL" name="reddit" uuid="912566dc-89a9-4010-a4c4-35a431194857">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/reddit.db</jdbc-url>
     </data-source>
   </component>
 </project>

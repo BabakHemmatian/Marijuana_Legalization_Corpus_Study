@@ -1,4 +1,5 @@
 import bz2
+import copy
 import errno
 import lzma
 import zstandard as zstd
@@ -39,8 +40,6 @@ import logging
 import fnmatch
 from sklearn.metrics import accuracy_score,cohen_kappa_score
 from sklearn.model_selection import KFold
-# from keras.preprocessing.sequence import pad_sequences
-# import hashlib
 import csv
 import shutil
 import ahocorasick
@@ -149,7 +148,6 @@ class Parser(object):
         self.array = array
         self.machine = machine
         self.on_file = on_file
-        self.bert_tokenizer = bert_tokenizer
          # connect the Python wrapper to the server
         # Instantiate CoreNLP wrapper than can be used across multiple threads
         self.nlp_wrapper = nlp_wrapper
@@ -287,69 +285,6 @@ class Parser(object):
                                  self.stop])
 
         return special_free
-
-    # ## NN_encode: uses the BERT tokenizer to process a comment into its
-    # ## sentence-by-sentence segment IDs and vocabulary IDs
-    # def NN_encode(self, text):
-    #     # check input arguments for valid type
-    #     assert type(text) is list or type(text) is str
-    #
-    #     # Create 2d arrays for sentence ids and segment ids.
-    #     sentence_ids = [] # each subarray is an array of vocab ids for each token in the sentence
-    #     segment_ids = [] # each subarray is an array of ids indicating which sentence each token belongs to
-    #     # The following code will:
-    #     #   (1) Tokenize each sentence.
-    #     #   (2) Prepend the `[CLS]` token to the start of each sentence.
-    #     #   (3) Append the `[SEP]` token to the end of each sentence.
-    #     #   (4) Map tokens to their IDs.
-    #     id = 0
-    #     for index, sent in enumerate(text):  # iterate over the sentences
-    #         encoded_sent = self.bert_tokenizer.encode(sent,  # Sentence to encode
-    #                                                   add_special_tokens=True)  # Add '[CLS]' and '[SEP]'
-    #         segment = [id] * len(self.bert_tokenizer.tokenize(sent))
-    #         sentence_ids.append(encoded_sent)
-    #         segment_ids.append(segment)
-    #         # # alternate segment id between 0 and 1
-    #         # # TODO: Ask Babak about this
-    #         id = 1 - id
-    #     return sentence_ids, segment_ids
-    #
-    # ## Gets attention masks so BERT knows which tokens correspond to real words vs padding
-    # def NN_attention_masks(self, input_ids):
-    #     # Create attention masks
-    #     attention_masks = []
-    #     for sent in input_ids:
-    #         # Create mask.
-    #         #   - If a token ID is 0, it's padding -- set the mask to 0.
-    #         #   - If a token ID is > 0, it's a real token -- set the mask to 1.
-    #         att_mask = [int(token_id > 0) for token_id in sent]
-    #
-    #         # Store the attention mask for this sentence.
-    #         attention_masks.append(att_mask)
-    #     return attention_masks
-    #
-    # ## Main parsing function for BERT
-    # def parse_for_bert(self, body):
-    #     # Encode the sentences into sentence and segment ids using BERT
-    #     sentence_ids, segment_ids = self.NN_encode(body)  # encode the text for NN
-    #     # TODO: double check with Babak on max length
-    #     max_length = 128
-    #     # Pad our input tokens with value 0.
-    #     # "post" indicates that we want to pad and truncate at the end of the sequence,
-    #     # as opposed to the beginning.
-    #     # Pad sentences to fit length
-    #     padded_sentence_ids = pad_sequences(segment_ids, maxlen=max_length, dtype="long",
-    #                                         value=0, truncating="post", padding="post")
-    #     # Create attention masks
-    #     attention_masks = self.NN_attention_masks(padded_sentence_ids)
-    #     data_to_write = {
-    #         'tokenized_sentences': body,
-    #         'sentence_ids': padded_sentence_ids.tolist(),
-    #         ## These below should also be ndarrays
-    #         'segment_ids': segment_ids,
-    #         'attention_masks': attention_masks
-    #     }
-    #     return data_to_write
 
     ## define the preprocessing function to lemmatize, and remove punctuation,
     # special characters and stopwords (LDA)
@@ -591,23 +526,6 @@ class Parser(object):
                 # cause this check to invariably fail. Comment out the code section
                 # below if that becomes a problem.
 
-                # calculate hashsum for the data file on disk
-                filesum = self.sha256(filename)
-                attempt = 0  # number of hashsum check trials for the current file
-                # # if the file hashsum does not match the correct hashsum
-                # while filesum != self.hashsums[filename]:
-                #     attempt += 1  # update hashsum check counter
-                #     if attempt == 3:  # if failed hashsum check three times,
-                #     # ignore the error to prevent an infinite loop
-                #         print("Failed to pass hashsum check 3 times. Ignoring.")
-                #         break
-                #     # notify the user
-                #     print("Corrupt data file detected")
-                #     print("Expected hashsum value: " +
-                #           self.hashsums[filename]+"\nBut calculated: "+filesum)
-                #     os.remove(self.path+'/'+filename)  # remove the corrupted file
-                #     self.download(year, month)  # download it again
-
             # if the file is not available, but download is turned off
             elif not filename in self.on_file:
                 # notify the user
@@ -723,31 +641,6 @@ class Parser(object):
 
                     # preprocess the comments
                     if self.NN:
-                        # Tokenize the sentences
-                        # body = sent_detector.tokenize(
-                        #   original_body)
-                        # Get JSON formatted objects for BERT
-                        # data_to_write = self.parse_for_bert(body)
-                        # Write to bert_prep folder
-                        # with open(fns["bert_prep"]) as readfile:
-                        #     if readfile.read(1) == "":
-                        #         data = {}
-                        #         data["parsed_data"] = [data_to_write]
-                        #         with open(fns["bert_prep"], 'w') as outfile:
-                        #             json.dump(data, outfile, indent=5)
-                        #     else:
-                        #         content = readfile.read()
-                        #         data = json.loads(content)
-                        #         temp = data['parsed_data']
-                        #         temp.append(data_to_write)
-                        #         data = temp
-                        #         with open(fns["bert_prep"], 'w') as outfile:
-                        #             json.dump(data, outfile, indent=5)
-
-                        # If calculating sentiment, write the average sentiment to
-                        # file. Range is -1 to 1, with values below 0 meaning neg
-                        # sentiment.
-                        # body = self._clean(original_body).lower()
                         non_url = 0
                         for word in original_body.strip().split():
                             if "http" not in word and "www" not in word:  # remove links
@@ -2356,7 +2249,7 @@ class Parser(object):
                 "Yearly relevant percentages are already available. Do you wish to delete them and count again [Y/N]?")
 
             if Q == 'Y' or Q == 'y':  # if yes
-                os.remove(model_path + "/perc_rel")  # delete previous record
+                os.remove(self.model_path + "/perc_rel")  # delete previous record
                 self.Rel_Counter()  # calculate again
             else:  # if no
                 print("Operation aborted")  # pass
