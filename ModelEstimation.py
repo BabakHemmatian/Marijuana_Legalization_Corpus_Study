@@ -159,7 +159,6 @@ class ModelEstimator(object):
                     raise Exception("Human comment ratings for DOI training could not be found on disk.")
                 if len(info_files) == 0:
                     raise Exception("Metadata files for human comment ratings could not be found on disk.")
-
                 human_ratings = {"attitude":{},"persuasion":{}}
                 for file in files:
 
@@ -229,7 +228,7 @@ class ModelEstimator(object):
                                                 info_indices[new_rand_index] = int(row[general_index].strip())
                                             else:
                                                 # Just use the first general index in the list
-                                                info_indices[new_rand_index] = row[general_index].strip().split(",")[0]
+                                                info_indices[new_rand_index] = int(row[general_index].strip().split(",")[0])
                                     count = count + 1
 
                 assert len(info_indices) == len(human_ratings["attitude"])
@@ -285,7 +284,7 @@ class ModelEstimator(object):
             assert len(self.LDA_sets['train']) + len(self.LDA_sets['eval']) == len(
                 indices), "The training and evaluation set sizes do not correspond to the number of posts on file"
 
-            
+
             # write the sets to file
             for set_key in self.LDA_set_keys:
                 with open(self.fns["{}_set".format(set_key)], 'a+') as f:
@@ -334,7 +333,7 @@ class ModelEstimator(object):
             else:
                 rows_to_be_added[original_index] = ["", "", val]
 
-        conn = sqlite3.connect("reddit.db".format(self.num_topics))
+        conn = sqlite3.connect("reddit_50.db".format(self.num_topics))
         cursor = conn.cursor()
         for row in rows_to_be_added.keys():
             sql = "UPDATE comments SET attitude='{0}', persuasion='{1}', training={2} WHERE ROWID={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
@@ -1531,13 +1530,29 @@ class LDAModel(ModelEstimator):
                                  month_of_year[pop_comment, 0], results[number],
                                  pop_comm_topic[number]])
 
+def recall_m(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    recall = true_positives / (possible_positives + K.epsilon())
+    return recall
+
+def precision_m(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    return precision
+
+def f1_m(y_true, y_pred):
+    precision = precision_m(y_true, y_pred)
+    recall = recall_m(y_true, y_pred)
+    return 2*((precision*recall)/(precision+recall + K.epsilon()))
+
 # TODO: Some of the current fns can simply be loaded from the SQL database
 # TODO: In all cases, data should be read from that database
 class NNModel(ModelEstimator):
     def __init__(self, DOI=DOI, RoBERTa_model=RoBERTa_model,pretrained=pretrained,
                  FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
                  batch_size=batch_size, ff2Sz=ff2Sz, LDA_topics=LDA_topics,
-                 # keepP=keepP, l2regularization=l2regularization, NN_alpha=NN_alpha,
                  num_topics=num_topics, early_stopping=early_stopping,
                  authorship=authorship, top_authors=top_authors,
                  use_subreddits=use_subreddits, top_subs=top_subs,
@@ -1558,10 +1573,6 @@ class NNModel(ModelEstimator):
         self.top_authors = top_authors
         self.use_subreddits = use_subreddits
         self.top_subs = top_subs
-        # self.keepP = keepP
-        # self.l2regularization = l2regularization
-        # if self.l2regularization:
-        #     self.NN_alpha = NN_alpha
         self.early_stopping = early_stopping
         self.epochs = epochs
         self.set_key_list = ['train', 'test']  # for NN
@@ -1571,6 +1582,11 @@ class NNModel(ModelEstimator):
         self.Max = {key: [] for key in self.set_key_list}
         self.Max_l = None
         self.sentiments = {key: [] for key in self.set_key_list}  # for NN
+        self.model = None
+        self.num_classes = 3
+        self.activations_path = model_path + "/Roberta_set.h5"
+        self.database_path = model_path + "/reddit_50.db"
+
 
         # TODO: the evaluation measures should probably be updated based on
         # recent changes to reddit_parser.py
@@ -1607,7 +1623,7 @@ class NNModel(ModelEstimator):
         # load the SQL database
         try:
             if not LDA_topics:
-                conn = sqlite3.connect(self.model_path+"/reddit.db",detect_types=sqlite3.PARSE_DECLTYPES)
+                conn = sqlite3.connect(self.model_path+"/reddit_50.db",detect_types=sqlite3.PARSE_DECLTYPES)
             else:
                 conn = sqlite3.connect(self.model_path+"/reddit_{}.db".format(num_topics),detect_types=sqlite3.PARSE_DECLTYPES)
             cursor = conn.cursor()
@@ -1664,130 +1680,272 @@ class NNModel(ModelEstimator):
             print("Loading RoBERTa-base activations from the database.")
 
 
-    # TODO: Should rewrite this as a utility for the training function
-    ## function for getting average sentiment values for training and test sets
-    def Get_Human_Ratings(self, path):
-        if not Path(self.fns["sentiments"]).is_file():
-            raise Exception("Sentiment data could not be found on file.")
-        else:
-            with open(self.fns["sentiments"], "r") as sentiments:
-                for idx, sentiment in enumerate(sentiments):
-                    if idx in self.sets["train"]:
-                        self.sentiments["train"].append(sentiment)
-                    elif idx in self.sets["test"]:
-                        self.sentiments["test"].append(sentiment)
-                    else:
-                        raise Exception("The set indices are not correctly defined")
-
-
     ## Function for creating the neural network's computation graph, training
     # and evaluating
+    '''
+    Function to extract the model checkpoint path based 
+    on the user-defined configurables
+    @return the path to a directory where the model checkpoints exist
+    '''
+
+    def get_checkpoint_path(self):
+        configurable_paths = []
+        if self.LDA_Topics:
+            configurable_paths.append("LDA")
+        if self.authorship:
+            configurable_paths.append("authorship")
+        if self.use_subreddits:
+            configurable_paths.append("subreddit")
+        checkpoint_path = "/{}/training_1/checkpoint".format("/".join(configurable_paths))
+        return os.path.dirname(checkpoint_path)
+
+    '''
+    Function to initialize the neural network. 
+    '''
+    def initialize_model(self):
+        # Path to where model checkpoints should be stored
+        checkpoint_dir = self.get_checkpoint_path()
+        if self.pretrained:
+            self.model = tf.keras.models.load_model(checkpoint_dir)
+        else:
+            # Determining number of classes based on configurable DOI
+            # (dimension of interest)
+            if self.DOI == "attitude":
+                self.num_classes = 6
+            if self.DOI == "persuasion":
+                self.num_classes = 4
+
+            self.model = keras.Sequential(
+                [
+                    layers.Dense(128, activation="relu", name="layer1"),
+                    layers.Dense(self.num_classes, activation="relu", name="layer2"),
+                ]
+            )
+
+        self.model.compile(optimizer=tf.optimizers.Adam(learning_rate=1e-3),
+                           metrics=["mae", "acc", f1_m, precision_m, recall_m],
+                           loss='categorical_crossentropy')
+
+        # Initialize the callbacks
+        self.early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                               mode='min', verbose=1)
+        self.cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_dir,
+                                                              save_weights_only=True,
+                                                              verbose=1)
+
+    '''
+    Function to extract the documents based on the configurable input
+    @return a list of document tuples, where each tuple contains 
+    the relevant configurable input (e.g LDA, author, subreddit, etc) info
+    for that particular document
+    '''
+    def extract_documents(self):
+        try:
+            conn = sqlite3.connect(self.path_to_database)
+            cursor = conn.cursor()
+
+            # Baseline fields from the database we'll be extracting
+            fields = ["ROWID", self.DOI, "training"]
+
+            # If we aren't extracting any additional input,
+            # just get the current fields
+            if self.input2 is None:
+                self.fields = fields
+                cursor.execute("SELECT {} FROM comments WHERE {} IS NOT NULL"
+                               .format(",".join(self.fields), self.DOI))
+            else:
+                if self.LDA_Topics:
+                    # Add self.num_topics topic columns to the fields
+                    for topic in range(self.num_topics):
+                        fields.append("topic_{}".format(topic))
+
+                # If we are adding authorship
+                if self.authorship:
+                    # Set the authorship one hot vector to size = number of authors + 1
+                    # Add an extra cell for authors not in our top author set/deleted authors
+                    self.authorship_one_hot = [0 for i in range(self.top_authors + 1)]
+
+                    # Extract the most prolific authors, based on self.top_authors
+                    cursor.execute(
+                        "SELECT author, COUNT(*) FROM comments GROUP BY author ORDER BY COUNT(*) DESC LIMIT {}"
+                        .format(self.top_authors + 1))
+
+                    # Initialize a set for uniqueness, and wrap it
+                    # in a list for ordered indexing
+                    self.top_authors_list = list(set([item[0] for item in cursor.fetchall()]))
+
+                    fields.append("author")
+
+                # If we are adding subreddit info
+                if self.use_subreddits:
+                    # Set the subreddit one hot vector to size = number of subreddits + 1
+                    # Add an extra cell for subreddits not in our top subreddit set
+                    self.subreddits_one_hot = [0 for i in range(self.top_subs + 1)]
+                    cursor.execute(
+                        "SELECT subreddit, COUNT(*) FROM comments GROUP BY subreddit ORDER BY COUNT(*) DESC LIMIT {}"
+                        .format(self.top_subs))
+
+                    # Initialize a set for uniqueness, and wrap it
+                    # in a list for ordered indexing
+                    self.top_subreddits_list = list(set([item[0] for item in cursor.fetchall()]))
+
+                    fields.append("subreddit")
+
+                self.fields = fields
+                print("SELECT {} FROM comments WHERE {} IS NOT NULL"
+                      .format(",".join(self.fields), self.DOI))
+
+                # Extract all the documents with the fields added from above
+                cursor.execute("SELECT {} FROM comments WHERE {} IS NOT NULL"
+                               .format(",".join(self.fields), self.DOI))
+            # Return all the document tuples, the configurable fields,
+            # the authorship and subreddit lists
+            return cursor.fetchall()
+
+        except sqlite3.Error as error:
+            print("Failed to read data from table", error)
+
+    '''
+    Function to perform the main training and evaluation loop
+    over each batch of documents
+    '''
     def train_and_evaluate(self):
 
-        if not device_count is None:
-            self.device_count = device_count
+        train_flag = 1;
+        test_flag = 0
+        documents = self.extract_documents()
 
-        input1 = tf.keras.layers.Input(shape = (2304,),dtype=tf.float32)
-        inpt2_sz = 0
-        if self.authorship:
-            input2_sz += self.top_authors + 1
-        if self.LDA_topics:
-            input2_sz += self.num_topics
-        if self.use_subreddits:
-            input2_sz += self.top_subs + 1
-        if inpt2_sz != 0:
-            input2 = tf.keras.layers.Input(shape = (input2_sz,))
-            ff1 = tf.keras.layers.Dense(128,dtype=tf.float32)([input1,input2])
-        else:
-            ff1 = tf.keras.layers.Dense(128,dtype=tf.float32)(input1)
-        out = tf.keras.layers.Dense(3,dtype=tf.float32)(ff1)
-        if inpt2_sz != 0:
-            model = tf.keras.Model([input1,input2], [out])
-        else:
-            model = tf.keras.Model([input1], [out])
+        training_activations, \
+        additional_training_input, \
+        training_output = self.extract_input_vectors(documents,
+                                                     train_flag)
 
-        model.compile(optimizer = tf.optimizers.Adam(learning_rate=1e-3),
-            loss='categorical_crossentropy',metrics=["mae", "acc"]) # TODO: can I replace the metrics here with what I want?
+        model_training_input = np.array(training_activations)
+        training_output = np.array(training_output)
 
-        ## create placeholders for input, output, loss weights and dropout rate
-        # DOutRate = tf.compat.v1.placeholder(tf.float32)
+        # If we got any additional training input
+        # append it to our input vector
+        if len(additional_training_input) > 0:
+            np.append(model_training_input, additional_training_input)
 
-        ## set up the graph parameters
+        # Train
+        self.model.fit(x=model_training_input, y=training_output,
+                       batch_size=self.batch_size,
+                       epochs=self.epochs,
+                       verbose=1)
 
-        # TODO: fix this based on how Nate is saving
-        # Should use these:     layer. get_weights(): returns the weights of the layer as a list of Numpy arrays.
-        #                       layer. set_weights(weights): sets the weights of the layer from a list of Numpy arrays.
+        # Evaluate the model
+        eval_input, additional_eval_input, eval_output = \
+            self.extract_input_vectors(documents, test_flag)
+        model_eval_input = np.array(eval_input)
+        if len(additional_eval_input):
+            np.append(model_eval_input, additional_eval_input)
 
-        # for pre-trained classification network, load parameters from file
-        if self.pretrained:
-            # TODO: needs to check disk for previous data and if not, train
-            # TODO: add the loading of RoBERTa weights
-            # TODO: fix the reference to the objects being "loaded"
-            print("Loading parameter estimates from file")
-            ff1.set_weights(np.load("ff1"))
-            out.set_weights(np.load("out"))
-        else:
-            print("Initializing parameter estimates")
-            ff1_rand_weights = np.random.normal(0,0.1,size=ff1.shape)
-            ff1.set_weights(ff1_rand_weights)
-            out_rand_weights = np.random.normal(0,0.1,size=ff1.shape)
-            out.set_weights(out_rand_weights)
-
-        # calculate sum of the weights for l2regularization
-        # if self.l2regularization:
-        #     sum_weights = tf.nn.l2_loss(ff1)
-        #     sum_weights+ = tf.nn.l2_loss(out)
-        #     # TODO: add for fine-tuning roberta
-        #   losses = losses + (alpha * sum_weights)
-
-    # TODO: add LDA input, etc.
-    # TODO: add F1 to metrics
-
-
-        # NEW STUFF
-        checkpoint_path = self.output_path + "/params/training_1/cp.ckpt"
-        checkpoint_dir = os.path.dirname(checkpoint_path)
-
-        # Create a callback that saves the model's weights
-        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
-                                                         save_weights_only=True,
-                                                         verbose=1)
-
-        # TODO: the input should be an iterator using fetchall. In fact, replace get_indexed_comment and index_set with some light processing here using iterators
-        # TODO: this should be updated to reflect the configurable parts of the input, probably through an IF condition
-        # TODO: should add rowid condition based on whether something is in the training set.
-
-        conn = sqlite3.connect("reddit_{}.db".format(self.num_topics))
-        cursor = conn.cursor()
-
-        document_batch = []
-
-        if input2_sz == 0:
-            command = cursor.execute("SELECT roberta_activation,{} FROM comments WHERE {} IS NOT NULL".format(self.DOI,self.DOI))
-        else:
-            input2 = []
-            if self.LDA_topics:
-                for topic in range(num_topics):
-                    input2.append("topic_{}".format(topic))
-                if self.authorship:
-                    input2.append("author")
-                if self.subreddits:
-                    input2.append("subreddit")
-
-            command = cursor.execute("SELECT roberta_activation,{} FROM comments WHERE attitude IS NOT NULL".format(",".join(input2)))
-
-        for document in command:
-            document_batch.append(document)
-            # IF any additions are needed as input2, get them from the database in the SQL command below
-            # ELSE:
-
-            if len(document_batch) == 10000:
-
-                # TODO: the reformatting of the subreddits should come here
-                # TODO: the null topic values should be fed in as zero
-                model.fit(x = np.asarray(roberta_output[0]), y = np.asarray(roberta_output[1]), batch_size = batch_size, epochs = epochs, validation_split = 0.2, validation_batch_size=batch_size, metrics=[tf.keras.metrics.CategoricalAccuracy,tf.keras.metrics.Precision,tf.keras.metrics.Recall])
+        print("loss, mae, acc, f1, precision, recall")
+        print(self.model.evaluate(x=model_eval_input, y=np.array(eval_output),
+                                  batch_size=self.batch_size))
 
         # timer
         print("Finishing time:" + time.strftime('%l:%M%p, %m/%d/%Y'))
 
-# TODO: add a testing function
+    '''
+    Function to extract the input vectors from a given batch
+    @param document_batch, a list of tuples with each input type
+    @param train_or_test, a flag indicating whether we are looking for training or testing data
+    @return a numpy array of arrays, where each inner array is of size input2_size
+    '''
+    def extract_input_vectors(self, document_batch, train_flag):
+
+        # Open activations file
+        h5 = tables.open_file(self.activations_path, 'r')
+        carr = h5.root.carray
+
+        train_index = 2
+
+        activations = []
+        additional_input = []
+        output = []
+        # For each document in the batch
+        for tup in document_batch:
+            # Each document will have its own row for input. We add to it as
+            # we loop through the columns
+            additional_input_component = []
+            LDA_Vec = []
+
+            # If the cell corresponds to the training/testing set
+            if tup[train_index] == train_flag:
+
+                for (index, column) in enumerate(tup):
+                    column_name = self.fields[index]
+                    if column_name == "ROWID":
+                        # Get the activations for the appropriate row
+                        activations.append(carr[column - 1, :])  # Should be a vector of size
+
+                    if column_name == "author":
+                        # if author in top authors, create vector and append to additional
+                        # input component
+                        new_author_vec = copy.deepcopy(self.authorship_one_hot)
+                        if column in self.top_subreddits_list:
+                            index = self.top_authors_list.index(column)
+                            new_author_vec[index] = 1
+                        else:
+                            new_author_vec[0] = 1
+
+                        # Add the author vector to the additional input component
+                        for num in new_author_vec:
+                            additional_input_component.append(num)
+
+                    if column_name == "subreddit":
+                        # if subreddit in top subreddits, create vector and append
+                        # to additional input component
+                        new_subreddit_vec = copy.deepcopy(self.subreddits_one_hot)
+                        if column in self.top_subreddits_list:
+                            index = self.top_subreddits_list.index(column)
+                            new_subreddit_vec[index] = 1
+                        else:
+                            new_subreddit_vec[len(new_subreddit_vec) - 1] = 1
+
+                        # Add the subtreddit vector to the additional input component
+                        for num in new_subreddit_vec:
+                            additional_input_component.append(num)
+
+                    # If we are on a topic column
+                    if "topic" in column_name:
+                        # And the contribution value is not null, append the value
+                        # otherwise, just append zero
+                        if column:
+                            LDA_Vec.append(float(column))
+                        else:
+                            LDA_Vec.append(0.0)
+
+                    # If we are on a label column, append that to the output
+                    if column_name == self.DOI:
+                        output_array = [0] * self.num_classes
+                        # For now, just get the first rating
+                        output_array[int(column.split(",")[0])] = 1
+                        output.append(output_array)
+
+                        # If we just have one rating, create one-hot vector
+                        # if isinstance(column, int):
+
+                        # TODO: Note, this implements multi-hot vector logic
+                        # for duplicate ratings, but it is commented out since it causes
+                        # recall/precision to go above one
+                        # Otherwise, create a multi-hot vector proportional
+                        # to the ratings
+                        # else:
+                        #   ratings_count = {}
+                        #   ratings = column.split(",")
+                        #   for r in ratings:
+                        #     ratings_count[r] = ratings_count.get(r, 0) + 1
+                        #   total_points = len(ratings)
+                        #   for r in ratings:
+                        #     output_array[int(r)] = ratings_count.get(r) / total_points
+                        #   output.append(output_array)
+
+            # Add all the topic values to our additional input column
+            for topic in LDA_Vec:
+                additional_input_component.append(topic)
+            additional_input.append(additional_input_component)
+
+        return activations, additional_input, output

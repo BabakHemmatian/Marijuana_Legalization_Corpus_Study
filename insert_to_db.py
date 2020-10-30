@@ -1,7 +1,7 @@
 import sqlite3
 import numpy as np
 
-conn = sqlite3.connect('reddit.db')
+conn = sqlite3.connect('reddit_50.db')
 
 def insert_one_month_to_authors(conn, year, month):
     c = conn.cursor()
