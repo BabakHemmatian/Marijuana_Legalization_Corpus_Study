@@ -33,7 +33,6 @@ import sys
 from textblob import TextBlob
 from config import *
 from Utils import *
-from transformers import BertTokenizer
 from simpletransformers.classification import ClassificationModel
 import pandas as pd
 import logging
