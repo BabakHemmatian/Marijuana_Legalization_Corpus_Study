@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="reddit_50" uuid="523b5b1b-8a46-4b31-8219-a2e99ab20108">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/reddit_50.db</jdbc-url>
     <data-source source="LOCAL" name="reddit" uuid="912566dc-89a9-4010-a4c4-35a431194857">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>

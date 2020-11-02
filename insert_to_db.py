@@ -1,37 +1,11 @@
 import sqlite3
 import numpy as np
+from defaults import model_path, num_topics
+import os
 
-conn = sqlite3.connect('reddit.db')
+database_path = os.path.join(model_path, 'reddit_{}.db'.format(num_topics))
 
-sql_create_comments_table = """ CREATE TABLE IF NOT EXISTS comments (
-                                        original_comm text,
-                                        original_indices integer,
-                                        subreddit text,
-                                        month integer,
-                                        year integer,
-                                        average_comment real,
-                                        processed_text text,
-                                        author_id integer,
-                                        FOREIGN KEY(author_id) REFERENCES author(rowid)
-                                    ); """
-
-sql_create_sentiment_table = """ CREATE TABLE IF NOT EXISTS sentiments (
-                                        month integer,
-                                        year integer,
-                                        start_index integer,
-                                        end_index integer,
-                                        average_comment,
-                                        v_sentiment real,
-                                        t_sentiment real,
-                                        comment_id int,
-                                        FOREIGN KEY (comment_id) REFERENCES comments (rowid)
-                                    ); """
-
-sql_create_author_table = """ CREATE TABLE IF NOT EXISTS author (
-                                        id integer PRIMARY KEY,
-                                        name text,
-                                    ); """
-
+conn = sqlite3.connect(database_path)
 
 def insert_one_month_to_authors(conn, year, month):
     c = conn.cursor()
@@ -91,10 +65,11 @@ def insert_all_to_comments(conn, year_range, cols):
                                         subreddit text,
                                         month integer,
                                         year integer,
-                                        average_comment real,
                                         t_sentiments text,
                                         v_sentiments text,
-                                        processed_text text,
+                                        sentiments text,
+                                        attitude text,
+                                        persuasion,
                                         votes int,
                                         author text
                                     ); """
@@ -102,10 +77,8 @@ def insert_all_to_comments(conn, year_range, cols):
     c.execute(sql_create_comments_table)
 
     for year in year_range:
-        if year == 2019:
-            month_range = range(1, 10)
-        else:
-            month_range = range(1, 13)
+
+        month_range = range(1, 13)
 
         for month in month_range:
             insert_one_month_to_comments(conn, year, month, cols)
@@ -122,6 +95,7 @@ if __name__ == "__main__":
         'original_indices',
         't_sentiments',
         'v_sentiments',
+        'sentiments',
         'votes',
         'author'
     ]

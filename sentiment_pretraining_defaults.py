@@ -32,7 +32,7 @@ STARTING_COMMENT = 200000
 ENDING_COMMENT = 1500000
 
 # Data paths
-DATABASE_PATH = '{}/reddit.db'.format(model_path)
+DATABASE_PATH = '{}/reddit_50.db'.format(model_path)
 DATA_PATH = '{}/sentiment_pretraining/sentiment_pretraining_data.csv'.format(model_path)
 METRICS_PATH = '{}/sentiment_pretraining/metrics.txt'.format(model_path)
 WRONG_PREDICTIONS_PATH = '{}/sentiment_pretraining/wrong_predictions.csv'.format(model_path)
