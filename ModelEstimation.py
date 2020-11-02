@@ -23,25 +23,6 @@ parser_fns = Parser().get_parser_fns()
 from simpletransformers.classification import ClassificationModel
 from transformers import RobertaConfig, RobertaTokenizer, TFRobertaModel, pipeline
 from Utils import *
-# IDEA: # We should check this for LM pretraining on our dataset,
-# and maybe do that for the ROBERTA section later:
-# https://github.com/huggingface/transformers/blob/master/examples/language-modeling/run_language_modeling.py
-
-## converter functions for storing and retrieving numpy arrays from the SQLite database
-def adapt_array(arr):
-    """
-    http://stackoverflow.com/a/31312102/190597 (SoulNibbler)
-    """
-    out = io.BytesIO()
-    np.save(out, arr)
-    out.seek(0)
-    return sqlite3.Binary(out.read())
-
-def convert_array(text):
-    out = io.BytesIO(text)
-    out.seek(0)
-    return np.load(out)
-
 
 ## wrapper function for calculating topic contributions to a comment
 def Topic_Asgmt_Retriever_Multi_wrapper(args):
@@ -243,7 +224,7 @@ class ModelEstimator(object):
         else:  # if using LDA on a random subsample of the comments
             num_comm = len(indices)  # total number of sampled comments
 
-        num_train = int(ceil(0.90 * num_comm))  # size of training set
+        num_train = int(ceil(self.training_fraction * num_comm))  # size of training set
 
         training_set = []
         testing_set = []
@@ -289,7 +270,7 @@ class ModelEstimator(object):
             for set_key in self.LDA_set_keys:
                 with open(self.fns["{}_set".format(set_key)], 'a+') as f:
                     for index in self.LDA_sets[set_key]:
-                        print(index, file=f)
+                        print(index, end='\n', file=f)
 
         # TODO: here's where we should add both the training and test set membership to
         # the SQL database, and upload the actual ratings to the attitude or persuasion
@@ -1556,6 +1537,7 @@ class NNModel(ModelEstimator):
                  num_topics=num_topics, early_stopping=early_stopping,
                  authorship=authorship, top_authors=top_authors,
                  use_subreddits=use_subreddits, top_subs=top_subs,
+                 validation_split=validation_split,
                  epochs=epochs, **kwargs):
         ModelEstimator.__init__(self, **kwargs)
         # TODO: define the truncation variable. It should be the default because
@@ -1584,6 +1566,7 @@ class NNModel(ModelEstimator):
         self.sentiments = {key: [] for key in self.set_key_list}  # for NN
         self.model = None
         self.num_classes = 3
+        self.validation_split=validation_split
         self.activations_path = model_path + "/Roberta_set.h5"
         self.database_path = model_path + "/reddit_50.db"
 
@@ -1830,6 +1813,7 @@ class NNModel(ModelEstimator):
 
         # Train
         self.model.fit(x=model_training_input, y=training_output,
+                       validation_split=self.validation_split,
                        batch_size=self.batch_size,
                        epochs=self.epochs,
                        verbose=1)

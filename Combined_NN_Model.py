@@ -7,14 +7,13 @@ from config import *
 from ModelEstimation import NNModel
 from reddit_parser import Parser # Does the parser object need to be adjusted?
 
-# QUESTION: Does the ID need to show up here in the functions too?
-theparser=Parser()
+# theparser=Parser()
 
 # Create relevant folders
-theparser.safe_dir_create()
+# theparser.safe_dir_create()
 
 # parse the documents
-theparser.Parse_Rel_RC_Comments()
+# theparser.Parse_Rel_RC_Comments()
 
 ### check key hyperparameters for correct data types
 NN_param_typecheck()

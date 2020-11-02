@@ -1,7 +1,11 @@
 import sqlite3
 import numpy as np
+from defaults import model_path, num_topics
+import os
 
-conn = sqlite3.connect('reddit_50.db')
+database_path = os.path.join(model_path, 'reddit_{}.db'.format(num_topics))
+
+conn = sqlite3.connect(database_path)
 
 def insert_one_month_to_authors(conn, year, month):
     c = conn.cursor()
@@ -64,7 +68,6 @@ def insert_all_to_comments(conn, year_range, cols):
                                         t_sentiments text,
                                         v_sentiments text,
                                         sentiments text,
-                                        relevance text,
                                         attitude text,
                                         persuasion,
                                         votes int,

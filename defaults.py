@@ -230,6 +230,7 @@ top_subs = 500 # the number of subreddits in the dataset with the most posts to
 epochs = 10 # number of epochs. Should be lower for unsupervised learning (e.g.
 # the sentiment pre-training) as it pertains to many more documents
 learning_rate = 0.003 # learning rate
+validation_split = 0.2
 # NOTE: If fed a list of floats for training, will train iteratively using the
 # various rates and outputting them to different [output_path]s. If the same
 # happens when loading previously-trained models, it will load all models
