@@ -95,7 +95,7 @@ rel_sample_num = 750 # A random sample of this size (if available) will be
 balanced_rel_sample = False # whether the random filtering sample should be
 # balanced across classification categories (relevant, irrelevant by default)
 # NOTE: If the dataset has previously been auto-filtered for relevance, this
-# should be set to False 
+# should be set to False
 eval_relevance = False # F1, recall, precision and accuracy for the sample derived
 # from Neural_Relevance_Filtering. Requires the sample to be complemented by
 # manual labels. The default location for the sample is
@@ -313,5 +313,5 @@ else: # if doing topic modeling
 
     # Force this import so output_path is correctly set
     from lda_config import ENTIRE_CORPUS
-    output_path = model_path + "/LDA_full-corpus:"+str(ENTIRE_CORPUS)+"_"+str(num_topics)
+    output_path = model_path + "/LDA_full-corpus-"+str(ENTIRE_CORPUS)+"_"+str(num_topics)
     # TODO: Correct the folder names so it doesn't train again
