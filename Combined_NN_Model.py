@@ -5,7 +5,7 @@ import sys
 from Utils import *
 from config import *
 from ModelEstimation import NNModel
-from reddit_parser import Parser # Does the parser object need to be adjusted?
+from reddit_parser import Parser
 
 # theparser=Parser()
 
