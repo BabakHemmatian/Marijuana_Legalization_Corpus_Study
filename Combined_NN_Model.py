@@ -7,7 +7,7 @@ from config import *
 from ModelEstimation import NNModel
 from reddit_parser import Parser
 
-# theparser=Parser()
+theparser=Parser()
 
 # Create relevant folders
 # theparser.safe_dir_create()
