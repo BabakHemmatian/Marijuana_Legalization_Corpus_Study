@@ -36,9 +36,11 @@ nnmodel=NNModel()
 # NOTE: The prefix will be automatically set to [model_path]
 nnmodel.Define_Sets(human_ratings_pattern = ["/Ratings/sample_ratings-200-False-*","/Ratings/1-rel_sample_ratings-300-False-*"])
 
-## Read and index the content of comments in each set
-# TODO: Set this up to add the RoBERTa activations as flattened column to the database
-nnmodel.RoBERTa_Set()
+## Extract RoBERTa activations for the dataset
+# NOTE: If uncompressed results from a previous run exist, they will be
+# overwritten. If a compressed activations file is found, this function will be
+# skipped. The function takes a long time to finish even on GPU
+nnmodel.RoBERTa_Set(batch_size=1000)
 
 #TODO: Add the getting sentiments and human ratings as part of the training func,
 # wuth path arguments if needed
