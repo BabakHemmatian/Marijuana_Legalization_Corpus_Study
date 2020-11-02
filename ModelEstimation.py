@@ -3,6 +3,7 @@ import csv
 from functools import partial
 import ast
 import operator
+import tables
 import numpy as np
 import tensorflow as tf
 import gensim
@@ -1528,8 +1529,7 @@ def f1_m(y_true, y_pred):
     recall = recall_m(y_true, y_pred)
     return 2*((precision*recall)/(precision+recall + K.epsilon()))
 
-# TODO: Some of the current fns can simply be loaded from the SQL database
-# TODO: In all cases, data should be read from that database
+# TODO: add documentation
 class NNModel(ModelEstimator):
     def __init__(self, DOI=DOI, RoBERTa_model=RoBERTa_model,pretrained=pretrained,
                  FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
@@ -1596,22 +1596,9 @@ class NNModel(ModelEstimator):
             fns[k] = v
         return fns
 
-    # TODO: adding the labels should be a separate function
-
-    # TODO: Replace the manual vocab-building with an implementation of the RoBERTa tokenizer
-    ### load or create vocabulary and load or create indexed versions of comments in sets
+    ### Extracts & stores RoBERTa activations for documents in the SQL database
     # NOTE: Only for NN. For LDA we use gensim's dictionary functions
-    def RoBERTa_Set(self, texts):
-
-        # load the SQL database
-        try:
-            if not LDA_topics:
-                conn = sqlite3.connect(self.model_path+"/reddit_50.db",detect_types=sqlite3.PARSE_DECLTYPES)
-            else:
-                conn = sqlite3.connect(self.model_path+"/reddit_{}.db".format(num_topics),detect_types=sqlite3.PARSE_DECLTYPES)
-            cursor = conn.cursor()
-        except:
-            raise Exception('Pre-processed SQL database could not be found')
+    def RoBERTa_Set(self, batch_size = 100):
 
         ## record word frequency in the entire dataset
         with open(fns["counts"],"r") as f:
@@ -1619,54 +1606,123 @@ class NNModel(ModelEstimator):
                 if line.strip() != 0:
                     total_count = int(line)
 
-        cursor.execute("SELECT COUNT(*) AS CNTREC FROM pragma_table_info('comments') WHERE name='roberta_activation'")
-        column = cursor.fetchall()
-        if column[0] == 0:
+        # load the SQL database
+        try:
+            conn = sqlite3.connect('{}/reddit_{}.db'.format(model_path,num_topics),detect_types=sqlite3.PARSE_DECLTYPES)
+            cursor = conn.cursor()
+        except:
+            raise Exception('Pre-processed SQL database could not be found')
 
+        if Path(self.activations_path).is_file():
+            print("RoBERTa activations found on disk. Moving on.")
+        else:
             print("RoBERTa activations for the database not found. Computing and adding activations.")
-            cursor.execute("ALTER TABLE comments ADD roberta_activation array")
-            conn.commit()
 
+            # Load RoBERTa objects from transformers
             tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
             roberta = TFRobertaModel.from_pretrained('roberta-base')
 
             for i in range(total_count):
-                if i != 0 and (i+1 % self.batch_size == 0 or i+1 == total_count):
 
-                    cursor.execute("SELECT rowid,text,roberta_activation FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+self.batch_size+1))
+                if i == 0:
+                    f = open('{}/Roberta_Set/Roberta_Set_10000.txt'.format(model_path), "w+")
 
-                    train_texts = []
-                    train_indices = []
+                # for a full batch or the final batch
+                if i != 0 and ((i+1) % batch_size == 0 or i+1 == total_count):
+
+                    t0 = time.time() # timer
+
+                    # extract row number and text for comments in the batch
+                    with conn:
+                        cursor.execute("SELECT rowid,original_comm FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+batch_size))
+
+                    extracted_texts = [] # container for texts
 
                     for comment in cursor:  # for each comment
-                        train_indices.append(int(comment[0].strip()))
-                        comment[1] = line.decode('utf-8','ignore')
-                        train_texts.append(comment[1].strip())
+                        extracted_texts.append(comment[1].strip()) # append text
+                    cursor.close()
 
-                    encoded_input = tokenizer(texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
+                    # preprocess and truncate texts
+                    encoded_input = tokenizer(extracted_texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
+
+                    # extract roberta sequence activations
                     roberta_output = roberta(encoded_input)
-                    roberta_output = np.asarray(roberta_output[0]) # shape (batch_size, 3, hidden_size)
-                    if i+1 == total_count:
-                        roberta_output = roberta_output.reshape(len(train_texts),2304)
-                    else:
-                        roberta_output = roberta_output.reshape(self.batch_size,2304)
+                    roberta_output = np.asarray(roberta_output[1]) # pooler output; shape (batch_size, hidden_size)
+                    cursor = conn.cursor()
 
-                    # BUG: The format is not correct, because roberta has three activations for each post with weird shape
+                    # write activations to text files (10000 docs per file)
                     for id_,document in enumerate(roberta_output):
-                        for element in cursor.execute("SELECT roberta_activation FROM comments WHERE rowid = {}".format(id_+1)):
-                            cursor.execute("UPDATE comments SET roberta_activation = {}".format(roberta_output))
-                    conn.commit()
+                        f.write("{}\n".format(document))
 
-            # timer
+                    # calculate and report elapsed time for each batch
+                    t1 = time.time()
+                    t1 = time.time()
+                    hours, rem = divmod(t1 - t0, 3600)
+                    minutes, seconds = divmod(rem, 60)
+                    print("Processed index {} within {:0>2}:{:0>2}:{:05.2f}".format(i+1, int(hours), int(minutes),
+                                                                                           seconds))
+
+                # if 10000 thousand posts have been written to file, generate
+                # a new text file unless the end of the dataset has been reached
+                if i != 0 and (((i+1) % 10000) == 0 or ((i+1) == total_count)):
+                    f.close()
+                    print("Uploading output file until index {}".format(i+1))
+                    if (i+1) != total_count:
+                        f = open('/content/drive/My Drive/Reddit_Marijuana_Legalization_Corpus/Full_Data_Cleaned_8.5.2020/Roberta_Set/Roberta_Set_{}.txt'.format((i+1)+10000), "w+")
+
+            # report the time at which processing finished
             print("Finished processing the dataset using RoBERTa-base at " + time.strftime('%l:%M%p, %m/%d/%Y'))
-        else:
-            print("Loading RoBERTa-base activations from the database.")
+
+            # Create compressed container for the activations
+            h5 = tables.open_file('/content/drive/My Drive/Reddit_Marijuana_Legalization_Corpus/Full_Data_Cleaned_8.5.2020/Roberta_Set/Roberta_set.h5', 'w')
+            filters = tables.Filters(complevel=6, complib='blosc')
+            carr = h5.create_carray('/', 'carray', atom=tables.Float32Atom(), shape=(total_count, 768), filters=filters)
+
+            # Fill the array
+
+            counter = 0 # document counter
+
+            for i in range(10000,total_count+10000,10000): # text file by text file
+
+                # read the text file
+                fd = open('{}/Roberta_Set/Roberta_Set_{}.txt'.format(model_path,i))
+                content = fd.read()
+
+                # separate activations for different documents
+                arr_split = content.split("]")
+
+                # transform each document's activations into floats
+                for id_,asp in enumerate(arr_split):
+
+                    line = asp.replace('[', '')
+                    line_split = [float(j) for j in line.split()]
+
+                    # stop the process if the end of the dataset is reached
+                    if counter == total_count:
+                        print("Processed all comments.")
+                        break
+
+                    # replace the values in the container with the activations
+                    carr[counter,:] = np.asarray(line_split)
+
+                    # update the document counter
+                    counter+= 1
+
+                # stop the process if the end of the dataset is reached
+                if counter == total_count:
+                    break
+
+                print("Compressed activations up to index {}".format(i))
+
+            # close the finished container
+            h5.close()
+            print("Successfully compressed and stored the activations.")
 
 
     ## Function for creating the neural network's computation graph, training
     # and evaluating
     '''
-    Function to extract the model checkpoint path based 
+    Function to extract the model checkpoint path based
     on the user-defined configurables
     @return the path to a directory where the model checkpoints exist
     '''
@@ -1683,7 +1739,7 @@ class NNModel(ModelEstimator):
         return os.path.dirname(checkpoint_path)
 
     '''
-    Function to initialize the neural network. 
+    Function to initialize the neural network.
     '''
     def initialize_model(self):
         # Path to where model checkpoints should be stored
@@ -1718,7 +1774,7 @@ class NNModel(ModelEstimator):
 
     '''
     Function to extract the documents based on the configurable input
-    @return a list of document tuples, where each tuple contains 
+    @return a list of document tuples, where each tuple contains
     the relevant configurable input (e.g LDA, author, subreddit, etc) info
     for that particular document
     '''
