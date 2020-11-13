@@ -1859,7 +1859,7 @@ class NNModel(ModelEstimator):
 
     def get_checkpoint_path(self):
         configurable_paths = []
-        if self.LDA_Topics:
+        if self.num_topics:
             configurable_paths.append("LDA")
         if self.authorship:
             configurable_paths.append("authorship")
@@ -1869,39 +1869,26 @@ class NNModel(ModelEstimator):
         return os.path.dirname(checkpoint_path)
 
     '''
-    Function to initialize the neural network.
+    Function to initialize the neural network. 
     '''
-
-    def initialize_model(self):
+    def initialize_model(self, lr):
         # Path to where model checkpoints should be stored
         checkpoint_dir = self.get_checkpoint_path()
         if self.pretrained:
             self.model = tf.keras.models.load_model(checkpoint_dir)
         else:
-            # Determining number of classes based on configurable DOI
-            # (dimension of interest)
-            if self.DOI == "attitude":
-                self.num_classes = 6
-            if self.DOI == "persuasion":
-                self.num_classes = 4
 
             self.model = keras.Sequential(
                 [
                     layers.Dense(128, activation="relu", name="layer1"),
-                    layers.Dense(self.num_classes, activation="relu", name="layer2"),
+                    layers.Dropout(0.2),
+                    layers.Dense(self.num_classes, activation="softmax", name="layer2"),
                 ]
             )
-
-        self.model.compile(optimizer=tf.optimizers.Adam(learning_rate=1e-3),
-                           metrics=["mae", "acc", f1_m, precision_m, recall_m],
+        self.model.compile(optimizer=tf.optimizers.Adam(learning_rate=lr),
+                           run_eagerly=True,
+                           metrics=["mae", "acc", precision, recall, f1],
                            loss='categorical_crossentropy')
-
-        # Initialize the callbacks
-        self.early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                               mode='min', verbose=1)
-        self.cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_dir,
-                                                              save_weights_only=True,
-                                                              verbose=1)
 
     '''
     Function to extract the documents based on the configurable input
@@ -1911,7 +1898,7 @@ class NNModel(ModelEstimator):
     '''
     def extract_documents(self):
         try:
-            conn = sqlite3.connect(self.path_to_database)
+            conn = sqlite3.connect(self.database_path)
             cursor = conn.cursor()
 
             # Baseline fields from the database we'll be extracting
@@ -1919,12 +1906,12 @@ class NNModel(ModelEstimator):
 
             # If we aren't extracting any additional input,
             # just get the current fields
-            if self.input2 is None:
+            if not self.LDA_topics and not self.authorship and not self.use_subreddits:
                 self.fields = fields
                 cursor.execute("SELECT {} FROM comments WHERE {} IS NOT NULL"
                                .format(",".join(self.fields), self.DOI))
             else:
-                if self.LDA_Topics:
+                if self.LDA_topics:
                     # Add self.num_topics topic columns to the fields
                     for topic in range(self.num_topics):
                         fields.append("topic_{}".format(topic))
