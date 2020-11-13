@@ -1,3 +1,9 @@
+from simpletransformers.classification import ClassificationModel
+from transformers import RobertaConfig, RobertaTokenizer, TFRobertaModel, pipeline
+from Utils import *
+from keras import backend as K
+from tensorflow import keras
+from tensorflow.keras import layers
 from collections import defaultdict, OrderedDict
 import csv
 from functools import partial
@@ -20,10 +26,19 @@ from config import *
 from reddit_parser import Parser
 import tensorflow as tf
 import sqlite3
+
+import tensorflow as tf
+import sqlite3
+import os
+import numpy as np
+import time
+import copy
+import datetime
+from sklearn.model_selection import train_test_split
+
 parser_fns = Parser().get_parser_fns()
-from simpletransformers.classification import ClassificationModel
-from transformers import RobertaConfig, RobertaTokenizer, TFRobertaModel, pipeline
-from Utils import *
+
+
 
 ## wrapper function for calculating topic contributions to a comment
 def Topic_Asgmt_Retriever_Multi_wrapper(args):
@@ -94,6 +109,7 @@ class Shared_Counter(object):
     def value(self):
         return self.val.value
 
+
 # TODO: This object should be updated based on what's shared bw the models
 class ModelEstimator(object):
     def __init__(self, all_=ENTIRE_CORPUS, MaxVocab=MaxVocab,
@@ -141,9 +157,8 @@ class ModelEstimator(object):
                     raise Exception("Human comment ratings for DOI training could not be found on disk.")
                 if len(info_files) == 0:
                     raise Exception("Metadata files for human comment ratings could not be found on disk.")
-                human_ratings = {"attitude":{},"persuasion":{}}
+                human_ratings = {"attitude": {}, "persuasion": {}}
                 for file in files:
-
 
                     # retrieve the number of comments for which there are complete human ratings
                     with open(file, 'r') as csvfile:
@@ -156,7 +171,7 @@ class ModelEstimator(object):
                             attitude = 3
                             persuasion = 4
                             # ignore headers and record the index of comments that are interpretable and that have ratings for all three goal variables
-                            if (idx != 0) and (row[relevance] != '0'): # if not a header or an irrelevant comment
+                            if (idx != 0) and (row[relevance] != '0'):  # if not a header or an irrelevant comment
 
                                 relevant_rows = [row[attitude], row[persuasion]]
 
@@ -171,7 +186,7 @@ class ModelEstimator(object):
 
                                     if "unclear" in formatted_row.lower():
                                         if any(char.isdigit() for char in formatted_row):
-                                            formatted_row = int(re.sub('[^0-9]','', formatted_row))
+                                            formatted_row = int(re.sub('[^0-9]', '', formatted_row))
                                         else:
                                             formatted_row = 0
 
@@ -210,7 +225,8 @@ class ModelEstimator(object):
                                                 info_indices[new_rand_index] = int(row[general_index].strip())
                                             else:
                                                 # Just use the first general index in the list
-                                                info_indices[new_rand_index] = int(row[general_index].strip().split(",")[0])
+                                                info_indices[new_rand_index] = int(
+                                                    row[general_index].strip().split(",")[0])
                                     count = count + 1
 
                 assert len(info_indices) == len(human_ratings["attitude"])
@@ -266,7 +282,6 @@ class ModelEstimator(object):
             assert len(self.LDA_sets['train']) + len(self.LDA_sets['eval']) == len(
                 indices), "The training and evaluation set sizes do not correspond to the number of posts on file"
 
-
             # write the sets to file
             for set_key in self.LDA_set_keys:
                 with open(self.fns["{}_set".format(set_key)], 'a+') as f:
@@ -276,9 +291,9 @@ class ModelEstimator(object):
         # TODO: here's where we should add both the training and test set membership to
         # the SQL database, and upload the actual ratings to the attitude or persuasion
 
-        #In the database we should add training/test column (ALTER TABLE table_name ADD training int)
+        # In the database we should add training/test column (ALTER TABLE table_name ADD training int)
 
-        rows_to_be_added = {} #key is the index and value is a list with attitude, persuasion, training/test value
+        rows_to_be_added = {}  # key is the index and value is a list with attitude, persuasion, training/test value
         attitude_key_set = human_ratings["attitude"].keys()
         persuasion_key_set = human_ratings["persuasion"].keys()
         training_key_set = training_set
@@ -318,13 +333,14 @@ class ModelEstimator(object):
         conn = sqlite3.connect("reddit_50.db".format(self.num_topics))
         cursor = conn.cursor()
         for row in rows_to_be_added.keys():
-            sql = "UPDATE comments SET attitude='{0}', persuasion='{1}', training={2} WHERE ROWID={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
+            sql = "UPDATE comments SET attitude='{0}', persuasion='{1}', training={2} WHERE ROWID={3}".format(
+                rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
             cursor.execute(sql)
         conn.commit()
 
     # NOTE: The lack of an evaluation set for NN should reflect in this func too
     ### function for loading, calculating, or recalculating sets
-    def Define_Sets(self,human_ratings_pattern=None):
+    def Define_Sets(self, human_ratings_pattern=None):
         # load the number of comments or raise Exception if they can't be found
         findices = self.fns["counts"] if self.all_ else self.fns["random_indices"]
         try:
@@ -355,7 +371,7 @@ class ModelEstimator(object):
                     if Path(self.fns["{}_set".format(set_key)]).is_file():
                         os.remove(self.fns["{}_set".format(set_key)])
 
-                self.Create_New_Sets(indices,human_ratings_pattern)  # create sets
+                self.Create_New_Sets(indices, human_ratings_pattern)  # create sets
 
             # If recreating is not requested, attempt to load the sets
             elif Q == "N" or Q == "n":
@@ -382,7 +398,7 @@ class ModelEstimator(object):
                         if Path(self.fns["{}_set".format(set_key)]).is_file():
                             os.remove(self.fns["{}_set".format(set_key)])
 
-                    self.Create_New_Sets(indices,human_ratings_pattern)  # create sets
+                    self.Create_New_Sets(indices, human_ratings_pattern)  # create sets
 
             else:  # if response was something other tha Y or N
                 print("Operation aborted")
@@ -412,7 +428,8 @@ class ModelEstimator(object):
 
                     # ensure set sizes are correct
                     l = list(indices[-1]) if self.all_ else len(list(indices))
-                    assert len(self.sets['test']) + len(self.sets['train']) == l, "The sizes of the training, development and test sets do not add up to the number of posts on file"
+                    assert len(self.sets['test']) + len(self.sets[
+                                                            'train']) == l, "The sizes of the training, development and test sets do not add up to the number of posts on file"
 
                 else:  # for LDA
                     for set_key in self.LDA_set_keys:
@@ -432,7 +449,7 @@ class ModelEstimator(object):
                             os.remove(self.fns["{}_set".format(set_key)])
 
                     # create new sets
-                    #FOR BABAK: check if this is okay
+                    # FOR BABAK: check if this is okay
                     self.Create_New_Sets(indices, human_ratings_pattern)
 
                 else:  # for LDA
@@ -534,53 +551,53 @@ class LDAModel(ModelEstimator):
         return fns
 
     ### calculate the yearly relevant comment counts
-    def Get_Counts(self,model_path=model_path, random=False, frequency="monthly"):
+    def Get_Counts(self, model_path=model_path, random=False, frequency="monthly"):
         assert frequency in ("monthly", "yearly")
 
-        fns=self.get_fns()
-        fn=fns["counts"] if not random else fns["counts_random"]
+        fns = self.get_fns()
+        fn = fns["counts"] if not random else fns["counts_random"]
 
         # check for monthly relevant comment counts
         if not Path(fn).is_file():
             raise Exception('The cummulative monthly counts could not be found')
 
         # load monthly relevant comment counts
-        with open(fn,'r') as f:
+        with open(fn, 'r') as f:
             timelist = []
             for line in f:
                 if line.strip() != "":
                     timelist.append(int(line))
 
         # intialize lists and counters
-        cumulative = [] # cummulative number of comments per interval
-        per = [] # number of comments per interval
+        cumulative = []  # cummulative number of comments per interval
+        per = []  # number of comments per interval
 
         month_counter = 0
 
         # iterate through monthly counts
-        for index,number in enumerate(timelist): # for each month
-            month_counter += 1 # update counter
-            if frequency=="monthly":
-                cumulative.append(number) # add the cummulative count
-                if index == 0: # for the first month
-                    per.append(number) # append the cummulative value to number of comments per year
-                else: # for the other months, subtract the last two cummulative values to find the number of relevant comments in that year
+        for index, number in enumerate(timelist):  # for each month
+            month_counter += 1  # update counter
+            if frequency == "monthly":
+                cumulative.append(number)  # add the cummulative count
+                if index == 0:  # for the first month
+                    per.append(number)  # append the cummulative value to number of comments per year
+                else:  # for the other months, subtract the last two cummulative values to find the number of relevant comments in that year
                     per.append(number - cumulative[-2])
 
             else:
-                if (month_counter % 12) == 0 or index == len(timelist) - 1: # if at the end of the year or the corpus
-                    cumulative.append(number) # add the cummulative count
+                if (month_counter % 12) == 0 or index == len(timelist) - 1:  # if at the end of the year or the corpus
+                    cumulative.append(number)  # add the cummulative count
 
-                    if index + 1 == 12: # for the first year
-                        per.append(number) # append the cummulative value to number of comments per year
-                    else: # for the other years, subtract the last two cummulative values to find the number of relevant comments in that year
+                    if index + 1 == 12:  # for the first year
+                        per.append(number)  # append the cummulative value to number of comments per year
+                    else:  # for the other years, subtract the last two cummulative values to find the number of relevant comments in that year
                         per.append(number - cumulative[-2])
-                        month_counter = 0 # reset the counter at the end of the year
+                        month_counter = 0  # reset the counter at the end of the year
 
         assert sum(per) == cumulative[-1], "Monthly counts do not add up to the total count"
         assert cumulative[-1] == timelist[-1], "Total count does not add up to the number of posts on file"
 
-        return per,cumulative
+        return per, cumulative
 
     ### Function for reading and indexing a pre-processed corpus for LDA
     def LDA_Corpus_Processing(self):
@@ -667,7 +684,7 @@ class LDAModel(ModelEstimator):
 
                 else:  # if the index is in neither set and we're processing the entire corpus, raise an Exception
                     if self.all_:
-                        raise Exception('Error in processing comment index '+str(index))
+                        raise Exception('Error in processing comment index ' + str(index))
                     continue
 
             # write the number of words in the frequency-filtered corpus to file
@@ -1218,7 +1235,7 @@ class LDAModel(ModelEstimator):
                 repeated = 0
                 if len(sampled_probs[topic]) != 0:
                     for other_element in sampled_probs[topic]:
-                        if essentially_eq(element[2],other_element):
+                        if essentially_eq(element[2], other_element):
                             repeated = 1
 
                 if repeated == 0:
@@ -1512,26 +1529,128 @@ class LDAModel(ModelEstimator):
                                  month_of_year[pop_comment, 0], results[number],
                                  pop_comm_topic[number]])
 
-def recall_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    recall = true_positives / (possible_positives + K.epsilon())
-    return recall
 
-def precision_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision = true_positives / (predicted_positives + K.epsilon())
-    return precision
+NN_RESULTS_PATH = model_path + "/" + "NN_Results/all_metrics.txt"
+def get_label_measures(y_true, y_pred):
+    y_pred_arr = y_pred.numpy()
+    y_true_arr = y_true.numpy()
+    predictions = np.zeros([len(y_pred_arr), 1])
 
-def f1_m(y_true, y_pred):
-    precision = precision_m(y_true, y_pred)
-    recall = recall_m(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall + K.epsilon()))
+    for i in range(0, len(y_pred_arr)):
+        predictions[i] = np.argmax(y_pred_arr[i])
+
+    label_measures = []
+    for value in [0, 1, 2]:
+        label_measures.append(dict())
+
+    for label in [0, 1, 2]:
+        for index, correct_results in enumerate(y_true_arr):
+            correct_results = y_true_arr[index]
+
+            if correct_results[label] == 1 and predictions[index] == label:
+                if 'tp' in label_measures[label]:
+                    label_measures[label]['tp'] += 1
+                else:
+                    label_measures[label]['tp'] = 1
+            elif correct_results[label] == 1:
+                if 'fn' in label_measures[label]:
+                    label_measures[label]['fn'] += 1
+                else:
+                    label_measures[label]['fn'] = 1
+            elif correct_results[label] != 1 and predictions[index] != label:
+                if 'tn' in label_measures[label]:
+                    label_measures[label]['tn'] + 1
+                else:
+                    label_measures[label]['tn'] = 1
+            elif correct_results[label] != 1 and predictions[index] == label:
+                if 'fp' in label_measures[label]:
+                    label_measures[label]['fp'] += 1
+                else:
+                    label_measures[label]['fp'] = 1
+    return label_measures
+
+
+def recall(y_true, y_pred):
+    label_measures = get_label_measures(y_true, y_pred)
+    recalls = []
+    for label in [0, 1, 2]:
+        try:
+            tp = label_measures[label]['tp']
+        except KeyError:
+            tp = 0
+        try:
+            fp = label_measures[label]['fp']
+        except KeyError:
+            fp = 0
+        try:
+            fn = label_measures[label]['fn']
+        except KeyError:
+            fn = 0
+        if tp != 0 or fn != 0:
+            recall = float(tp) / (float(tp) + float(fn))
+            recalls.append(recall)
+    with open(NN_RESULTS_PATH, 'a+') as file:
+        file.write("Recalls:\n")
+        file.write(",".join([str(l2) for l2 in recalls]))
+        file.write("\n\n")
+    return sum(recalls) / 3
+
+
+def precision(y_true, y_pred):
+    label_measures = get_label_measures(y_true, y_pred)
+    precisions = []
+    for label in [0, 1, 2]:
+        try:
+            tp = label_measures[label]['tp']
+        except KeyError:
+            tp = 0
+        try:
+            fp = label_measures[label]['fp']
+        except KeyError:
+            fp = 0
+        try:
+            fn = label_measures[label]['fn']
+        except KeyError:
+            fn = 0
+        if tp != 0 or fp != 0:
+            precision = float(tp) / (float(tp) + float(fp))
+            precisions.append(precision)
+    with open(NN_RESULTS_PATH, 'a+') as file:
+        file.write("Precisions:\n")
+        file.write(",".join([str(l2) for l2 in precisions]))
+        file.write("\n\n")
+    return sum(precisions) / 3
+
+
+def f1(y_true, y_pred):
+    label_measures = get_label_measures(y_true, y_pred)
+    f1s = []
+    for label in [0, 1, 2]:
+        try:
+            tp = label_measures[label]['tp']
+        except KeyError:
+            tp = 0
+        try:
+            fp = label_measures[label]['fp']
+        except KeyError:
+            fp = 0
+        try:
+            fn = label_measures[label]['fn']
+        except KeyError:
+            fn = 0
+        if tp != 0 or (fn != 0 and fp != 0):
+            f1 = tp / (tp + 0.5 * (fp + fn))
+            f1s.append(f1)
+    with open(NN_RESULTS_PATH, 'a+') as file:
+        file.write("F1s:\n")
+        file.write(",".join([str(l2) for l2 in f1s]))
+        file.write("\n\n")
+    return sum(f1s) / 3
+
 
 # TODO: add documentation
 class NNModel(ModelEstimator):
-    def __init__(self, DOI=DOI, RoBERTa_model=RoBERTa_model,pretrained=pretrained,
+    def __init__(self, DOI=DOI, RoBERTa_model=RoBERTa_model, pretrained=pretrained,
                  FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
                  batch_size=batch_size, ff2Sz=ff2Sz, LDA_topics=LDA_topics,
                  num_topics=num_topics, early_stopping=early_stopping,
@@ -1566,10 +1685,15 @@ class NNModel(ModelEstimator):
         self.sentiments = {key: [] for key in self.set_key_list}  # for NN
         self.model = None
         self.num_classes = 3
-        self.validation_split=validation_split
+        self.validation_split = validation_split
         self.activations_path = model_path + "/Roberta_set.h5"
         self.database_path = model_path + "/reddit_50.db"
-
+        self.attitude_reduced_class_mapping = {1: 0,
+                                               2: 0,
+                                               0: 1,
+                                               3: 1,
+                                               4: 2,
+                                               5: 2}  # maps the old label to the index for the new label
 
         # TODO: the evaluation measures should probably be updated based on
         # recent changes to reddit_parser.py
@@ -1591,24 +1715,24 @@ class NNModel(ModelEstimator):
                "indexed_test_set": "{}/indexed_test_{}".format(self.path, self.DOI),
                }
 
-
         for k, v in kwargs.items():
             fns[k] = v
         return fns
 
     ### Extracts & stores RoBERTa activations for documents in the SQL database
     # NOTE: Only for NN. For LDA we use gensim's dictionary functions
-    def RoBERTa_Set(self, batch_size = 100):
+    def RoBERTa_Set(self, batch_size=100):
 
         ## record word frequency in the entire dataset
-        with open(fns["counts"],"r") as f:
+        with open(fns["counts"], "r") as f:
             for line in f:
                 if line.strip() != 0:
                     total_count = int(line)
 
         # load the SQL database
         try:
-            conn = sqlite3.connect('{}/reddit_{}.db'.format(model_path,num_topics),detect_types=sqlite3.PARSE_DECLTYPES)
+            conn = sqlite3.connect('{}/reddit_{}.db'.format(model_path, num_topics),
+                                   detect_types=sqlite3.PARSE_DECLTYPES)
             cursor = conn.cursor()
         except:
             raise Exception('Pre-processed SQL database could not be found')
@@ -1628,30 +1752,33 @@ class NNModel(ModelEstimator):
                     f = open('{}/Roberta_Set/Roberta_Set_10000.txt'.format(model_path), "w+")
 
                 # for a full batch or the final batch
-                if i != 0 and ((i+1) % batch_size == 0 or i+1 == total_count):
+                if i != 0 and ((i + 1) % batch_size == 0 or i + 1 == total_count):
 
-                    t0 = time.time() # timer
+                    t0 = time.time()  # timer
 
                     # extract row number and text for comments in the batch
                     with conn:
-                        cursor.execute("SELECT rowid,original_comm FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+batch_size))
+                        cursor.execute(
+                            "SELECT rowid,original_comm FROM comments WHERE rowid >= {} AND rowid <= {}".format(i + 1,
+                                                                                                                i + batch_size))
 
-                    extracted_texts = [] # container for texts
+                    extracted_texts = []  # container for texts
 
                     for comment in cursor:  # for each comment
-                        extracted_texts.append(comment[1].strip()) # append text
+                        extracted_texts.append(comment[1].strip())  # append text
                     cursor.close()
 
                     # preprocess and truncate texts
-                    encoded_input = tokenizer(extracted_texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
+                    encoded_input = tokenizer(extracted_texts, return_tensors="tf", truncation=True, padding=True,
+                                              max_length=512)
 
                     # extract roberta sequence activations
                     roberta_output = roberta(encoded_input)
-                    roberta_output = np.asarray(roberta_output[1]) # pooler output; shape (batch_size, hidden_size)
+                    roberta_output = np.asarray(roberta_output[1])  # pooler output; shape (batch_size, hidden_size)
                     cursor = conn.cursor()
 
                     # write activations to text files (10000 docs per file)
-                    for id_,document in enumerate(roberta_output):
+                    for id_, document in enumerate(roberta_output):
                         f.write("{}\n".format(document))
 
                     # calculate and report elapsed time for each batch
@@ -1659,40 +1786,44 @@ class NNModel(ModelEstimator):
                     t1 = time.time()
                     hours, rem = divmod(t1 - t0, 3600)
                     minutes, seconds = divmod(rem, 60)
-                    print("Processed index {} within {:0>2}:{:0>2}:{:05.2f}".format(i+1, int(hours), int(minutes),
-                                                                                           seconds))
+                    print("Processed index {} within {:0>2}:{:0>2}:{:05.2f}".format(i + 1, int(hours), int(minutes),
+                                                                                    seconds))
 
                 # if 10000 thousand posts have been written to file, generate
                 # a new text file unless the end of the dataset has been reached
-                if i != 0 and (((i+1) % 10000) == 0 or ((i+1) == total_count)):
+                if i != 0 and (((i + 1) % 10000) == 0 or ((i + 1) == total_count)):
                     f.close()
-                    print("Uploading output file until index {}".format(i+1))
-                    if (i+1) != total_count:
-                        f = open('/content/drive/My Drive/Reddit_Marijuana_Legalization_Corpus/Full_Data_Cleaned_8.5.2020/Roberta_Set/Roberta_Set_{}.txt'.format((i+1)+10000), "w+")
+                    print("Uploading output file until index {}".format(i + 1))
+                    if (i + 1) != total_count:
+                        f = open(
+                            '/content/drive/My Drive/Reddit_Marijuana_Legalization_Corpus/Full_Data_Cleaned_8.5.2020/Roberta_Set/Roberta_Set_{}.txt'.format(
+                                (i + 1) + 10000), "w+")
 
             # report the time at which processing finished
             print("Finished processing the dataset using RoBERTa-base at " + time.strftime('%l:%M%p, %m/%d/%Y'))
 
             # Create compressed container for the activations
-            h5 = tables.open_file('/content/drive/My Drive/Reddit_Marijuana_Legalization_Corpus/Full_Data_Cleaned_8.5.2020/Roberta_Set/Roberta_set.h5', 'w')
+            h5 = tables.open_file(
+                '/content/drive/My Drive/Reddit_Marijuana_Legalization_Corpus/Full_Data_Cleaned_8.5.2020/Roberta_Set/Roberta_set.h5',
+                'w')
             filters = tables.Filters(complevel=6, complib='blosc')
             carr = h5.create_carray('/', 'carray', atom=tables.Float32Atom(), shape=(total_count, 768), filters=filters)
 
             # Fill the array
 
-            counter = 0 # document counter
+            counter = 0  # document counter
 
-            for i in range(10000,total_count+10000,10000): # text file by text file
+            for i in range(10000, total_count + 10000, 10000):  # text file by text file
 
                 # read the text file
-                fd = open('{}/Roberta_Set/Roberta_Set_{}.txt'.format(model_path,i))
+                fd = open('{}/Roberta_Set/Roberta_Set_{}.txt'.format(model_path, i))
                 content = fd.read()
 
                 # separate activations for different documents
                 arr_split = content.split("]")
 
                 # transform each document's activations into floats
-                for id_,asp in enumerate(arr_split):
+                for id_, asp in enumerate(arr_split):
 
                     line = asp.replace('[', '')
                     line_split = [float(j) for j in line.split()]
@@ -1703,10 +1834,10 @@ class NNModel(ModelEstimator):
                         break
 
                     # replace the values in the container with the activations
-                    carr[counter,:] = np.asarray(line_split)
+                    carr[counter, :] = np.asarray(line_split)
 
                     # update the document counter
-                    counter+= 1
+                    counter += 1
 
                 # stop the process if the end of the dataset is reached
                 if counter == total_count:
@@ -1717,7 +1848,6 @@ class NNModel(ModelEstimator):
             # close the finished container
             h5.close()
             print("Successfully compressed and stored the activations.")
-
 
     ## Function for creating the neural network's computation graph, training
     # and evaluating
@@ -1741,6 +1871,7 @@ class NNModel(ModelEstimator):
     '''
     Function to initialize the neural network.
     '''
+
     def initialize_model(self):
         # Path to where model checkpoints should be stored
         checkpoint_dir = self.get_checkpoint_path()
@@ -1807,7 +1938,7 @@ class NNModel(ModelEstimator):
                     # Extract the most prolific authors, based on self.top_authors
                     cursor.execute(
                         "SELECT author, COUNT(*) FROM comments GROUP BY author ORDER BY COUNT(*) DESC LIMIT {}"
-                        .format(self.top_authors + 1))
+                            .format(self.top_authors + 1))
 
                     # Initialize a set for uniqueness, and wrap it
                     # in a list for ordered indexing
@@ -1822,7 +1953,7 @@ class NNModel(ModelEstimator):
                     self.subreddits_one_hot = [0 for i in range(self.top_subs + 1)]
                     cursor.execute(
                         "SELECT subreddit, COUNT(*) FROM comments GROUP BY subreddit ORDER BY COUNT(*) DESC LIMIT {}"
-                        .format(self.top_subs))
+                            .format(self.top_subs))
 
                     # Initialize a set for uniqueness, and wrap it
                     # in a list for ordered indexing
@@ -1848,15 +1979,22 @@ class NNModel(ModelEstimator):
     Function to perform the main training and evaluation loop
     over each batch of documents
     '''
-    def train_and_evaluate(self):
 
+    def train(self, epoch):
         train_flag = 1;
-        test_flag = 0
         documents = self.extract_documents()
 
+        document_batch = []
+        print("Length: " + str(len(documents)))
+        for document in documents:
+            document_batch.append(document)
+
+            # if len(document_batch) == 800:
+
+            # Extracting training and testing input
         training_activations, \
         additional_training_input, \
-        training_output = self.extract_input_vectors(documents,
+        training_output = self.extract_input_vectors(document_batch,
                                                      train_flag)
 
         model_training_input = np.array(training_activations)
@@ -1867,26 +2005,57 @@ class NNModel(ModelEstimator):
         if len(additional_training_input) > 0:
             np.append(model_training_input, additional_training_input)
 
-        # Train
-        self.model.fit(x=model_training_input, y=training_output,
-                       validation_split=self.validation_split,
+        # Train on the current batch
+        log_dir = model_path + "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+        print("Input size: " + str(np.shape(model_training_input)))
+        print("Input y size: " + str(np.shape(training_output)))
+
+        # Initialize the callbacks
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                          mode='min', verbose=0)
+        cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=self.get_checkpoint_path(),
+                                                         save_weights_only=True,
+                                                         verbose=1)
+
+        # Augment the data
+        y = [np.where(r == 1)[0][0] for r in training_output]
+        counter = Counter(y)
+        print(counter)
+        oversample = SMOTE()
+        X, y = oversample.fit_resample(model_training_input, y)
+        counter = Counter(y)
+        print(counter)
+        b = np.zeros((y.size, y.max() + 1))
+        b[np.arange(y.size), y] = 1
+        print(b.shape)
+
+        # Split the data
+        x_train, x_valid, y_train, y_valid = train_test_split(X, b, test_size=0.2, shuffle=True)
+
+        self.model.fit(x=x_train, y=y_train, validation_data=(x_valid, y_valid),
                        batch_size=self.batch_size,
-                       epochs=self.epochs,
-                       verbose=1)
-
-        # Evaluate the model
-        eval_input, additional_eval_input, eval_output = \
-            self.extract_input_vectors(documents, test_flag)
-        model_eval_input = np.array(eval_input)
-        if len(additional_eval_input):
-            np.append(model_eval_input, additional_eval_input)
-
-        print("loss, mae, acc, f1, precision, recall")
-        print(self.model.evaluate(x=model_eval_input, y=np.array(eval_output),
-                                  batch_size=self.batch_size))
+                       epochs=epoch,
+                       verbose=0,
+                       callbacks=[tensorboard_callback, cp_callback])
 
         # timer
         print("Finishing time:" + time.strftime('%l:%M%p, %m/%d/%Y'))
+
+    '''
+    Function to evaluate the model
+    '''
+    def evaluate_model(self):
+        documents = self.extract_documents()
+        eval_input, \
+        additional_eval_input, \
+        eval_output = self.extract_input_vectors(documents, test_flag)
+        model_eval_input = np.array(eval_input)
+        if len(additional_eval_input):
+            np.append(model_eval_input, additional_eval_input)
+        print("loss, mae, acc, f1, precision, recall")
+        print(self.model.evaluate(x=model_eval_input, y=np.array(eval_output),
+                                  batch_size=self.batch_size))
 
     '''
     Function to extract the input vectors from a given batch
@@ -1894,13 +2063,13 @@ class NNModel(ModelEstimator):
     @param train_or_test, a flag indicating whether we are looking for training or testing data
     @return a numpy array of arrays, where each inner array is of size input2_size
     '''
+
     def extract_input_vectors(self, document_batch, train_flag):
 
         # Open activations file
         h5 = tables.open_file(self.activations_path, 'r')
         carr = h5.root.carray
-
-        train_index = 2
+        print(len(carr))
 
         activations = []
         additional_input = []
@@ -1913,7 +2082,7 @@ class NNModel(ModelEstimator):
             LDA_Vec = []
 
             # If the cell corresponds to the training/testing set
-            if tup[train_index] == train_flag:
+            if tup[2] == train_flag:
 
                 for (index, column) in enumerate(tup):
                     column_name = self.fields[index]
@@ -1961,27 +2130,18 @@ class NNModel(ModelEstimator):
                     # If we are on a label column, append that to the output
                     if column_name == self.DOI:
                         output_array = [0] * self.num_classes
-                        # For now, just get the first rating
-                        output_array[int(column.split(",")[0])] = 1
-                        output.append(output_array)
-
                         # If we just have one rating, create one-hot vector
-                        # if isinstance(column, int):
+                        if isinstance(column, int):
+                            output_array[self.attitude_reduced_class_mapping[int(column.split(",")[0])]] = 1
+                            output.append(output_array)
 
-                        # TODO: Note, this implements multi-hot vector logic
-                        # for duplicate ratings, but it is commented out since it causes
-                        # recall/precision to go above one
                         # Otherwise, create a multi-hot vector proportional
                         # to the ratings
-                        # else:
-                        #   ratings_count = {}
-                        #   ratings = column.split(",")
-                        #   for r in ratings:
-                        #     ratings_count[r] = ratings_count.get(r, 0) + 1
-                        #   total_points = len(ratings)
-                        #   for r in ratings:
-                        #     output_array[int(r)] = ratings_count.get(r) / total_points
-                        #   output.append(output_array)
+                        else:
+                            reduced_ratings = [self.attitude_reduced_class_mapping[int(i)] for i in column.split(",")]
+                            for r in reduced_ratings:
+                                output_array[int(r)] = 1
+                            output.append(output_array)
 
             # Add all the topic values to our additional input column
             for topic in LDA_Vec:
@@ -1989,3 +2149,4 @@ class NNModel(ModelEstimator):
             additional_input.append(additional_input_component)
 
         return activations, additional_input, output
+
