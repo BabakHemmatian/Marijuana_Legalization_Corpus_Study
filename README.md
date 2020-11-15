@@ -6,7 +6,7 @@ Raw and processed versions of corpus and models, as well as detailed description
 Acknowledgment: The basis for the code in the current repository is [this](https://github.com/BabakHemmatian/Gay_Marriage_Corpus_Study]) study on same-sex marriage discourse, which was developed in collaboration with Sabina J. Sloman from Carnegie Mellon University, and Steven A. Sloman and Uriel Cohen Priva from Brown University.
 
 
-# To setup conda environment
+## To setup conda environment
 1. Make sure you have [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) installed.
 2. Clone this respository and be sure to switch to the debugging branch. 
 **NOTE:** The debugging branch will soon be merged with master.
