@@ -8,13 +8,22 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from tsmoothie.smoother import *
 
-
+# Connect to DB
 conn = sqlite3.connect("reddit_50_both_inferred.db")
 cursor = conn.cursor()
+
+# Top Ten Subreddits
 subreddits = ['AskReddit', 'trees', 'politics', 'news', 'worldnews', 'Drugs', 'Marijuana', 'The_Donald', 'todayilearned', 'Libertarian']
+
 query = "SELECT month, year, inferred_attitude FROM comments WHERE inferred_attitude IS NOT NULL AND subreddit = 'Libertarian'"
+
+# Plot headers
 headers = [("Proportion of Positive Comments Over Time, Subreddit: r/{}", "Proportion of Positive Comments"), ("Number of Positive Comments Over Time, Subreddit: r/{}", "Number of Positive Comments")]
+
+# For each header
 for header in headers:
+
+    # Get all comments' month, year and inferred attitude from each of the top ten subreddits
     for subreddit in subreddits:
         query = "SELECT month, year, inferred_attitude FROM comments WHERE inferred_attitude IS NOT NULL AND subreddit='{}'".format(subreddit)
         cursor.execute(query)
@@ -22,6 +31,7 @@ for header in headers:
         results_dict = {}
         average_attitude_dict = {}
 
+        # Store results in dictionary: {year -> month -> [attiude_rating ...]}
         for tup in results:
             if tup[1] in results_dict:
                 if tup[0] in results_dict[tup[1]]:
@@ -32,6 +42,7 @@ for header in headers:
                 average_attitude_dict[tup[1]] = {}
                 results_dict[tup[1]] = {}
 
+        # Take average of the results
         for dict in results_dict:
             for inner_dict in results_dict[dict]:
                 if len(results_dict[dict][inner_dict]) > 0:
@@ -47,14 +58,18 @@ for header in headers:
         x_axis = []
         x_axis_visual = []
         count = 0
+
+        # For every year and every 6 months
         for year in years:
             if year in average_attitude_dict:
                 for month in months:
+                    # Format x axis
                     if month in average_attitude_dict[year]:
                         x_axis_visual.append("(" + str(year) + "," + str(month) + ")")
                         x_axis.append(count)
                         count += 1
                         values.append(average_attitude_dict[year][month])
+        # Create a new figure
         plt.figure()
         smoother = LowessSmoother(smooth_fraction=0.4, iterations=1)
         smoother.smooth(values)

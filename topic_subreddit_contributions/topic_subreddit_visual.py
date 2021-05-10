@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 
 relevant_topics = [i for i in range(50)]
 irrelevant_topics = [1, 20, 26, 33, 34, 39, 46]
+
+# Filter out irrelevant topics
 for topic in irrelevant_topics:
     relevant_topics.remove(topic)
 
@@ -69,9 +71,11 @@ topic_names = ["Effects/prohibition vis-a-vis alcohol/tobacco",
 df = pd.read_csv('topic_subreddit_contributions.csv')
 df = pd.DataFrame(df).T
 
+# Iterate through the relevant topics
 for i, topic_name in enumerate(topic_names):
     if topic_name != "UNCLEAR":
         plt.figure()
+        # Plot bar: for each of the subreddits plot the topic's perc contribution
         plt.bar(top_subreddits, df.iloc[i + 1])
         plt.ylim(bottom=0, top=100000000)
         plt.title(topic_name)
