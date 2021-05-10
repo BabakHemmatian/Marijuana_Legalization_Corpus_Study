@@ -1,4 +1,6 @@
+abolish
 actionable
+acquit
 allowable
 arraign
 arrest
@@ -9,10 +11,27 @@ disallow
 \bbanned\b
 \bbanning\b
 banaliz
+break the law
+breaks the law
+broke the law
 bridewell
 \bcourt\b
 \bcourthouse\b
 constitution
+constable
+constabulary
+crackdown
+crack down on
+cracks down on
+cracking down on
+cracked down on
+\bcop\b(?!.out)
+\bcops\b(?!.out)
+\bcharged with
+\bcharging with
+\bcharges with
+\bcharge with
+\bcharges against
 crime
 criminal
 \bde jure\b
@@ -21,16 +40,19 @@ detain
 detention
 \bdue process\b
 \benforc
+exonerat
+exculpat
 felony
 feloni
+incarcerat
 jail
 judicature
 judicia
 justic
 (?<!sister in )(?<!mother in )(?<!father in )(?<!brother in )(?<!sister-in-)(?<!mother-in-)(?<!father-in-)(?<!brother-in-)(\blaw\b)
+(?<!in.)(?<!by.)(\blaws\b)
 \bindict
 \breindict
-\blaws\b
 law-abiding
 lawabiding
 lawbreak
@@ -61,6 +83,10 @@ nonenforc
 \bordinance\b
 outlaw
 \bpenal\b
+(?<!beg your )pardon(?! me)
+pardons
+pardoning
+pardoned
 penali
 penally
 penalt
@@ -70,6 +96,8 @@ permit
 \bpleas\b
 plead
 \bpled\b
+\bpolice
+antipolice
 prison
 prohibit\b
 prohibits
@@ -78,6 +106,16 @@ prohibited
 prohibition
 prosecut
 punish
+\bbring to trial
+\bbrings to trial
+\bbringing to trial
+\bbrought to trial
+\bput on trial
+\bputs on trial
+\bputting on trial
+\bput behind bars
+\bputting behind bars
+\bputs behind bars
 regulariz
 regulat
 \brehear\b
@@ -85,12 +123,13 @@ regulat
 \breheard\b
 \brehears\b
 \bremand
+\brepeal
 \bretrial
 \brightful
 rubber-stamp
 rubberstamp
 rubber stamp
-ruling
+ruling(?! it)
 sanction
 \bsentenc
 resentenc
@@ -99,6 +138,10 @@ statut
 \bsued\b
 \bsues\b
 \bsue\b
+\bserve time
+serves time
+serving time
+served time
 the clink
 the slammer
 tribunal

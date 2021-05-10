@@ -1,37 +1,25 @@
 ### import the required modules and functions
-#TODO: Is this the correct Write_Performance()?
-from Utils import Write_Performance
+
+import time
+import sys
+from Utils import *
 from config import *
-from reddit_parser import Parser
 from ModelEstimation import NNModel
-from NN_Utils import *
-
-# NOTE: Don't forget to set NN=True in defaults.py before running this file
-
-### Define the neural network object
-
-nnmodel=NNModel()
-
-### check key hyperparameters for correct data types
-
-nnmodel.NN_param_typecheck()
-
-### Write hyperparameters to file. Performance measures will be written to the
-# same file after analyses are performed
-
-Write_Performance()
-
-### call the parsing function
+from reddit_parser import Parser
 
 theparser=Parser()
+
 # Create relevant folders
-theparser.safe_dir_create()
-theparser.Parse_Rel_RC_Comments()
+# theparser.safe_dir_create()
 
-### call the function for calculating the percentage of relevant comments
+# parse the documents
+# theparser.Parse_Rel_RC_Comments()
 
-if calculate_perc_rel:
-    theparser.Perc_Rel_RC_Comment()
+### check key hyperparameters for correct data types
+NN_param_typecheck()
+
+### Define the neural network object
+nnmodel=NNModel()
 
 ### create training, development and test sets
 
@@ -40,21 +28,22 @@ if calculate_perc_rel:
 # should not be changed between the creation of sets for LDA and NN analyses
 
 ## Determine the comments that will comprise various sets
+# NOTE: For DOI training, feed in [human_ratings_pattern] as an argument. The fn
+# uses glob to match the list of patterns provided to files within the offered
+# path and include them in training/testing
+# NOTE: Make sure the corresponding "info" files with the ratings' metadata
+# are stored in the same directory.
+# NOTE: The prefix will be automatically set to [model_path]
+nnmodel.Define_Sets(human_ratings_pattern = ["/Ratings/sample_ratings-200-False-*","/Ratings/1-rel_sample_ratings-300-False-*"])
 
-nnmodel.Define_Sets()
+## Extract RoBERTa activations for the dataset
+# NOTE: If uncompressed results from a previous run exist, they will be
+# overwritten. If a compressed activations file is found, this function will be
+# skipped. The function takes a long time to finish even on GPU
+nnmodel.RoBERTa_Set(batch_size=1000)
 
-## Read and index the content of comments in each set
-
-for set_key in nnmodel.set_key_list:
-    nnmodel.Index_Set(set_key)
-
-## if performing sentiment pre-training, load comment sentiments from file
-if special_doi == False and pretrained == False:
-    nnmodel.Get_Sentiment(path)
-elif special_doi == True:
-    nnmodel.Get_Human_Ratings(path)
-    #TODO: Define this function. It should already somehow incorporated into 
-    # the ModelEstimator
+#TODO: Add the getting sentiments and human ratings as part of the training func,
+# wuth path arguments if needed
 
 ### Sentiment Modeling/DOI Classification Neural Networks
 
@@ -75,3 +64,6 @@ nnmodel.Get_Set_Lengths()
 # in defaults.py
 
 nnmodel.train_and_evaluate()
+
+# TODO: implement
+nnmodel.test()

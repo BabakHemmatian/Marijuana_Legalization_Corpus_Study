@@ -33,7 +33,19 @@ Write_Performance()
 # random_indices, RC_Count_Dict, RC_Count_List, total_count and votes
 
 theparser = Parser()
+
+# create the relevant subfolders for storing dataset attributes
+theparser.safe_dir_create()
+
 theparser.Parse_Rel_RC_Comments()
+
+if Neural_Relevance_Filtering:
+    # Use a transformer-based neural network trained on human ratings to prune the
+    # dataset from irrelevant posts. Path will default to the Human_Ratings folder
+    theparser.Neural_Relevance_Screen()
+
+    # Needs results from Neural_Relevance_Screen
+    theparser.Neural_Relevance_Clean()
 
 # Filter the dataset based on whether posts are in English (uses Google's
 # language detection)
@@ -52,8 +64,8 @@ theparser.lang_filtering()
 # NOTE: Make sure that Stanford CoreNLP's Python package is unzipped to the
 # same directory as this file and CoreNLP_server.py is also available before
 # running this function.
-if add_sentiment:
-    theparser.add_sentiment()
+# if add_sentiment:
+#     theparser.add_sentiment()
 
 ## call the function for calculating the percentage of relevant comments
 if calculate_perc_rel:

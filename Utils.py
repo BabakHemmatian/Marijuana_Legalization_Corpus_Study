@@ -5,8 +5,38 @@ import time
 from config import *
 import reddit_parser
 
+def NN_param_typecheck():
+    assert type(DOI) is str
+    assert type(RoBERTa_model) is str
+    assert type(pretrained) is bool
+    assert type(LDA_topics) is bool
+    if LDA_topics:
+        assert type(num_topics) is int
+    assert type(authorship) is bool
+    if authorship:
+        assert type(top_authors) is int
+    assert type(use_subreddits) is bool
+    if use_subreddits:
+        assert type(top_subs) is int
+    assert type(ff2Sz) is int
+    assert 0 < NN_training_fraction and 1 >= NN_training_fraction
+    assert type(FrequencyFilter) is int
+    assert type(epochs) is int
+    if type(learning_rate) is int or type(learning_rate) is float:
+        assert 0 < learning_rate and 1 > learning_rate
+    elif type(learning_rate) is list:
+        for rate in learning_rate:
+            assert 0 < rate and 1 > rate
+    else:
+        raise Exception("Learning rate format not recognized.")
+    assert type(batch_size) is int
+    # assert 0 < keepP and 1 >= keepP
+    # assert type(l2regularization) is bool
+    # if l2regularization == True:
+    #     assert 0 < alpha and 1 > alpha
+    assert type(early_stopping) is bool
+
 ### Function for writing parameters and model performance to file
-## TODO: Write a separate set of variables to file for NN
 def Write_Performance(output_path=output_path, NN=NN):
     with open(output_path+"/Performance",'a+') as perf:
         if not NN:
@@ -33,31 +63,32 @@ def Write_Performance(output_path=output_path, NN=NN):
         else: # if running a neural network analysis
 
             # record the pre-processing paramters
+            print("Entire corpus used = " + str(ENTIRE_CORPUS),file=perf)
             print("Training fraction = " + str(NN_training_fraction),file=perf)
-            print("Vocabulary size = " + str(MaxVocab),file=perf)
             print("Frequency filter = below " + str(FrequencyFilter),file=perf)
 
             # record the kind of network
             print("***",file=perf)
-            print("special_doi = " + str(special_doi),file=perf)
-            print("pretrained = " + str(pretrained),file=perf)
+            print("Dimension of Interest = " + str(DOI),file=perf)
+            print("RoBERTa model version = {}".format(RoBERTa_model),file=perf)
+            print("Sentiment pretraining = " + str(pretrained),file=perf)
+            if LDA_topics:
+                print("Number of LDA topics used = " + str(num_topics),file=perf)
+            if authorship:
+                print("Authors with more than {} comments parametrized.".format(min_authorship),file=perf)
 
             # record the hyperparameters
             print("Number of epochs: "+str(epochs),file=perf)
             print("Learning_rate = " + str(learning_rate),file=perf)
-            print("Batch size = " + str(batchSz),file=perf)
-            ##TODO: should this be author_embedSz or word_embedSz?
-            print("Embedding size = " + str(word_embedSz),file=perf)
-            print("Recurrent layer size = " + str(hiddenSz),file=perf)
-            print("1st feedforward layer size = " + str(ff1Sz),file=perf)
+            print("Batch size = " + str(batch_size),file=perf)
             print("2nd feedforward layer size = " + str(ff2Sz),file=perf)
-            print("Dropout rate = " + str(1 - keepP),file=perf)
-            print("L2 regularization = " + str(l2regularization),file=perf)
-            print("L2 regularization constant = " + str(alpha),file=perf)
             print("Early stopping = " + str(early_stopping),file=perf)
+            # print("Dropout rate = " + str(1 - keepP),file=perf)
+            # print("L2 regularization = " + str(l2regularization),file=perf)
+            # print("L2 regularization constant = " + str(alpha),file=perf)
 
 ### calculate the yearly relevant comment counts
-def Get_Counts(path=path, random=False, frequency="monthly"):
+def Get_Counts(model_path=model_path, random=False, frequency="monthly"):
     assert frequency in ("monthly", "yearly")
 
     fns=reddit_parser.Parser().get_parser_fns()

@@ -3,22 +3,27 @@ import csv
 from functools import partial
 import ast
 import operator
+import tables
 import numpy as np
+import tensorflow as tf
 import gensim
+import glob
 import pickle
 from math import ceil, floor
 import matplotlib.pyplot as plt
 import multiprocessing
 import os
 from pathlib2 import Path
-from random import sample
+import random
 import time
 from config import *
 from reddit_parser import Parser
 import tensorflow as tf
+import sqlite3
 parser_fns = Parser().get_parser_fns()
+from simpletransformers.classification import ClassificationModel
+from transformers import RobertaConfig, RobertaTokenizer, TFRobertaModel, pipeline
 from Utils import *
-
 
 ## wrapper function for calculating topic contributions to a comment
 def Topic_Asgmt_Retriever_Multi_wrapper(args):
@@ -89,11 +94,11 @@ class Shared_Counter(object):
     def value(self):
         return self.val.value
 
-
+# TODO: This object should be updated based on what's shared bw the models
 class ModelEstimator(object):
     def __init__(self, all_=ENTIRE_CORPUS, MaxVocab=MaxVocab,
-                 output_path=output_path, path=path, dates=dates,
-                 special_doi=special_doi, training_fraction=training_fraction,
+                 output_path=output_path, path=model_path, dates=dates,
+                 DOI=DOI, training_fraction=training_fraction,
                  V=OrderedDict({})):
         ## ensure the arguments have the correct types and values
         assert type(path) is str, "path variable is not an integer: %s" % str(type(path))
@@ -107,79 +112,149 @@ class ModelEstimator(object):
         self.output_path = output_path
         self.path = path
         self.dates = dates
-        self.special_doi = special_doi
+        self.DOI = DOI
         self.training_fraction = training_fraction
-        self.V = V  # vocabulary
+        self.V = V  # vocabulary #TODO: check to see if this is needed
 
+    # TODO: first set aside 10 percent of data for test, then determine the
+    # validation split
     ### function to determine comment indices for new training, development and test sets
-    def Create_New_Sets(self, indices):
+    def Create_New_Sets(self, indices, human_ratings_pattern):
         print("Creating sets")
 
         # determine number of comments in the dataset
         if self.all_:
-            if not self.special_doi:  # if not doing classification on
-                # human-rated comments over a DOI
+
+            if NN and self.DOI is not None:
+
+                # check to see if human comment ratings can be found on disk
+                files = []
+                info_files = []
+                for element in human_ratings_pattern:
+                    files_to_add = glob.glob(self.path + element)
+                    info_to_add = glob.glob(re.sub(r'ratings', 'info', self.path + element))
+                    for file in files_to_add:
+                        files.append(file)
+                    for file in info_to_add:
+                        info_files.append(file)
+                if len(files) == 0:
+                    raise Exception("Human comment ratings for DOI training could not be found on disk.")
+                if len(info_files) == 0:
+                    raise Exception("Metadata files for human comment ratings could not be found on disk.")
+                human_ratings = {"attitude":{},"persuasion":{}}
+                for file in files:
+
+
+                    # retrieve the number of comments for which there are complete human ratings
+                    with open(file, 'r') as csvfile:
+                        reader = csv.reader(csvfile)
+                        # read human data for sampled comments one by one
+                        for idx, row in enumerate(reader):
+                            rand_index = 0
+                            text = 1
+                            relevance = 2
+                            attitude = 3
+                            persuasion = 4
+                            # ignore headers and record the index of comments that are interpretable and that have ratings for all three goal variables
+                            if (idx != 0) and (row[relevance] != '0'): # if not a header or an irrelevant comment
+
+                                relevant_rows = [row[attitude], row[persuasion]]
+
+                                for id_, relevant_row in enumerate(relevant_rows):
+                                    # print("rows")
+                                    # print(row[3], row[4])
+
+                                    formatted_row = relevant_row
+                                    print(formatted_row)
+                                    if "//" in formatted_row:
+                                        formatted_row = relevant_row.split("//")[0]
+
+                                    if "unclear" in formatted_row.lower():
+                                        if any(char.isdigit() for char in formatted_row):
+                                            formatted_row = int(re.sub('[^0-9]','', formatted_row))
+                                        else:
+                                            formatted_row = 0
+
+                                    if id_ == 0:
+                                        if int(row[rand_index]) not in human_ratings["attitude"]:
+                                            if relevant_row.strip() != "":
+                                                human_ratings["attitude"][int(row[rand_index])] = [int(formatted_row)]
+                                        else:
+                                            human_ratings["attitude"][int(row[rand_index])].append(int(formatted_row))
+                                    else:
+                                        if int(row[rand_index]) not in human_ratings["persuasion"]:
+                                            if relevant_row.strip() != "":
+                                                human_ratings["persuasion"][int(row[rand_index])] = [int(formatted_row)]
+                                        else:
+                                            human_ratings["persuasion"][int(row[rand_index])].append(int(formatted_row))
+
+                assert len(human_ratings["attitude"]) == len(human_ratings["persuasion"])
+
+                info_indices = {}
+
+                for id_ in human_ratings["attitude"].keys():
+                    if id_ not in info_indices.keys():
+
+                        for file in info_files:
+
+                            with open(file, "r") as csvfile:
+                                reader = csv.reader(csvfile)
+                                count = 0
+                                for row in reader:
+                                    rand_index = 0
+                                    general_index = 5
+                                    if count != 0:
+                                        new_rand_index = int(row[rand_index].strip())
+                                        if new_rand_index in human_ratings["attitude"]:
+                                            if row[general_index].strip().isdigit():
+                                                info_indices[new_rand_index] = int(row[general_index].strip())
+                                            else:
+                                                # Just use the first general index in the list
+                                                info_indices[new_rand_index] = int(row[general_index].strip().split(",")[0])
+                                    count = count + 1
+
+                assert len(info_indices) == len(human_ratings["attitude"])
+
+                num_comm = len(human_ratings["attitude"])  # the number of valid samples for network training
+                indices = human_ratings["attitude"].keys()  # define sets over sampled comments with human ratings
+
+            elif self.NN:
                 num_comm = list(indices)[-1]  # retrieve the total number of comments
                 indices = range(num_comm)  # define sets over all comments
-
-            else:  # if doing classification on sampled comments based on a DOI
-                # check to see if human comment ratings can be found on disk
-                if not Path(self.fns["sample_ratings"]).is_file():
-                    raise Exception("Human comment ratings for DOI training could not be found on file.")
-
-                # TODO: Edit and test for compatibility with Qualtrics data
-                # retrieve the number of comments for which there are complete human ratings
-                with open(self.fns["sample_ratings"], 'r+') as csvfile:
-                    reader = csv.reader(csvfile)
-                    human_ratings = []  # initialize counter for the number of valid human ratings
-                    # read human data for sampled comments one by one
-                    for idx, row in enumerate(reader):
-                        row = row[0].split(",")
-                        # ignore headers and record the index of comments that are interpretable and that have ratings for all three goal variables
-                        if (idx != 0 and (row[5] != 'N' or row[5] != 'n') and
-                                row[2].isdigit() and row[3].isdigit() and
-                                row[4].isdigit()):
-                            human_ratings.append(int(row[0]))
-
-                num_comm = len(human_ratings)  # the number of valid samples for network training
-                indices = human_ratings  # define sets over sampled comments with human ratings
 
         else:  # if using LDA on a random subsample of the comments
             num_comm = len(indices)  # total number of sampled comments
 
-        num_train = int(ceil(training_fraction * num_comm))  # size of training set
+        num_train = int(ceil(self.training_fraction * num_comm))  # size of training set
+
+        training_set = []
+        testing_set = []
 
         if isinstance(self, NNModel):  # for NN
-            num_remaining = num_comm - num_train  # the number of comments in development set or test set
-            num_dev = int(floor(num_remaining / 2))  # size of the development set
-            num_test = num_remaining - num_dev  # size of the test set
+            num_test = num_comm - num_train  # the number of comments in development set or test set
 
-            self.sets['dev'] = sample(indices, num_dev)  # choose development comments at random
-            remaining = set(indices).difference(self.sets['dev'])
-            self.sets['test'] = sample(remaining, num_test)  # choose test comments at random
-            # use the rest as training set
-            self.sets['train'] = set(remaining).difference(self.sets['test'])
+            self.sets['test'] = random.sample(indices, num_test)  # choose development comments at random
+            self.sets['train'] = set(indices).difference(self.sets['test'])
 
-            # sort the indices based on position in nn_prep
+            # sort the indices based on position in the database
             for set_key in self.set_key_list:
                 self.sets[set_key] = sorted(list(self.sets[set_key]))
 
-            # Check dev and test sets came out with right proportions
-            assert (len(self.sets['dev']) - len(
-                self.sets['test'])) <= 1, "The development and test set sizes are not equal"
-            assert len(self.sets['dev']) + len(self.sets['test']) + len(self.sets['train']) == len(
+            # Check test set came out with the right proportion
+            assert len(self.sets['test']) + len(self.sets['train']) == len(
                 indices), "The sizes of the training, development and test sets do not add up to the number of posts on file"
 
             # write the sets to file
             for set_key in self.set_key_list:
-                with open(self.path + '/' + set_key + '_set_' + str(self.special_doi), 'a+') as f:
-                    for index in self.sets[set_key]:
-                        print(index, end='\n', file=f)
+                np.save(self.path + '/' + set_key + '_set_' + str(self.DOI), self.sets[set_key])
+
+            training_set = self.sets['train']
+            testing_set = self.sets['test']
 
         else:  # for LDA over the entire corpus
             num_eval = num_comm - num_train  # size of evaluation set
 
-            self.LDA_sets['eval'] = sample(indices, num_eval)  # choose evaluation comments at random
+            self.LDA_sets['eval'] = random.sample(indices, num_eval)  # choose evaluation comments at random
             self.LDA_sets['train'] = set(indices).difference(
                 set(self.LDA_sets['eval']))  # assign the rest of the comments to training
 
@@ -191,14 +266,65 @@ class ModelEstimator(object):
             assert len(self.LDA_sets['train']) + len(self.LDA_sets['eval']) == len(
                 indices), "The training and evaluation set sizes do not correspond to the number of posts on file"
 
+
             # write the sets to file
             for set_key in self.LDA_set_keys:
                 with open(self.fns["{}_set".format(set_key)], 'a+') as f:
                     for index in self.LDA_sets[set_key]:
                         print(index, end='\n', file=f)
 
+        # TODO: here's where we should add both the training and test set membership to
+        # the SQL database, and upload the actual ratings to the attitude or persuasion
+
+        #In the database we should add training/test column (ALTER TABLE table_name ADD training int)
+
+        rows_to_be_added = {} #key is the index and value is a list with attitude, persuasion, training/test value
+        attitude_key_set = human_ratings["attitude"].keys()
+        persuasion_key_set = human_ratings["persuasion"].keys()
+        training_key_set = training_set
+        test_key_set = testing_set
+
+        for aks in attitude_key_set:
+            original_index = int(info_indices[aks]) + 1
+            set_values = set(human_ratings["attitude"][aks])
+            val = ",".join(str(s) for s in set_values)
+            rows_to_be_added[original_index] = [val]
+
+        for pks in persuasion_key_set:
+            original_index = int(info_indices[pks]) + 1
+            set_values = set(human_ratings["persuasion"][pks])
+            val = ",".join(str(s) for s in set_values)
+            if original_index in rows_to_be_added.keys():
+                rows_to_be_added[original_index].append(val)
+            else:
+                rows_to_be_added[original_index] = ["", val]
+
+        for trks in training_key_set:
+            original_index = int(info_indices[trks]) + 1
+            val = 1
+            if original_index in rows_to_be_added.keys():
+                rows_to_be_added[original_index].append(val)
+            else:
+                rows_to_be_added[original_index] = ["", "", val]
+
+        for teks in test_key_set:
+            original_index = int(info_indices[teks]) + 1
+            val = 0
+            if original_index in rows_to_be_added.keys():
+                rows_to_be_added[original_index].append(val)
+            else:
+                rows_to_be_added[original_index] = ["", "", val]
+
+        conn = sqlite3.connect("reddit_50.db".format(self.num_topics))
+        cursor = conn.cursor()
+        for row in rows_to_be_added.keys():
+            sql = "UPDATE comments SET attitude='{0}', persuasion='{1}', training={2} WHERE ROWID={3}".format(rows_to_be_added[row][0], rows_to_be_added[row][1], rows_to_be_added[row][2], row)
+            cursor.execute(sql)
+        conn.commit()
+
+    # NOTE: The lack of an evaluation set for NN should reflect in this func too
     ### function for loading, calculating, or recalculating sets
-    def Define_Sets(self):
+    def Define_Sets(self,human_ratings_pattern=None):
         # load the number of comments or raise Exception if they can't be found
         findices = self.fns["counts"] if self.all_ else self.fns["random_indices"]
         try:
@@ -213,15 +339,14 @@ class ModelEstimator(object):
         # if indexed comments are available (NN)
         if (isinstance(self, NNModel) and
                 Path(self.fns["train_set"]).is_file() and
-                Path(self.fns["dev_set"]).is_file() and
                 Path(self.fns["test_set"]).is_file()):
 
             # determine if the comments and their relevant indices should be deleted and re-initialized or the sets should just be loaded
-            Q = input("Indexed comments are already available. Do you wish to delete sets and create new ones [Y/N]?")
+            Q = input("Comment sets are already available. Do you wish to delete them and create new ones [Y/N]?")
 
             # If recreating the sets is requested, delete the current ones and reinitialize
             if Q == "Y" or Q == "y":
-                print("Deleting any existing sets and indexed comments")
+                print("Deleting any existing sets.")
 
                 # delete previous record
                 for set_key in self.set_key_list:
@@ -230,29 +355,21 @@ class ModelEstimator(object):
                     if Path(self.fns["{}_set".format(set_key)]).is_file():
                         os.remove(self.fns["{}_set".format(set_key)])
 
-                self.Create_New_Sets(indices)  # create sets
+                self.Create_New_Sets(indices,human_ratings_pattern)  # create sets
 
             # If recreating is not requested, attempt to load the sets
             elif Q == "N" or Q == "n":
                 # if the sets are found, load them
                 if (Path(self.fns["train_set"]).is_file()
-                        and Path(self.fns["dev_set"]).is_file()
                         and Path(self.fns["test_set"]).is_file()
                 ):
 
                     print("Loading sets from file")
-
                     for set_key in self.set_key_list:
-                        with open(self.fns["{}_set".format(set_key)], 'r') as f:
-                            for line in f:
-                                if line.strip() != "":
-                                    self.sets[set_key].append(int(line))
-                        self.sets[set_key] = np.asarray(self.sets[set_key])
+                        self.sets[set_key] = np.load(self.fns["{}_set".format(set_key)])
 
                     # ensure set sizes are correct
-                    assert len(self.sets['dev']) - len(
-                        self.sets['test']) < 1, "The development and test set sizes are not equal"
-                    assert len(self.sets['dev']) + len(self.sets['test']) + len(self.sets['train']) == len(
+                    assert len(self.sets['test']) + len(self.sets['train']) == len(
                         indices), "The sizes of the training, development and test sets do not add up to the number of posts on file"
 
                 else:  # if the sets cannot be found, delete any current sets and create new sets
@@ -265,13 +382,14 @@ class ModelEstimator(object):
                         if Path(self.fns["{}_set".format(set_key)]).is_file():
                             os.remove(self.fns["{}_set".format(set_key)])
 
-                    self.Create_New_Sets(indices)  # create sets
+                    self.Create_New_Sets(indices,human_ratings_pattern)  # create sets
 
             else:  # if response was something other tha Y or N
                 print("Operation aborted")
                 pass
 
         else:  # no indexed comments available or not creating sets for NN
+
             # delete any possible partial indexed set
             if isinstance(self, NNModel):
                 for set_key in self.set_key_list:
@@ -281,7 +399,6 @@ class ModelEstimator(object):
             # check to see if there are sets available, if so load them
             if (isinstance(self, NNModel) and
                 Path(self.fns["train_set"]).is_file() and
-                Path(self.fns["dev_set"]).is_file() and
                 Path(self.fns["test_set"]).is_file()
             ) or (not isinstance(self, NNModel) and
                   Path(self.fns["train_set"]).is_file() and
@@ -291,18 +408,11 @@ class ModelEstimator(object):
 
                 if isinstance(self, NNModel):  # for NN
                     for set_key in self.set_key_list:
-                        with open(self.fns["{}_set".format(set_key)], 'r') as f:
-                            for line in f:
-                                if line.strip() != "":
-                                    self.sets[set_key].append(int(line))
-                        self.sets[set_key] = np.asarray(self.sets[set_key])
+                        self.sets[set_key] = np.load(self.fns["{}_set".format(set_key)])
 
                     # ensure set sizes are correct
-                    assert len(self.sets['dev']) - len(
-                        self.sets['test']) < 1, "The sizes of the development and test sets do not match"
-                    l = list(indices[-1]) if (self.all_ and not self.special_doi) else len(list(indices))
-                    assert len(self.sets['dev']) + len(self.sets['test']) + len(self.sets[
-                                                                                    'train']) == l, "The sizes of the training, development and test sets do not add up to the number of posts on file"
+                    l = list(indices[-1]) if self.all_ else len(list(indices))
+                    assert len(self.sets['test']) + len(self.sets['train']) == l, "The sizes of the training, development and test sets do not add up to the number of posts on file"
 
                 else:  # for LDA
                     for set_key in self.LDA_set_keys:
@@ -322,7 +432,8 @@ class ModelEstimator(object):
                             os.remove(self.fns["{}_set".format(set_key)])
 
                     # create new sets
-                    self.Create_New_Sets(indices)
+                    #FOR BABAK: check if this is okay
+                    self.Create_New_Sets(indices, human_ratings_pattern)
 
                 else:  # for LDA
                     # delete any partial set
@@ -331,7 +442,7 @@ class ModelEstimator(object):
                             os.remove(self.fns["{}_set".format(set_key)])
 
                     # create new sets
-                    self.Create_New_Sets(indices)
+                    self.Create_New_Sets(indices, human_ratings_pattern)
 
 
 class LDAModel(ModelEstimator):
@@ -382,10 +493,10 @@ class LDAModel(ModelEstimator):
         self.top_topic_set = top_topic_set
 
     def get_fns(self, **kwargs):
-        fns = {"original_comm": "{}/original_comm".format(self.path),
-               "lda_prep": "{}/lda_prep".format(self.path),
+        fns = {"original_comm": "{}/original_comm/original_comm".format(self.path),
+               "lda_prep": "{}/lda_prep/lda_prep".format(self.path),
                "counts": parser_fns["counts"] if self.all_ else parser_fns["counts_random"],
-               "indices_random": "{}/random_indices".format(self.path),
+               "indices_random": "{}/random_indices/random_indices".format(self.path),
                "train_set": "{}/LDA_train_set_{}".format(self.path, self.all_),
                "eval_set": "{}/LDA_eval_set_{}".format(self.path, self.all_),
                "corpus": "{}/RC_LDA_Corpus_{}.mm".format(self.path, self.all_),
@@ -412,15 +523,64 @@ class LDAModel(ModelEstimator):
                                                                    "idf" if self.topic_idf else "f"),
                "popular_comments": "{}/popular_comments-{}.csv".format(self.output_path,
                                                                        "idf" if self.topic_idf else "f"),
-               "original_comm": "{}/original_comm".format(self.path),
-               "counts": "{}/RC_Count_List".format(self.path),
-               "votes": "{}/votes".format(self.path),
+               "original_comm": "{}/original_comm/original_comm".format(self.path),
+               "counts": "{}/counts/RC_Count_List".format(self.path),
+               "votes": "{}/votes/votes".format(self.path),
                "data_for_R": "{}/data_for_R-{}.csv".format(self.output_path,
                                                            "idf" if self.topic_idf else "f")
                }
         for k, v in kwargs.items():
             fns[k] = v
         return fns
+
+    ### calculate the yearly relevant comment counts
+    def Get_Counts(self,model_path=model_path, random=False, frequency="monthly"):
+        assert frequency in ("monthly", "yearly")
+
+        fns=self.get_fns()
+        fn=fns["counts"] if not random else fns["counts_random"]
+
+        # check for monthly relevant comment counts
+        if not Path(fn).is_file():
+            raise Exception('The cummulative monthly counts could not be found')
+
+        # load monthly relevant comment counts
+        with open(fn,'r') as f:
+            timelist = []
+            for line in f:
+                if line.strip() != "":
+                    timelist.append(int(line))
+
+        # intialize lists and counters
+        cumulative = [] # cummulative number of comments per interval
+        per = [] # number of comments per interval
+
+        month_counter = 0
+
+        # iterate through monthly counts
+        for index,number in enumerate(timelist): # for each month
+            month_counter += 1 # update counter
+            if frequency=="monthly":
+                cumulative.append(number) # add the cummulative count
+                if index == 0: # for the first month
+                    per.append(number) # append the cummulative value to number of comments per year
+                else: # for the other months, subtract the last two cummulative values to find the number of relevant comments in that year
+                    per.append(number - cumulative[-2])
+
+            else:
+                if (month_counter % 12) == 0 or index == len(timelist) - 1: # if at the end of the year or the corpus
+                    cumulative.append(number) # add the cummulative count
+
+                    if index + 1 == 12: # for the first year
+                        per.append(number) # append the cummulative value to number of comments per year
+                    else: # for the other years, subtract the last two cummulative values to find the number of relevant comments in that year
+                        per.append(number - cumulative[-2])
+                        month_counter = 0 # reset the counter at the end of the year
+
+        assert sum(per) == cumulative[-1], "Monthly counts do not add up to the total count"
+        assert cumulative[-1] == timelist[-1], "Total count does not add up to the number of posts on file"
+
+        return per,cumulative
 
     ### Function for reading and indexing a pre-processed corpus for LDA
     def LDA_Corpus_Processing(self):
@@ -507,7 +667,7 @@ class LDAModel(ModelEstimator):
 
                 else:  # if the index is in neither set and we're processing the entire corpus, raise an Exception
                     if self.all_:
-                        raise Exception('Error in processing comment indices')
+                        raise Exception('Error in processing comment index '+str(index))
                     continue
 
             # write the number of words in the frequency-filtered corpus to file
@@ -575,7 +735,6 @@ class LDAModel(ModelEstimator):
 
         else:  # if there is a trained model, load it from file
             print("Loading the trained LDA model from file")
-
             self.ldamodel = gensim.models.LdaMulticore.load(self.fns["model"])
 
     ### Get lower bounds on per-word perplexity for training and development sets (LDA)
@@ -648,7 +807,7 @@ class LDAModel(ModelEstimator):
                         if line.strip() != "":
                             rand_subsample.append(int(line))
 
-            per, cumulative = Get_Counts(frequency=self.topic_cont_freq)
+            per, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
 
             # Only start the counter where counts are greater than 0
             cumulative_as_arr = np.array(cumulative)
@@ -766,8 +925,8 @@ class LDAModel(ModelEstimator):
             global Freq_tracker
             Freq_tracker = {}
 
-        _, cumulative = Get_Counts(frequency=self.topic_cont_freq)
-        per, _ = Get_Counts(random=not self.all_, frequency=self.topic_cont_freq)
+        _, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
+        per, _ = self.Get_Counts(random=not self.all_, frequency=self.topic_cont_freq)
         no_intervals = len(cumulative)
 
         ## Create shared counters for comments for which the model has no
@@ -890,7 +1049,7 @@ class LDAModel(ModelEstimator):
         # initialize a vector for average topic contribution
 
         # get the comment count for each month
-        per, cumulative = Get_Counts(frequency=self.topic_cont_freq)
+        per, cumulative = self.Get_Counts(frequency=self.topic_cont_freq)
 
         # scale contribution based on the number of comments in each month
         scaled = np.zeros_like(yr_topic_cont)
@@ -1053,14 +1212,27 @@ class LDAModel(ModelEstimator):
             # find the [sample_comments] comments for each top topic that show the greatest contribution
             sampled_indices[topic] = []
             sampled_probs[topic] = []
-            for element in top_topic_probs[topic][:min(len(top_topic_probs[topic]), sample_comments)]:
-                sampled_indices[topic].append(element[0])  # record the index
-                sampled_probs[topic].append(element[2])  # record the contribution of the topic
-                # suggest a random 8-digit id for the sampled comment
-                prop_id = np.random.random_integers(low=10000000, high=99999999)
-                while prop_id in sampled_ids:  # resample in the unlikely event the id is already in use
+
+            sampled_counter = 0
+            for element in top_topic_probs[topic]:
+                repeated = 0
+                if len(sampled_probs[topic]) != 0:
+                    for other_element in sampled_probs[topic]:
+                        if essentially_eq(element[2],other_element):
+                            repeated = 1
+
+                if repeated == 0:
+                    sampled_indices[topic].append(element[0])  # record the index
+                    sampled_probs[topic].append(element[2])  # record the contribution of the topic
+                    # suggest a random 8-digit id for the sampled comment
                     prop_id = np.random.random_integers(low=10000000, high=99999999)
-                sampled_ids[element[0]] = prop_id  # store the random id
+                    while prop_id in sampled_ids:  # resample in the unlikely event the id is already in use
+                        prop_id = np.random.random_integers(low=10000000, high=99999999)
+                    sampled_ids[element[0]] = prop_id  # store the random id
+                    sampled_counter += 1
+                    if sampled_counter == self.sample_comments:
+                        break
+
         return sampled_indices, sampled_probs, sampled_ids
 
     ### retrieve the original text of sampled comments and write them to file
@@ -1073,8 +1245,8 @@ class LDAModel(ModelEstimator):
         # find the top comments associated with each top topic
         sampled_indices, sampled_probs, sampled_ids = self.Top_Comment_Indices()
 
-        _, yearly_cumulative = Get_Counts(frequency="yearly")
-        _, monthly_cumulative = Get_Counts(frequency="monthly")
+        _, yearly_cumulative = self.Get_Counts(frequency="yearly")
+        _, monthly_cumulative = self.Get_Counts(frequency="monthly")
 
         if not Path(self.fns[
                         "original_comm"]).is_file():  # if the original relevant comments are not already available on disk, read them from the original compressed files
@@ -1234,19 +1406,19 @@ class LDAModel(ModelEstimator):
     ## function for sampling the most impactful comments
     def sample_pop(self, num_pop=num_pop, min_comm_length=min_comm_length):
 
-        assert Path(self.path + "/RC_Count_List").is_file()
-        assert Path(self.path + "/original_comm").is_file()
-        assert Path(self.path + "/votes").is_file()
+        assert Path(self.path + "counts/RC_Count_List").is_file()
+        assert Path(self.path + "original_comm/original_comm").is_file()
+        assert Path(self.path + "votes/votes").is_file()
 
         # Retrieve the list of upvote/downvote values
-        with open(self.path + "/RC_Count_List", 'r') as f:
+        with open(self.path + "counts/RC_Count_List", 'r') as f:
             timelist = []
             for line in f:
                 if line.strip() != "":
                     timelist.append(int(line))
 
         # Retrieve the text of the original comments
-        with open(self.path + "/original_comm", 'r') as f:
+        with open(self.path + "original_comm/original_comm", 'r') as f:
             orig_comm = []
             for line in f:
                 if line.strip() != "":
@@ -1340,529 +1512,480 @@ class LDAModel(ModelEstimator):
                                  month_of_year[pop_comment, 0], results[number],
                                  pop_comm_topic[number]])
 
+def recall_m(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    recall = true_positives / (possible_positives + K.epsilon())
+    return recall
 
+def precision_m(y_true, y_pred):
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    return precision
+
+def f1_m(y_true, y_pred):
+    precision = precision_m(y_true, y_pred)
+    recall = recall_m(y_true, y_pred)
+    return 2*((precision*recall)/(precision+recall + K.epsilon()))
+
+# TODO: add documentation
 class NNModel(ModelEstimator):
-    def __init__(self, FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
-                 batchSz=batchSz, word_embedSz=word_embedSz, hiddenSz=hiddenSz,
-                 author_embedSz=author_embedSz, ff1Sz=ff1Sz, ff2Sz=ff2Sz,
-                 keepP=keepP, l2regularization=l2regularization, NN_alpha=NN_alpha,
-                 early_stopping=early_stopping, LDA_topics=LDA_topics, num_topics=num_topics,
-                 authorship=authorship, **kwargs):
+    def __init__(self, DOI=DOI, RoBERTa_model=RoBERTa_model,pretrained=pretrained,
+                 FrequencyFilter=FrequencyFilter, learning_rate=learning_rate,
+                 batch_size=batch_size, ff2Sz=ff2Sz, LDA_topics=LDA_topics,
+                 num_topics=num_topics, early_stopping=early_stopping,
+                 authorship=authorship, top_authors=top_authors,
+                 use_subreddits=use_subreddits, top_subs=top_subs,
+                 validation_split=validation_split,
+                 epochs=epochs, **kwargs):
         ModelEstimator.__init__(self, **kwargs)
+        # TODO: define the truncation variable. It should be the default because
+        # of RoBERTa's pretraining. Don't need to make it customizable
+        self.DOI = DOI
+        self.RoBERTa_model = RoBERTa_model
+        self.pretrained = pretrained
         self.FrequencyFilter = FrequencyFilter
         self.learning_rate = learning_rate
-        self.batchSz = batchSz
-        self.author_embedSz=author_embedSz
-        self.word_embedSz = word_embedSz
-        self.hiddenSz = hiddenSz
-        self.ff1Sz = ff1Sz
+        self.batch_size = batch_size
         self.ff2Sz = ff2Sz
-        self.keepP = keepP
-        self.l2regularization = l2regularization
-        if self.l2regularization:
-            self.NN_alpha = NN_alpha
-        self.early_stopping = early_stopping
         self.LDA_topics = LDA_topics
         self.num_topics = num_topics
         self.authorship = authorship
-        self.set_key_list = ['train', 'dev', 'test']  # for NN
+        self.top_authors = top_authors
+        self.use_subreddits = use_subreddits
+        self.top_subs = top_subs
+        self.early_stopping = early_stopping
+        self.epochs = epochs
+        self.set_key_list = ['train', 'test']  # for NN
         self.sets = {key: [] for key in self.set_key_list}  # for NN
         self.indices = {key: [] for key in self.set_key_list}
         self.lengths = {key: [] for key in self.set_key_list}
         self.Max = {key: [] for key in self.set_key_list}
         self.Max_l = None
         self.sentiments = {key: [] for key in self.set_key_list}  # for NN
+        self.model = None
+        self.num_classes = 3
+        self.validation_split=validation_split
+        self.activations_path = model_path + "/Roberta_set.h5"
+        self.database_path = model_path + "/reddit_50.db"
+
+
+        # TODO: the evaluation measures should probably be updated based on
+        # recent changes to reddit_parser.py
         self.accuracy = {key: [] for key in self.set_key_list}
         for set_key in self.set_key_list:
             self.accuracy[set_key] = np.empty(epochs)
 
         self.fns = self.get_fns()
 
+    # TODO: remove references to nn_prep. Remove those parts of this that won't
+    # be used
     def get_fns(self, **kwargs):
-        fns = {"nn_prep": "{}/nn_prep".format(self.path),
-               "counts": parser_fns["counts"] if self.all_ else parser_fns["counts_random"],
-               "dictionary": "{}/dict_{}".format(self.path, self.special_doi),
-               "train_set": "{}/train_{}".format(self.path, self.special_doi),
-               "dev_set": "{}/dev_{}".format(self.path, self.special_doi),
-               "test_set": "{}/test_{}".format(self.path, self.special_doi),
-               "indexed_train_set": "{}/indexed_train_{}".format(self.path, self.special_doi),
-               "indexed_dev_set": "{}/indexed_dev_{}".format(self.path, self.special_doi),
-               "indexed_test_set": "{}/indexed_test_{}".format(self.path, self.special_doi),
-               "sample_ratings": "{}/sample_ratings.csv".format(self.output_path),
-               "author": "{}/author".format(self.path),
-               "sentiments": "{}/sentiments".format(self.path)
+        fns = {"counts": parser_fns["counts"] if self.all_ else parser_fns["counts_random"],
+               "dictionary": "{}/dict_{}".format(self.path, self.DOI),
+               "train_set": "{}/train_{}".format(self.path, self.DOI),
+               "test_set": "{}/test_{}".format(self.path, self.DOI),
+               # TODO: do we want to get different train/test sets for things other than DOI?
+               "indexed_train_set": "{}/indexed_train_{}".format(self.path, self.DOI),
+               "indexed_test_set": "{}/indexed_test_{}".format(self.path, self.DOI),
                }
+
+
         for k, v in kwargs.items():
             fns[k] = v
         return fns
 
-    ### load or create vocabulary and load or create indexed versions of comments in sets
+    ### Extracts & stores RoBERTa activations for documents in the SQL database
     # NOTE: Only for NN. For LDA we use gensim's dictionary functions
-    def Index_Set(self, set_key):
+    def RoBERTa_Set(self, batch_size = 100):
+
         ## record word frequency in the entire dataset
-        frequency = defaultdict(int)
-        if Path(self.fns["nn_prep"]).is_file():  # look for preprocessed data
-            fin = open(self.fns["nn_prep"], 'r')
-            for comment in fin:  # for each comment
-                for token in comment.split():  # for each word
-                    frequency[token] += 1  # count the number of occurrences
+        with open(fns["counts"],"r") as f:
+            for line in f:
+                if line.strip() != 0:
+                    total_count = int(line)
 
-        else:  # if no data is found, raise an error
-            raise Exception('Pre-processed dataset could not be found')
+        # load the SQL database
+        try:
+            conn = sqlite3.connect('{}/reddit_{}.db'.format(model_path,num_topics),detect_types=sqlite3.PARSE_DECLTYPES)
+            cursor = conn.cursor()
+        except:
+            raise Exception('Pre-processed SQL database could not be found')
 
-        # if indexed comments are available and we are trying to index the training set
-        if Path(self.fns["indexed_{}_set".format(set_key)]).is_file() and set_key == 'train':
-            # If the vocabulary is available, load it
-            if Path(self.path + "/dict_" + str(self.special_doi)).is_file():
-                print("Loading dictionary from file")
-
-                with open(self.fns["dictionary"], 'r') as f:
-                    for line in f:
-                        if line.strip() != "":
-                            (key, val) = line.split()
-                            V[key] = int(val)
-
-            else:  # if the vocabulary is not available
-                # delete the possible dictionary-less indexed training set file
-                if Path(self.fns["indexed_{}_set".format(set_key)]).is_file():
-                    os.remove(self.fns["indexed_{}_set".format(set_key)])
-
-        # if indexed comments are available, load them
-        if Path(self.fns["indexed_{}_set".format(set_key)]).is_file():
-            print("Loading the set from file")
-
-            with open(self.fns["indexed_{}_set".format(set_key)], 'r') as f:
-                for line in f:
-                    assert line.strip() != ""
-                    comment = []
-                    for index in line.split():
-                        comment.append(index)
-                    self.indices[set_key].append(comment)
-
-        else:  # if the indexed comments are not available, create them
-            if set_key == 'train':  # for training set
-                # timer
-                print("Started creating the dictionary at " + time.strftime('%l:%M%p, %m/%d/%Y'))
-
-                ## initialize the vocabulary with various UNKs
-                self.V.update(
-                    {"*STOP2*": 1, "*UNK*": 2, "*UNKED*": 3, "*UNKS*": 4, "*UNKING*": 5, "*UNKLY*": 6, "*UNKER*": 7,
-                     "*UNKION*": 8, "*UNKAL*": 9, "*UNKOUS*": 10, "*STOP*": 11})
-
-            ## read the dataset and index the relevant comments
-            fin.seek(0)  # go to the beginning of the data file
-            for counter, comm in enumerate(fin):  # for each comment
-                if counter in self.sets[set_key]:  # if it belongs in the set
-                    comment = []  # initialize a list
-
-                    for word in comm.split():  # for each word
-                        if frequency[word] > FrequencyFilter:  # filter non-frequent words
-                            if word in self.V.keys():  # if the word is already in the vocabulary
-                                comment.append(self.V[word])  # index it and add it to the list
-
-                            elif set_key == 'train':  # if the word is not in vocabulary and we are indexing the training set
-                                if len(
-                                        self.V) - 11 <= self.MaxVocab:  # if the vocabulary still has room (not counting STOPs and UNKs)
-                                    self.V[word] = len(self.V) + 1  # give it an index (leave index 0 for padding)
-                                    comment.append(self.V[word])  # append it to the list of words
-
-                                else:  # if the vocabulary doesn't have room, assign the word to an UNK according to its suffix or lack thereof
-                                    if word.endswith("ed"):
-                                        comment.append(3)
-                                    elif word.endswith("s"):
-                                        comment.append(4)
-                                    elif word.endswith("ing"):
-                                        comment.append(5)
-                                    elif word.endswith("ly"):
-                                        comment.append(6)
-                                    elif word.endswith("er"):
-                                        comment.append(7)
-                                    elif word.endswith("ion"):
-                                        comment.append(8)
-                                    elif word.endswith("al"):
-                                        comment.append(9)
-                                    elif word.endswith("ous"):
-                                        comment.append(10)
-
-                                    else:  # if the word doesn't have any easily identifiable suffix
-                                        comment.append(2)
-
-                            else:  # the word is not in vocabulary and we are not indexing the training set
-                                if word.endswith("ed"):
-                                    comment.append(3)
-                                elif word.endswith("s"):
-                                    comment.append(4)
-                                elif word.endswith("ing"):
-                                    comment.append(5)
-                                elif word.endswith("ly"):
-                                    comment.append(6)
-                                elif word.endswith("er"):
-                                    comment.append(7)
-                                elif word.endswith("ion"):
-                                    comment.append(8)
-                                elif word.endswith("al"):
-                                    comment.append(9)
-                                elif word.endswith("ous"):
-                                    comment.append(10)
-
-                                else:  # if the word doesn't have any easily identifiable suffix
-                                    comment.append(2)
-
-                    self.indices[set_key].append(comment)  # add the comment to the indexed list
-
-            ## save the vocabulary to file
-            if set_key == 'train':
-                vocab = open(self.fns["dictionary"], 'a+')
-                for word, index in self.V.items():
-                    print(word + " " + str(index), file=vocab)
-                vocab.close
-
-            ## save the indexed datasets to file
-            with open(self.fns["indexed_{}_set".format(set_key)], 'a+') as f:
-                for comment in self.indices[set_key]:
-                    assert len(comment) != 0
-                    for ind, word in enumerate(comment):
-                        if ind != len(comment) - 1:
-                            print(word, end=" ", file=f)
-                        elif ind == len(comment) - 1:
-                            print(word, file=f)
-
-            # ensure that datasets have the right size
-            assert len(self.indices[set_key]) == len(self.sets[set_key])
-
-        # timer
-        print("Finished indexing the " + set_key + " set at " + time.strftime('%l:%M%p, %m/%d/%Y'))
-
-    ## function for getting average sentiment values for training, development
-    # and test sets
-    def Get_Sentiment(self, path):
-        if not Path(self.fns["sentiments"]).is_file():
-            raise Exception("Sentiment data could not be found on file.")
+        if Path(self.activations_path).is_file():
+            print("RoBERTa activations found on disk. Moving on.")
         else:
-            with open(self.fns["sentiments"], "r") as sentiments:
-                for idx, sentiment in enumerate(sentiments):
-                    if idx in self.sets["train"]:
-                        self.sentiments["train"].append(sentiment)
-                    elif idx in self.sets["dev"]:
-                        self.sentiments["dev"].append(sentiment)
-                    elif idx in self.sets["test"]:
-                        self.sentiments["test"].append(sentiment)
-                    else:
-                        raise Exception("The set indices are not correctly defined")
+            print("RoBERTa activations for the database not found. Computing and adding activations.")
 
-    def NN_param_typecheck(self):
-        assert 0 < self.learning_rate and 1 > self.learning_rate, "invalid learning rate"
+            # Load RoBERTa objects from transformers
+            tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+            roberta = TFRobertaModel.from_pretrained('roberta-base')
 
-        assert type(self.batchSz) is int, "invalid batch size"
-        assert type(self.word_embedSz) is int, "invalid word embedding size"
-        assert type(self.hiddenSz) is int, "invalid hidden layer size"
+            for i in range(total_count):
+
+                if i == 0:
+                    f = open('{}/Roberta_Set/Roberta_Set_10000.txt'.format(model_path), "w+")
+
+                # for a full batch or the final batch
+                if i != 0 and ((i+1) % batch_size == 0 or i+1 == total_count):
+
+                    t0 = time.time() # timer
+
+                    # extract row number and text for comments in the batch
+                    with conn:
+                        cursor.execute("SELECT rowid,original_comm FROM comments WHERE rowid >= {} AND rowid <= {}".format(i+1,i+batch_size))
+
+                    extracted_texts = [] # container for texts
+
+                    for comment in cursor:  # for each comment
+                        extracted_texts.append(comment[1].strip()) # append text
+                    cursor.close()
+
+                    # preprocess and truncate texts
+                    encoded_input = tokenizer(extracted_texts, return_tensors="tf",truncation=True,padding=True,max_length=512)
+
+                    # extract roberta sequence activations
+                    roberta_output = roberta(encoded_input)
+                    roberta_output = np.asarray(roberta_output[1]) # pooler output; shape (batch_size, hidden_size)
+                    cursor = conn.cursor()
+
+                    # write activations to text files (10000 docs per file)
+                    for id_,document in enumerate(roberta_output):
+                        f.write("{}\n".format(document))
+
+                    # calculate and report elapsed time for each batch
+                    t1 = time.time()
+                    t1 = time.time()
+                    hours, rem = divmod(t1 - t0, 3600)
+                    minutes, seconds = divmod(rem, 60)
+                    print("Processed index {} within {:0>2}:{:0>2}:{:05.2f}".format(i+1, int(hours), int(minutes),
+                                                                                           seconds))
+
+                # if 10000 thousand posts have been written to file, generate
+                # a new text file unless the end of the dataset has been reached
+                if i != 0 and (((i+1) % 10000) == 0 or ((i+1) == total_count)):
+                    f.close()
+                    print("Uploading output file until index {}".format(i+1))
+                    if (i+1) != total_count:
+                        f = open('/content/drive/My Drive/Reddit_Marijuana_Legalization_Corpus/Full_Data_Cleaned_8.5.2020/Roberta_Set/Roberta_Set_{}.txt'.format((i+1)+10000), "w+")
+
+            # report the time at which processing finished
+            print("Finished processing the dataset using RoBERTa-base at " + time.strftime('%l:%M%p, %m/%d/%Y'))
+
+            # Create compressed container for the activations
+            h5 = tables.open_file('/content/drive/My Drive/Reddit_Marijuana_Legalization_Corpus/Full_Data_Cleaned_8.5.2020/Roberta_Set/Roberta_set.h5', 'w')
+            filters = tables.Filters(complevel=6, complib='blosc')
+            carr = h5.create_carray('/', 'carray', atom=tables.Float32Atom(), shape=(total_count, 768), filters=filters)
+
+            # Fill the array
+
+            counter = 0 # document counter
+
+            for i in range(10000,total_count+10000,10000): # text file by text file
+
+                # read the text file
+                fd = open('{}/Roberta_Set/Roberta_Set_{}.txt'.format(model_path,i))
+                content = fd.read()
+
+                # separate activations for different documents
+                arr_split = content.split("]")
+
+                # transform each document's activations into floats
+                for id_,asp in enumerate(arr_split):
+
+                    line = asp.replace('[', '')
+                    line_split = [float(j) for j in line.split()]
+
+                    # stop the process if the end of the dataset is reached
+                    if counter == total_count:
+                        print("Processed all comments.")
+                        break
+
+                    # replace the values in the container with the activations
+                    carr[counter,:] = np.asarray(line_split)
+
+                    # update the document counter
+                    counter+= 1
+
+                # stop the process if the end of the dataset is reached
+                if counter == total_count:
+                    break
+
+                print("Compressed activations up to index {}".format(i))
+
+            # close the finished container
+            h5.close()
+            print("Successfully compressed and stored the activations.")
+
+
+    ## Function for creating the neural network's computation graph, training
+    # and evaluating
+    '''
+    Function to extract the model checkpoint path based
+    on the user-defined configurables
+    @return the path to a directory where the model checkpoints exist
+    '''
+
+    def get_checkpoint_path(self):
+        configurable_paths = []
+        if self.LDA_Topics:
+            configurable_paths.append("LDA")
         if self.authorship:
-            assert type(self.author_embedSz) is int, "invalid authorship embedding size"
-        assert type(self.ff1Sz) is int, "invalid feedforward layer size"
-        assert type(self.ff2Sz) is int, "invalid feedforward layer size"
-        assert 0 < self.keepP and 1 >= self.keepP, "invalid dropout rate"
-        assert type(self.l2regularization) is bool, "invalid regularization parameter"
-        if self.l2regularization == True:
-            assert 0 < self.alpha and 1 > self.alpha, "invalid alpha parameter for regularization"
-        assert type(self.early_stopping) is bool, "invalid early_stopping parameter"
+            configurable_paths.append("authorship")
+        if self.use_subreddits:
+            configurable_paths.append("subreddit")
+        checkpoint_path = "/{}/training_1/checkpoint".format("/".join(configurable_paths))
+        return os.path.dirname(checkpoint_path)
 
-    ## Function for creating the neural network's computation graph
-
-    def Setup_Comp_Graph(self, device_count=None):
-
-        if not device_count is None:
-            self.device_count = device_count
-
-        ## create placeholders for input, output, loss weights and dropout rate
-
-        inpt = tf.compat.v1.placeholder(tf.int32, shape=[None, None])
-        if self.LDA_topics:
-            lda_inpt = tf.compat.v1.placeholder(tf.int32, shape=[None, 1])
-        if self.authorship:
-            authorship_inpt = tf.compat.v1.placeholder(tf.int32, shape=[None, 1])
-        answr = tf.compat.v1.placeholder(tf.int32, shape=[None, None])
-        DOutRate = tf.compat.v1.placeholder(tf.float32)
-
-        ## set up the graph parameters
-
-        # for pre-trained classification network, load parameters from file
-
-        if self.special_doi and self.pretrained:
-            print("Loading parameter estimates from file")
-            word_embed = np.loadtxt(param_path + "word_embed", dtype='float32')
-            if self.authorship:
-                author_embed = np.loadtxt(param_path + "authorship_layer", dtype='float32')
-            pre_state = np.loadtxt(param_path + "state", dtype='float32')
-            weights1 = np.loadtxt(param_path + "weights1", dtype='float32')
-            biases1 = np.loadtxt(param_path + "biases1", dtype='float32')
-            weights2 = np.loadtxt(param_path + "weights2", dtype='float32')
-            biases2 = np.loadtxt(param_path + "biases2", dtype='float32')
-            weights3 = np.loadtxt(param_path + "weights3", dtype='float32')
-            biases3 = np.loadtxt(param_path + "biases3", dtype='float32')
+    '''
+    Function to initialize the neural network.
+    '''
+    def initialize_model(self):
+        # Path to where model checkpoints should be stored
+        checkpoint_dir = self.get_checkpoint_path()
+        if self.pretrained:
+            self.model = tf.keras.models.load_model(checkpoint_dir)
         else:
-            print("Initializing parameter estimates")
+            # Determining number of classes based on configurable DOI
+            # (dimension of interest)
+            if self.DOI == "attitude":
+                self.num_classes = 6
+            if self.DOI == "persuasion":
+                self.num_classes = 4
 
-        # initial word embeddings
+            self.model = keras.Sequential(
+                [
+                    layers.Dense(128, activation="relu", name="layer1"),
+                    layers.Dense(self.num_classes, activation="relu", name="layer2"),
+                ]
+            )
 
-        if self.special_doi and self.pretrained:
-            E = tf.Variable(word_embed)
-        else:
-            E = tf.Variable(tf.random.normal([len(V), word_embedSz], stddev=0.1))
+        self.model.compile(optimizer=tf.optimizers.Adam(learning_rate=1e-3),
+                           metrics=["mae", "acc", f1_m, precision_m, recall_m],
+                           loss='categorical_crossentropy')
 
-        # look up the embeddings
-        embed = tf.nn.embedding_lookup(params=E, ids=inpt)
+        # Initialize the callbacks
+        self.early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                               mode='min', verbose=1)
+        self.cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_dir,
+                                                              save_weights_only=True,
+                                                              verbose=1)
 
-        # calculate sum of the weights for l2regularization
-        if l2regularization == True:
-            sum_weights = tf.nn.l2_loss(embed)
+    '''
+    Function to extract the documents based on the configurable input
+    @return a list of document tuples, where each tuple contains
+    the relevant configurable input (e.g LDA, author, subreddit, etc) info
+    for that particular document
+    '''
+    def extract_documents(self):
+        try:
+            conn = sqlite3.connect(self.path_to_database)
+            cursor = conn.cursor()
 
-        # define the recurrent layer (Gated Recurrent Unit)
-        rnn = tf.compat.v1.nn.rnn_cell.GRUCell(hiddenSz)
+            # Baseline fields from the database we'll be extracting
+            fields = ["ROWID", self.DOI, "training"]
 
-        if self.special_doi and self.pretrained:
-            initialState = pre_state  # load pretrained state
-        else:
-            initialState = rnn.zero_state(batchSz, tf.float32)
-
-        ff_inpt, nextState = tf.compat.v1.nn.dynamic_rnn(rnn, embed, initial_state=initialState)
-
-        # update sum of the weights for l2regularization
-        if self.l2regularization:
-            sum_weights = sum_weights + tf.nn.l2_loss(nextState)
-
-        if self.LDA_topics:  # if including LDA topics as input to the
-            # feedforward layers
-            ff_inpt = tf.concat([lda_inpt, output], 0)  # concatenate topic
-            # contribution estimates to the output of the GRU cell
-
-        if self.authorship:
-            if not self.special_doi or not self.pretrained:
-                author_embed = tf.Variable(tf.random.normal([len(author_list), author_embedSz], stddev=0.1))
-                # TODO: add the author listing (author_list) to the NN
-                # pre-processing function
-
-            ff_inpt = tf.concat([ff_inpt, author_embed])
-
-        l1Sz = hiddenSz
-        if self.LDA_topics:
-            lda_inpt_size = tf.size(input=lda_inpt)
-            l1Sz += lda_inpt_size
-
-        if self.authorship:
-            l1Sz += author_embedSz
-
-        if not self.special_doi:  # sentiment analysis (pos/neut/neg)
-            # create weights and biases for three feedforward layers
-            W1 = tf.Variable(tf.random.normal([l1Sz, ff1Sz], stddev=0.1))
-            b1 = tf.Variable(tf.random.normal([ff1Sz], stddev=0.1))
-            l1logits = tf.nn.relu(tf.tensordot(ff_inpt, W1, [[2], [0]]) + b1)
-            l1Output = tf.nn.dropout(l1logits, 1 - (DOutRate))  # apply dropout
-            W2 = tf.Variable(tf.random.normal([ff1Sz, ff2Sz], stddev=0.1))
-            b2 = tf.Variable(tf.random.normal([ff2Sz], stddev=0.1))
-            l2Output = tf.nn.relu(tf.tensordot(l1Output, W2, [[2], [0]]) + b2)
-            W3 = tf.Variable(tf.random.normal([ff2Sz, 3], stddev=0.1))
-            b3 = tf.Variable(tf.random.normal([3], stddev=0.1))
-            # NOTE: Remember to adjust dimensions for the last layer if trinary
-            # classification is not the goal of the neural network
-
-            # update parameter vector lengths for l2regularization
-            if self.l2regularization:
-                for vector in [W1, b1, W2, b2, W3, b3]:
-                    sum_weights = sum_weights + tf.nn.l2_loss(vector)
-
-            ## calculate loss
-
-            # calculate logits
-            logits = tf.tensordot(l2Output, W3, [[2], [0]]) + b3
-
-            # calculate sequence cross-entropy loss
-            xEnt = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=answr)
-
-            if self.l2regularization:
-                loss = tf.reduce_mean(input_tensor=xEnt) + (alpha * sum_weights)
+            # If we aren't extracting any additional input,
+            # just get the current fields
+            if self.input2 is None:
+                self.fields = fields
+                cursor.execute("SELECT {} FROM comments WHERE {} IS NOT NULL"
+                               .format(",".join(self.fields), self.DOI))
             else:
-                loss = tf.reduce_mean(input_tensor=xEnt)
+                if self.LDA_Topics:
+                    # Add self.num_topics topic columns to the fields
+                    for topic in range(self.num_topics):
+                        fields.append("topic_{}".format(topic))
 
-        elif self.special_doi:  # classification for a DOI
-            if not self.pretrained:  # if initializing parameters
-                # create weights and biases for three feedforward layers
-                W1 = tf.Variable(tf.random.normal([l1Sz, ff1Sz], stddev=0.1))
-                b1 = tf.Variable(tf.random.normal([ff1Sz], stddev=0.1))
-                l1logits = tf.nn.relu(tf.matmul(ff_inpt, W1) + b1)
-                l1Output = tf.nn.dropout(l1logits, 1 - (keepP))  # apply dropout
-                W2 = tf.Variable(tf.random.normal([ff1Sz, ff2Sz], stddev=0.1))
-                b2 = tf.Variable(tf.random.normal([ff2Sz], stddev=0.1))
-                l2Output = tf.nn.relu(tf.matmul(l1Output, W2) + b2)
-                W3 = tf.Variable(tf.random.normal([ff2Sz, 3], stddev=0.1))
-                b3 = tf.Variable(tf.random.normal([3], stddev=0.1))
+                # If we are adding authorship
+                if self.authorship:
+                    # Set the authorship one hot vector to size = number of authors + 1
+                    # Add an extra cell for authors not in our top author set/deleted authors
+                    self.authorship_one_hot = [0 for i in range(self.top_authors + 1)]
 
-            elif self.pretrained:  # if using pre-trained weights
-                W1 = tf.Variable(weights1)
-                b1 = tf.Variable(biases1)
-                l1logits = tf.nn.relu(tf.matmul(nextState, W1) + b1)
-                l1Output = tf.nn.dropout(l1logits, 1 - (keepP))  # apply dropout
-                W2 = tf.Variable(weights2)
-                b2 = tf.Variable(biases2)
-                l2Output = tf.nn.relu(tf.matmul(l1Output, W2) + b2)
-                W3 = tf.Variable(weights3)
-                b3 = tf.Variable(biases3)
-                # NOTE: Remember to adjust dimensions for the last layer if trinary
-                # classification is not the goal of the neural network
+                    # Extract the most prolific authors, based on self.top_authors
+                    cursor.execute(
+                        "SELECT author, COUNT(*) FROM comments GROUP BY author ORDER BY COUNT(*) DESC LIMIT {}"
+                        .format(self.top_authors + 1))
 
-            l3Output = tf.nn.relu(tf.matmul(l2Output, W3) + b3)
+                    # Initialize a set for uniqueness, and wrap it
+                    # in a list for ordered indexing
+                    self.top_authors_list = list(set([item[0] for item in cursor.fetchall()]))
 
-            ### calculate loss
+                    fields.append("author")
 
-            # calculate logits
-            logits = tf.matmul(l2Output, W3) + b3
+                # If we are adding subreddit info
+                if self.use_subreddits:
+                    # Set the subreddit one hot vector to size = number of subreddits + 1
+                    # Add an extra cell for subreddits not in our top subreddit set
+                    self.subreddits_one_hot = [0 for i in range(self.top_subs + 1)]
+                    cursor.execute(
+                        "SELECT subreddit, COUNT(*) FROM comments GROUP BY subreddit ORDER BY COUNT(*) DESC LIMIT {}"
+                        .format(self.top_subs))
 
-            # softmax
-            prbs = tf.nn.softmax(logits)
+                    # Initialize a set for uniqueness, and wrap it
+                    # in a list for ordered indexing
+                    self.top_subreddits_list = list(set([item[0] for item in cursor.fetchall()]))
 
-            # calculate cross-entropy loss
-            xEnt = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=tf.stop_gradient(answr))
+                    fields.append("subreddit")
 
-            if self.l2regularization:
-                loss = tf.reduce_mean(input_tensor=(xEnt) + (NN_alpha * sum_weights))
-            else:
-                loss = tf.reduce_mean(input_tensor=xEnt)
+                self.fields = fields
+                print("SELECT {} FROM comments WHERE {} IS NOT NULL"
+                      .format(",".join(self.fields), self.DOI))
 
-            # calculate accuracy
-            numCorrect = tf.equal(tf.argmax(input=prbs, axis=1), tf.argmax(input=answr, axis=1))
-            numCorrect = tf.reduce_sum(input_tensor=tf.cast(numCorrect, tf.float32))
+                # Extract all the documents with the fields added from above
+                cursor.execute("SELECT {} FROM comments WHERE {} IS NOT NULL"
+                               .format(",".join(self.fields), self.DOI))
+            # Return all the document tuples, the configurable fields,
+            # the authorship and subreddit lists
+            return cursor.fetchall()
 
-        ## training with AdamOptimizer
+        except sqlite3.Error as error:
+            print("Failed to read data from table", error)
 
-        train = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
-
-        ## create the session and initialize the variables
-
-        config = tf.compat.v1.ConfigProto(device_count=self.device_count)
-        sess = tf.compat.v1.Session(config=config)
-        sess.run(tf.compat.v1.global_variables_initializer())
-        if not pretrained:
-            state = sess.run(initialState)
-
-    def Get_Set_Lengths(self):
-        for set_key in self.set_key_list:
-            for i, x in enumerate(self.indices[set_key]):
-                self.lengths[set_key].append(len(self.indices[set_key][i]))
-            Max[set_key] = max(lengths[set_key])  # max length of a post in a set
-        self.Max_l = max(Max['train'], Max['dev'], Max['test'])
-        # Max_l: max length of a comment in the whole dataset
-
-    # TODO: add LDA input
+    '''
+    Function to perform the main training and evaluation loop
+    over each batch of documents
+    '''
     def train_and_evaluate(self):
 
-        print("Number of planned training epochs: " + str(epochs))
+        train_flag = 1;
+        test_flag = 0
+        documents = self.extract_documents()
 
-        for k in range(epochs):  # for each epoch
+        training_activations, \
+        additional_training_input, \
+        training_output = self.extract_input_vectors(documents,
+                                                     train_flag)
 
-            # timer
-            print("Started epoch " + str(k + 1) + " at " + time.strftime('%l:%M%p, %m/%d/%Y'))
+        model_training_input = np.array(training_activations)
+        training_output = np.array(training_output)
 
-            for set_key in self.set_key_list:  # for each set
+        # If we got any additional training input
+        # append it to our input vector
+        if len(additional_training_input) > 0:
+            np.append(model_training_input, additional_training_input)
 
-                TotalCorr = 0  # reset number of correctly classified examples
+        # Train
+        self.model.fit(x=model_training_input, y=training_output,
+                       validation_split=self.validation_split,
+                       batch_size=self.batch_size,
+                       epochs=self.epochs,
+                       verbose=1)
 
-                # initialize vectors for feeding data and desired output
-                inputs = np.zeros([self.batchSz, Max_l])
-                if self.LDA_topics:
-                    lda_inpt = np.zeros([self.num_topics, 1])
-                if self.authorship:
-                    # TODO: Calculate the number of assumed authors based on data
-                    authorship_inpt = np.zeros([None, 1])
-                answers = np.zeros([batchSz, 3], dtype=np.int32)
+        # Evaluate the model
+        eval_input, additional_eval_input, eval_output = \
+            self.extract_input_vectors(documents, test_flag)
+        model_eval_input = np.array(eval_input)
+        if len(additional_eval_input):
+            np.append(model_eval_input, additional_eval_input)
 
-                # batch counters
-                j = 0  # batch comment counter
-                p = 0  # batch counter
-
-                for i in range(len(self.indices[set_key])):  # for each comment in the set
-                    inputs[j, :self.lengths[set_key][i]] = self.indices[set_key][i]
-                    # TODO: fix this to pick up the human ratings from Qualtrics
-                    if special_doi == True:
-                        answers[j, :] = self.vote[set_key][i]
-                    else:
-                        answers[j, :] = self.sentiments[set_key][i]
-
-                    j += 1  # update batch comment counter
-                    if j == batchSz - 1:  # if the current batch is filled
-
-                        if set_key == 'train':
-                            # train on the examples
-                            _, outputs, next, _, Corr = sess.run([train, output, nextState, loss, numCorrect],
-                                                                 feed_dict={inpt: inputs, answr: answers,
-                                                                            DOutRate: self.keepP})
-                        else:
-                            # test on development or test set
-                            _, Corr = sess.run([loss, numCorrect],
-                                               feed_dict={inpt: inputs, answr: answers, DOutRate: 1})
-
-                        j = 0  # reset batch comment counter
-                        p += 1  # update batch counter
-
-                        # reset the input/label containers
-                        inputs = np.zeros([self.batchSz, self.Max_l])
-                        if self.LDA_topics:
-                            lda_inpt = np.zeros([self.num_topics, 1], dtype=np.float32)
-                        if self.authorship:
-                            authorship_inpt = np.zeros([self.num_topics])
-                            # TODO: fix the size of the vector and add indexing of the authors to the NN preprocessing
-                        answers = np.zeros([self.batchSz, 3], dtype=np.int32)
-
-                        # update the GRU state
-                        state = next  # update the GRU state
-
-                        # update total number of correctly classified examples or total loss based on the processed batch
-                        TotalCorr += Corr
-
-                    # Every 10000 comments or at the end of training, save the
-                    # weights
-                    if set_key == 'train' and ((i + 1) % 10000 == 0 or
-                                               i == len(self.indices['train']) - 1):
-
-                        # retrieve learned weights
-                        if self.authorship:
-                            word_embed, author_embed, weights1, weights2, weights3, biases1, biases2, biases3 = sess.run(
-                                [E, author_embed, W1, W2, W3, b1, b2, b3])
-                        else:
-                            word_embed, weights1, weights2, weights3, biases1, biases2, biases3 = sess.run(
-                                [E, W1, W2, W3, b1, b2, b3])
-
-                        word_embed = np.asarray(word_embed)
-                        if self.authorship:
-                            author_embed = np.asarray(author_embed)
-                        outputs = np.asarray(outputs)
-                        weights1 = np.asarray(weights1)
-                        weights2 = np.asarray(weights2)
-                        weights3 = np.asarray(weights3)
-                        biases1 = np.asarray(biases1)
-                        biases2 = np.asarray(biases2)
-                        biases3 = np.asarray(biases3)
-                        # define a list of the retrieved variables
-                        if self.authorship:
-                            weights = ["word embeddings", "author embeddings", "state", "weights1", "weights2",
-                                       "weights3", "biases1", "biases2", "biases3"]
-                        else:
-                            weights = ["word embeddings", "state", "weights1", "weights2", "weights3", "biases1",
-                                       "biases2", "biases3"]
-                        # write them to file
-                        for variable in weights:
-                            np.savetxt(output_path + "/" + variable, eval(variable))
-
-                    # calculate set accuracy for the current epoch and save the value
-                    self.accuracy[set_key][k] = float(TotalCorr) / float(p * self.batchSz)
-                    print("Accuracy on the " + set_key + " set (Epoch " + str(k + 1) + "): " + str(
-                        self.accuracy[set_key][k]))
-                    print("Accuracy on the " + set_key + " set (Epoch " + str(k + 1) + "): " + str(
-                        self.accuracy[set_key][k]), file=perf)
-
-            ## early stopping
-            if self.early_stopping:
-                # if development set accuracy is decreasing, stop training to prevent overfitting
-                if k != 0 and accuracy['dev'][k] < accuracy['dev'][k - 1]:
-                    break
+        print("loss, mae, acc, f1, precision, recall")
+        print(self.model.evaluate(x=model_eval_input, y=np.array(eval_output),
+                                  batch_size=self.batch_size))
 
         # timer
         print("Finishing time:" + time.strftime('%l:%M%p, %m/%d/%Y'))
+
+    '''
+    Function to extract the input vectors from a given batch
+    @param document_batch, a list of tuples with each input type
+    @param train_or_test, a flag indicating whether we are looking for training or testing data
+    @return a numpy array of arrays, where each inner array is of size input2_size
+    '''
+    def extract_input_vectors(self, document_batch, train_flag):
+
+        # Open activations file
+        h5 = tables.open_file(self.activations_path, 'r')
+        carr = h5.root.carray
+
+        train_index = 2
+
+        activations = []
+        additional_input = []
+        output = []
+        # For each document in the batch
+        for tup in document_batch:
+            # Each document will have its own row for input. We add to it as
+            # we loop through the columns
+            additional_input_component = []
+            LDA_Vec = []
+
+            # If the cell corresponds to the training/testing set
+            if tup[train_index] == train_flag:
+
+                for (index, column) in enumerate(tup):
+                    column_name = self.fields[index]
+                    if column_name == "ROWID":
+                        # Get the activations for the appropriate row
+                        activations.append(carr[column - 1, :])  # Should be a vector of size
+
+                    if column_name == "author":
+                        # if author in top authors, create vector and append to additional
+                        # input component
+                        new_author_vec = copy.deepcopy(self.authorship_one_hot)
+                        if column in self.top_subreddits_list:
+                            index = self.top_authors_list.index(column)
+                            new_author_vec[index] = 1
+                        else:
+                            new_author_vec[0] = 1
+
+                        # Add the author vector to the additional input component
+                        for num in new_author_vec:
+                            additional_input_component.append(num)
+
+                    if column_name == "subreddit":
+                        # if subreddit in top subreddits, create vector and append
+                        # to additional input component
+                        new_subreddit_vec = copy.deepcopy(self.subreddits_one_hot)
+                        if column in self.top_subreddits_list:
+                            index = self.top_subreddits_list.index(column)
+                            new_subreddit_vec[index] = 1
+                        else:
+                            new_subreddit_vec[len(new_subreddit_vec) - 1] = 1
+
+                        # Add the subtreddit vector to the additional input component
+                        for num in new_subreddit_vec:
+                            additional_input_component.append(num)
+
+                    # If we are on a topic column
+                    if "topic" in column_name:
+                        # And the contribution value is not null, append the value
+                        # otherwise, just append zero
+                        if column:
+                            LDA_Vec.append(float(column))
+                        else:
+                            LDA_Vec.append(0.0)
+
+                    # If we are on a label column, append that to the output
+                    if column_name == self.DOI:
+                        output_array = [0] * self.num_classes
+                        # For now, just get the first rating
+                        output_array[int(column.split(",")[0])] = 1
+                        output.append(output_array)
+
+                        # If we just have one rating, create one-hot vector
+                        # if isinstance(column, int):
+
+                        # TODO: Note, this implements multi-hot vector logic
+                        # for duplicate ratings, but it is commented out since it causes
+                        # recall/precision to go above one
+                        # Otherwise, create a multi-hot vector proportional
+                        # to the ratings
+                        # else:
+                        #   ratings_count = {}
+                        #   ratings = column.split(",")
+                        #   for r in ratings:
+                        #     ratings_count[r] = ratings_count.get(r, 0) + 1
+                        #   total_points = len(ratings)
+                        #   for r in ratings:
+                        #     output_array[int(r)] = ratings_count.get(r) / total_points
+                        #   output.append(output_array)
+
+            # Add all the topic values to our additional input column
+            for topic in LDA_Vec:
+                additional_input_component.append(topic)
+            additional_input.append(additional_input_component)
+
+        return activations, additional_input, output

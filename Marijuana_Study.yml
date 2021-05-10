@@ -1,106 +1,189 @@
 name: Marijuana_Study
 channels:
-  - anaconda
+  - pytorch
+  - conda-forge
   - defaults
 dependencies:
-  - _tflow_select
-  - absl-py
-  - astor
+  - _libgcc_mutex
   - blas
-  - c-ares
   - ca-certificates
   - certifi
   - cudatoolkit
-  - cudnn
-  - gast
-  - grpcio
-  - h5py
-  - hdf5
   - intel-openmp
-  - keras-applications
-  - keras-preprocessing
-  - libedit
+  - ld_impl_linux-64
   - libffi
-  - libgfortran-ng
-  - libprotobuf
-  - markdown
   - mkl
+  - mkl-service
   - mkl_fft
   - mkl_random
-  - mock
   - ncurses
-  - numpy
+  - ninja
   - numpy-base
   - openssl
   - pip
-  - protobuf
-  - python=3.7.3
+  - pyahocorasick
+  - python
+  - python_abi
+  - pytorch
   - readline
   - setuptools
+  - six
   - sqlite
-  - tensorboard
-  - tensorflow
-  - tensorflow-base
-  - tensorflow-estimator
-  - termcolor
   - tk
-  - werkzeug
   - wheel
   - xz
   - zlib
   - pip:
-    - afinn==0.1
-    - attrs==19.1.0
-    - autopep8==1.4.4
-    - blis==0.2.4
-    - boto==2.49.0
-    - boto3==1.9.161
-    - botocore==1.12.161
-    - cffi==1.12.3
-    - chardet==3.0.4
-    - cycler==0.10.0
-    - cymem==2.0.2
-    - cytoolz==0.9.0.1
-    - docutils==0.14
-    - eth-hash==0.2.0
-    - eth-typing==2.1.0
-    - eth-utils==1.6.0
-    - gensim==3.8.0
-    - html-parser==0.2
-    - idna==2.8
-    - jmespath==0.9.4
-    - jsonschema==3.0.1
-    - kiwisolver==1.1.0
-    - langdetect==1.0.7
-    - matplotlib==3.1.0
-    - memory-profiler==0.55.0
-    - murmurhash==1.0.2
-    - nltk==3.4.4
-    - pathlib2==2.3.3
-    - plac==0.9.6
-    - ply==3.11
-    - preshed==2.0.1
-    - psutil==5.6.3
-    - pycodestyle==2.5.0
-    - pycorenlp==0.3.0
-    - pycparser==2.19
-    - pyparsing==2.4.0
-    - pyrsistent==0.15.2
-    - python-dateutil==2.8.0
-    - requests==2.22.0
-    - rlp==1.1.0
-    - s3transfer==0.2.1
-    - scipy==1.3.0
-    - six==1.12.0
-    - smart-open==1.8.4
-    - spacy==2.1.6
-    - srsly==0.0.6
-    - textblob==0.15.3
-    - thinc==7.0.8
-    - toolz==0.9.0
-    - tqdm==4.32.1
-    - trie==1.4.0
-    - urllib3==1.25.3
-    - wasabi==0.2.2
-    - zstandard==0.11.1
-prefix: /Users/nathanielgoodman/opt/anaconda3/envs/Marijuana_Study
+    - absl-py
+    - altair
+    - argon2-cffi
+    - argparse
+    - astor
+    - astunparse
+    - attrs
+    - backcall
+    - base58
+    - bleach
+    - blinker
+    - blis
+    - boto
+    - boto3
+    - botocore
+    - cachetools
+    - catalogue
+    - cffi
+    - chardet
+    - click
+    - configparser
+    - cycler
+    - cymem
+    - datetime
+    - decorator
+    - defusedxml
+    - docker-pycreds
+    - docutils
+    - entrypoints
+    - enum-compat
+    - filelock
+    - gast
+    - gensim
+    - gitdb
+    - gitpython
+    - google-auth
+    - google-auth-oauthlib
+    - google-pasta
+    - gql
+    - graphql-core
+    - grpcio
+    - h5py
+    - idna
+    - ipykernel
+    - ipython
+    - ipython-genutils
+    - ipywidgets
+    - jedi
+    - jinja2
+    - jmespath
+    - joblib
+    - jsonschema
+    - jupyter-client
+    - jupyter-core
+    - keras
+    - keras-preprocessing
+    - kiwisolver
+    - langdetect
+    - markdown
+    - markupsafe
+    - matplotlib
+    - mistune
+    - murmurhash
+    - nbconvert
+    - nbformat
+    - nltk
+    - notebook
+    - numpy
+    - nvidia-ml-py3
+    - oauthlib
+    - opt-einsum
+    - packaging
+    - pandas
+    - pandocfilters
+    - parso
+    - pathlib2
+    - pathtools
+    - pexpect
+    - pickleshare
+    - pillow
+    - plac
+    - preshed
+    - prometheus-client
+    - promise
+    - prompt-toolkit
+    - protobuf
+    - psutil
+    - ptyprocess
+    - pyarrow
+    - pyasn1
+    - pyasn1-modules
+    - pycorenlp
+    - pycparser
+    - pydeck
+    - pygments
+    - pyparsing
+    - pyrsistent
+    - python-dateutil
+    - pytz
+    - pyyaml
+    - pyzmq
+    - regex
+    - requests
+    - requests-oauthlib
+    - rsa
+    - s3transfer
+    - sacremoses
+    - scikit-learn
+    - scipy
+    - send2trash
+    - sentencepiece
+    - sentry-sdk
+    - seqeval
+    - shortuuid
+    - simpletransformers
+    - sklearn
+    - smart-open
+    - smmap
+    - spacy
+    - srsly
+    - streamlit
+    - subprocess32
+    - tensorboard
+    - tensorboard-plugin-wit
+    - tensorboardx
+    - tensorflow
+    - tensorflow-estimator
+    - termcolor
+    - terminado
+    - testpath
+    - textblob
+    - thinc
+    - threadpoolctl
+    - tokenizers
+    - toml
+    - toolz
+    - tornado
+    - tqdm
+    - traitlets
+    - transformers
+    - tzlocal
+    - urllib3
+    - validators
+    - wandb
+    - wasabi
+    - watchdog
+    - wcwidth
+    - webencodings
+    - werkzeug
+    - widgetsnbextension
+    - wrapt
+    - zope-interface
+    - zstandard
