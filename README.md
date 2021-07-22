@@ -17,7 +17,7 @@ Acknowledgment: The basis for the code in the current repository is [this](https
 
 
 ## The Dataset
-Our [public google drive](https://drive.google.com/drive/u/0/folders/1yx2lmbrbHr0uAA8zLj-TbHaXqOrcNhw6) contains a database file, 'reddit_50.db', 
+Our [public google drive](https://drive.google.com/drive/u/0/folders/17PjV5gPub15kSaHpw9JVP1SNpj1k3vK-) contains a database file, 'reddit_marijuana_legalization.db' in the Dataset folder, 
 which has the most up-to-date dataset and information used by the model. Each row corresponds to one comment, of which there are 3059959. The schema of the database is as follows:
 - Comments table: 
     - original_comm (Text) : The original comments for the data set, which were extracted and parsed from pushshift's dataset of all Reddit comments [here](https://files.pushshift.io/reddit/comments/). Our data is a subset of theirs in terms of both breadth and depth.
