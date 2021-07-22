@@ -41,3 +41,14 @@ which has the most up-to-date dataset and information used by the model. Each ro
     - inferred_persuasion (Integer): Persuasion rating inferred by the classifier.
     - inferred_persuasion_weight (REAL): Raw activation from the classifier for inferred_persuasion.
 
+- classified_comments table: 
+    - doc_id (Integer): The ID of the comment in the Comments table (related to the ROWID)
+    - clauses (Text) : The clauses in the comment, separated by newline (\n)
+    - genericity_pred (Text): Genericity prediction (0 is Generic, 1 is Specific, 2 in unsure)
+    - genericity_softmax (Text): Genericity softmax
+    - aspect_pred (Text): Aspect prediction (0 is Dynamic, 1 is Stative, 2 is unsure)
+    - aspect_softmax (Text): Aspect softmax
+    - boundedness_pred (Text): Boundedness prediction (0 is Bounded, 1 is Unbounded)
+    - boundedness_softmax (Text): Boundedness Softmax
+    - ne_tags (Text): The named entity tags obtained from Spacy for the comment.
+
