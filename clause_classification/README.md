@@ -1,3 +1,5 @@
+# Clause Classification
+
 The contents of this folder can be used to get clause classifications for genericity, aspect, and boundedness. 
 
 Follow these steps - 
