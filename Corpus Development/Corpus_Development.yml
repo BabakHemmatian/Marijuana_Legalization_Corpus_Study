@@ -1,4 +1,4 @@
-name: Marijuana_Study
+name: Corpus_Development
 channels:
   - pytorch
   - conda-forge
