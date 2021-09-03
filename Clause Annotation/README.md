@@ -2,4 +2,6 @@
 
 This directory contains files used during the clause annotation process. 
 
-1. Subreddit_Sampler.py
+## Files in this directory - 
+
+1. Subreddit_Sampler.py - Extract sample comments from subreddits.

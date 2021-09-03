@@ -17,8 +17,9 @@ Acknowledgment: The basis for the code in the current repository is [this](https
 
 
 ## The Dataset
-Our [public google drive](https://drive.google.com/drive/u/0/folders/1yx2lmbrbHr0uAA8zLj-TbHaXqOrcNhw6) contains a database file, 'reddit_50.db', 
+Our [public google drive](https://drive.google.com/drive/u/0/folders/1yx2lmbrbHr0uAA8zLj-TbHaXqOrcNhw6) contains a database file, 'reddit_comments_database.db' in the datasets folder, 
 which has the most up-to-date dataset and information used by the model. Each row corresponds to one comment, of which there are 3059959. The schema of the database is as follows:
+
 - Comments table: 
     - original_comm (Text) : The original comments for the data set, which were extracted and parsed from pushshift's dataset of all Reddit comments [here](https://files.pushshift.io/reddit/comments/). Our data is a subset of theirs in terms of both breadth and depth.
     - original_indices (Integer): It is the index for that comment in the context of the particular month's pushshift data dump. 
@@ -41,3 +42,10 @@ which has the most up-to-date dataset and information used by the model. Each ro
     - inferred_persuasion (Integer): Persuasion rating inferred by the classifier.
     - inferred_persuasion_weight (REAL): Raw activation from the classifier for inferred_persuasion.
 
+
+## Generalized-anecdotal Language Models Training Data
+
+The News+Reddit corpus of human- and computer-generated marijuana legalization discourse based on which neural networks of generalized-anecdotal language are trained can be found 
+[here](https://drive.google.com/drive/u/0/folders/13gOFgg6cp8tQSXezj-cwML6iNn3SzU99).
+
+Please request access to the drive and state your use for the corpus, and one of the collaborators will approve your access.
