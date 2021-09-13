@@ -6,7 +6,7 @@ The contents of this directory were used to perform LDA on the corpus.
 
 1. config.py - ENTIRE_CORPUS should be True if NN is True
 2. defaults.py - defines hyperparams and other important variables
-3. Reddit_LDA_Analysis.py -
-4. Topic_Clustering.py -
-5. unique_top_words.py -
+3. Reddit_LDA_Analysis.py - TODO: Babak
+4. Topic_Clustering.py - TODO: Babak
+5. unique_top_words.py - TODO: Babak
 6. Utils.py - Utility functions
