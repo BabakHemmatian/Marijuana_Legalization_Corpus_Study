@@ -1,6 +1,10 @@
 # Reddit Discourse about Marijuana Legalization
 This study, in collaboration with [Sloman Lab](https://sites.google.com/site/slomanlab/) and [AI Lab](https://brown.edu/Research/AI/people/carsten.html) at Brown University, involves applying unsupervised and supervised machine learning methods to examine temporal trends in discourse about marijuana legalization on Reddit since 2008.
 
+The Corpus folder contains code mainly used to develop the final SQL database for the Reddit Marijuana Legalization Corpus. If you only plan to use the corpus and not develop a corpus of your own using a similar framework, there is probably no need to examine this folder. You can skip either to the Dataset section below or to the analysis folders.
+
+The Clause Level Analyses folder contains code for clause-by-clause analysis of anecdotal and generalized language in the Reddit Marijuana Legalization Corpus based on three linguistics-inspired properties (genericity, fundamental aspect and boundedness). The transformer-based neural networks for the task are trained on [this](https://github.com/sfeucht/annotation_evaluation) original corpus of News+Reddit discourse on marijuana legalization. 
+
 Acknowledgment: The basis for the code in the current repository is [this](https://github.com/BabakHemmatian/Gay_Marriage_Corpus_Study]) study on same-sex marriage discourse, which was developed in collaboration with Sabina J. Sloman from Carnegie Mellon University, and Steven A. Sloman and Uriel Cohen Priva from Brown University.
 
 
