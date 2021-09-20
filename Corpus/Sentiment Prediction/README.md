@@ -3,7 +3,7 @@ Text Blob sentiment results, Vader sentiment results, and average
 sentiment results and both domains of interest, attitude and persuasion (human ratings). 
 Note this can be configured for inferred ratings.
 
-The only prerequisite for running this is the reddit_50_both_inferred.db file. 
+The only prerequisite for running this is the database file, reddit_comments_database.db. 
 
 ## Files in this directory 
 
