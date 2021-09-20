@@ -17,6 +17,7 @@ Acknowledgment: The basis for the code in the current repository is [this](https
 
 
 ## The Dataset
+
 Our [public google drive](https://drive.google.com/drive/u/0/folders/1yx2lmbrbHr0uAA8zLj-TbHaXqOrcNhw6) contains a database file, 'reddit_comments_database.db' in the datasets folder, 
 which has the most up-to-date dataset and information used by the model. Each row corresponds to one comment, of which there are 3059959. The schema of the database is as follows:
 
@@ -43,9 +44,14 @@ which has the most up-to-date dataset and information used by the model. Each ro
     - inferred_persuasion_weight (REAL): Raw activation from the classifier for inferred_persuasion.
 
 
-## Generalized-anecdotal Language Models Training Data
+- classified_comments table: 
+    - doc_id (Integer): The ID of the comment in the Comments table (related to the ROWID)
+    - clauses (Text) : The clauses in the comment, separated by newline (\n)
+    - genericity_pred (Text): Genericity prediction (0 is Generic, 1 is Specific, 2 in unsure)
+    - genericity_softmax (Text): Genericity softmax
+    - aspect_pred (Text): Aspect prediction (0 is Dynamic, 1 is Stative, 2 is unsure)
+    - aspect_softmax (Text): Aspect softmax
+    - boundedness_pred (Text): Boundedness prediction (0 is Bounded, 1 is Unbounded)
+    - boundedness_softmax (Text): Boundedness Softmax
+    - ne_tags (Text): The named entity tags obtained from Spacy for the comment.
 
-The News+Reddit corpus of human- and computer-generated marijuana legalization discourse based on which neural networks of generalized-anecdotal language are trained can be found 
-[here](https://drive.google.com/drive/u/0/folders/13gOFgg6cp8tQSXezj-cwML6iNn3SzU99).
-
-Please request access to the drive and state your use for the corpus, and one of the collaborators will approve your access.
