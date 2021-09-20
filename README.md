@@ -15,7 +15,7 @@ Acknowledgment: The basis for the code in the current repository is [this](https
 
 ## The Dataset
 
-Our [Google Drive](https://drive.google.com/drive/u/0/folders/1yx2lmbrbHr0uAA8zLj-TbHaXqOrcNhw6) contains a database file, 'reddit_comments_database.db' in the datasets folder, which has the most up-to-date dataset and information used by the model. If you would like access to the dataset, please request it in Google Drive, briefly describing your use case, and one of the team members will get in touch with you to share the resources. 
+Our [Google Drive](https://drive.google.com/drive/u/0/folders/17PjV5gPub15kSaHpw9JVP1SNpj1k3vK-) contains a database file, 'reddit_comments_database.db' in the datasets folder, which has the most up-to-date dataset and information used by the model. If you would like access to the dataset, please request it in Google Drive, briefly describing your use case, and one of the team members will get in touch with you to share the resources. 
 
 Each row corresponds to one comment, of which there are 3059959. The schema of the database is as follows:
 - Comments table: 
