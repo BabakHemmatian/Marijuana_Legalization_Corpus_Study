@@ -10,3 +10,5 @@ The contents of this directory were used to perform LDA on the corpus.
 4. Topic_Clustering.py - TODO: Babak
 5. unique_top_words.py - TODO: Babak
 6. Utils.py - Utility functions
+7. user_demographic_analysis - Analyses of where comments come from geographically
+8. topic_subreddit_contributions - Used to calculate the contribution of a certain topic to a subreddit
