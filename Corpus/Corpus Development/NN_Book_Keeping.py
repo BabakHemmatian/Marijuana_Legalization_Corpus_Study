@@ -40,24 +40,6 @@ if Neural_Relevance_Filtering:
     # Needs results from Neural_Relevance_Screen via Neural_Filtering.py
     theparser.Neural_Relevance_Clean()
 
-
-### Write hyperparameters to file. Performance measures will be written to the
-# same file after analyses are performed
-
-# Write_Performance()
-# #
-if add_sentiment:
-
-    # CoreNLP
-    # create a connection to the CoreNLP server to retrieve sentiment
-    # (requires CoreNLP_server.py in the same directory)
-    subprocess.Popen(
-        ['java -mx6g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer'],
-        shell=True, cwd="./stanford-corenlp-4.0.0")
-    time.sleep(5)  # wait for connection to the server to be established
-
-    theparser.add_c_sentiment()
-
 ### call the function for calculating the percentage of relevant comments
 # NOTE: May work only for full-year sets of dates
 if calculate_perc_rel:
